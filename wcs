@@ -1,0 +1,43 @@
+#!/usr/bin/env sh
+exec ./worst -s "$0" "$@"
+!#
+
+;;; vi: ft=scheme
+
+; Worst CSound frontend
+
+define-record-type* &instr [name body]
+
+@\{ @\} parser-parentheses
+
+define write-synthesizer-string {
+    "<CsoundSynthesizer>" print-string/n
+    "<CsOptions></CsOptions>" print-string/n
+    "<CsInstruments>" print-string/n
+    "</CsInstruments>" print-string/n
+    "</CsoundSynthesizer>" print-string/n
+}
+
+define demo {
+}
+
+abort
+
+44100 sample-rate
+2 channels
+32 k-rate
+1 db0
+
+midi-instrument ; instr but midi-only
+
+midi-note   ; <midi-note>
+to-freq     ; cpsmidi => <freq>
+midi-amp    ; ampmidi => <amp>
+
+~sine       ; <freq> <amp> => <signal> or <amp> <freq> => <signal>
+
+out         ; take one <signal>
+
+:midi-demo  ; instrument at top: put it in a score and set it up
+
+

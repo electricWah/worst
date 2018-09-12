@@ -1,0 +1,65 @@
+#!/usr/bin/env sh
+exec ./worst -s "$0" "$@"
+!#
+
+;;; vi: ft=scheme
+
+define-record-type* &type [name]
+define-record-type* &literal [val]
+define-record-type* &variable [name]
+define-record-type* &funcall [name args]
+define-record-type* &expr [val type]
+define-record-type* &assign [name expr]
+define-record-type* &function [name args body]
+
+define type-of [
+]
+
+define assert-type [
+    
+]
+
+define set [
+     quote^ local type
+     quote^ local name
+     local value
+     value type assert-type
+]
+
+define fn [
+]
+
+export-global fn
+
+abort
+
+; Testing
+
+; types
+set test 1 ; based on type-of
+set: string test 1 ; fails
+
+; need to understand () and {}
+; somehow have a reader for each? i.e. extend parser
+; so that (egg) turns into [egg] %parentheses
+; {egg} => [egg] %braces
+; by default, they do nothing
+; also [egg] => [egg] %brackets
+; which would make regular array indexing syntax work, e.g.
+; arr[2] => <var> [2] %brackets
+function blep() {
+    local testvar = 6
+    ...
+}
+
+; REPL things
+; vim-like?
+; :help
+; :o file.lua
+; :main main
+; :run
+; it's just worst, so define r [:run]
+
+; also just calling a function, like blep()
+; toplevel %parentheses does compile-and-run
+

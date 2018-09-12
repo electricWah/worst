@@ -1,0 +1,73 @@
+#!/usr/bin/env sh
+exec cargo run -- "$0" --worst-args "$0" "$@"
+!#
+
+[1 dig] list->definition quote swap add-definition
+
+[swap string-append quote interpreter-read-file call]
+    "./lib"
+    "WORST_LIB" get-environment-variable
+    not quote swap call-when swap drop
+    "/" string-append
+list-push-head
+list->definition quote load-lib add-definition
+
+quote <root> interpreter-set-context-name
+
+"base/bootstrap.w" load-lib
+
+"syntax/base.w" load-lib
+
+define debug [
+    standard-error-port
+    quote quote uplevel
+    string->u8vector
+    10 u8vector-push
+    port-write
+    drop
+]
+
+define help [
+    debug "Loading help..."
+    do [
+        "help/base.w" load-lib
+    ]
+    do [
+        "help/stdlib.w" load-lib
+    ]
+    'help uplevel
+]
+
+define load-run-script [
+    swap [] list-push-head 'command-line %define
+    export-global command-line
+    'interpreter-read-file uplevel
+]
+
+do [
+
+    define show-help [
+        "This is help" print-string/n
+        abort
+    ]
+
+    command-line list-pop-head drop
+    define read-command-line [
+        list-empty? [drop] [
+            list-pop-head
+            cond [
+                ["-h" equal? swap drop] [drop drop drop show-help abort] ; eg
+                ["-s" equal? swap drop] [
+                    drop drop
+                    list-pop-head
+                    'load-run-script uplevel
+                ]
+                [ drop read-command-line ]
+            ]
+        ] %if
+    ]
+    read-command-line
+]
+
+;;; vi: ft=scheme
+
