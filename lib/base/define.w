@@ -12,27 +12,13 @@ quote uplevel uplevel
   quote %define uplevel
 ] quote define %define
 
-#! [code ...] eval -> code ... !#
-#! symbol eval -> symbol call !#
-[
-    [
-        list->definition eval-definition
-    ] quote eval-list %define
-    symbol?
-    quote eval-list quote call
-    2 dig
-    quote swap call-when drop
-    call
-] quote eval
-quote %define quote uplevel uplevel
-
 [
     quote interpreter-context-name uplevel
     equal? 2 negate dig drop swap
     [ quote %uplevel/named quote uplevel uplevel ]
     [ drop uplevel ]
     2 dig quote swap call-when drop
-    eval
+    list->definition eval-definition
 ] quote %uplevel/named
 quote %define quote uplevel uplevel
 

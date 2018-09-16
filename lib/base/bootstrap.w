@@ -27,10 +27,10 @@ export-global uplevel%
 "base/eval.w" load-lib
 "base/cond.w" load-lib
 "base/quasiquote.w" load-lib
+"base/list.w" load-lib
 "base/records.w" load-lib
 "base/env.w" load-lib
 "base/stdio.w" load-lib
-"base/list.w" load-lib
 "base/process.w" load-lib
 
 ;;; vi: ft=scheme

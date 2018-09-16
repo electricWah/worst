@@ -8,7 +8,7 @@ define %if [
     ; true T F -> F T drop -> T
     ; false T F -> T F drop -> F
     'swap call-when drop
-    eval
+    list->definition eval-definition
 ]
 
 ; bool if [true-arm] [false-arm] -> (as expected)

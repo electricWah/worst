@@ -1,45 +1,38 @@
 
-make-hash-table make-place local *record-commands*
+make-hash-table swapvar *record-commands*
 
-[
-    local record-commands
+define/enclose %define-record-type* [*record-commands*] [
     local %field-names
     local %def-name
-    [
-        place->swapvar record-commands
-        local %type
-        list-length local %field-count
-        local %field-names
+    %def-name make-record-type local %type
+    enclose [*record-commands* %type %field-names] [
+        %field-names list-length local %field-count drop
 
         ; TODO put these in a hash and look it up instead of cond
         ; so you can extend the methods if you want
 
         quote^
-        false record-commands swap
-        hash-table-exists if [
-            hash-table-get
-            2 ~dig drop record-commands drop
+        with-swapvar *record-commands* [
+            swap hash-table-exists 2 dig
+        ]
+        if [
+            with-swapvar *record-commands* [
+                swap hash-table-get 2 dig
+            ]
+            swap drop
             define rquote ['quote 'uplevel 'uplevel uplevel]
             eval-definition
         ] [ "Don't understand this record type subcommand" abort ]
     ]
-    record-commands list-push-head
-    %def-name make-record-type list-push-head
-    %field-names list-push-head
-    %def-name '%define uplevel
+    %def-name 'add-definition uplevel
 ]
-*record-commands* list-push-head
-'%define-record-type* %define
 
-[
-    place->swapvar record-commands
+define/enclose %define-record-command [*record-commands*] [
     list->definition
-    false record-commands
-    2 ~dig hash-table-set
-    record-commands drop
+    with-swapvar *record-commands* [
+        2 ~dig hash-table-set
+    ]
 ]
-*record-commands* list-push-head
-'%define-record-command %define
 
 define define-record-type* [quote^ quote^ '%define-record-type* uplevel]
 

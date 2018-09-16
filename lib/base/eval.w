@@ -1,7 +1,20 @@
 
+; symbol eval -> symbol call
+; <definition> eval -> <definition> eval-definition ; TODO
+; [code ...] eval -> list->definition eval-definition
+define eval [
+    define eval-list [
+        list->definition eval-definition
+    ]
+    symbol?
+    'eval-list 'call
+    2 dig
+    'swap call-when drop
+    call
+]
 
 ; do [body] -> body
-define do [quote^ eval]
+define do [quote^ list->definition eval-definition]
 
 ; with-lexical-define name [definition] [body]
 ; define name [definition], but only lexically inside [body]
@@ -55,12 +68,53 @@ define place->swapvar [
     swap '%define uplevel
 ]
 
+; Like take-definition but keeps it there
+define get-definition [
+    clone 'take-definition uplevel
+    clone 2 dig 'add-definition uplevel
+]
+
+; enclose [def ...] [body ...]
+; Take every def in the list and put it at the front of body
+; then turn body into a definition
+; - basically, make a closure with the given names defined
+; TODO walk up call stack to find definition
+define enclose [
+    quote^ ; defs
+    quote^ swapvar body
+    define build-defs [
+        list-empty? [drop] [
+            list-pop-tail local def
+            def 'get-definition 'uplevel uplevel
+            with-swapvar body [
+                'add-definition list-push-head
+                def list-push-head
+                'quote list-push-head
+                swap list-push-head
+            ]
+            build-defs
+        ] %if
+    ]
+    build-defs
+    [] body list->definition
+]
+
+define define/enclose [
+    quote^ local %defname
+    'enclose uplevel
+    %defname 'add-definition uplevel
+]
+
+export-global eval
 export-global do
 export-global with-lexical-define
 export-global local
 export-global swapvar
 export-global with-swapvar
 export-global place->swapvar
+export-global get-definition
+export-global enclose
+export-global define/enclose
 
 ;;; vi: ft=scheme
 

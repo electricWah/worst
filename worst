@@ -28,13 +28,9 @@ define debug [
 ]
 
 define help [
-    debug "Loading help..."
-    do [
-        "help/base.w" load-lib
-    ]
-    do [
-        "help/stdlib.w" load-lib
-    ]
+    "Loading help..." print-string/n
+    "help/base.w" load-lib
+    "help/stdlib.w" load-lib
     'help uplevel
 ]
 
