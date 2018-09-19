@@ -30,7 +30,7 @@ export-global uplevel%
 "base/list.w" load-lib
 "base/records.w" load-lib
 "base/env.w" load-lib
-"base/stdio.w" load-lib
+"base/port.w" load-lib
 "base/process.w" load-lib
 
 ;;; vi: ft=scheme

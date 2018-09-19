@@ -26,6 +26,40 @@ define list-map [
     drop drop
 ]
 
+; [list ...] acc [elem acc -> acc'] list-fold -> acc'
+define list-fold [
+    list->definition local %fn
+    swapvar %acc
+    swapvar %l
+    define accum [
+        with-swapvar %l [ list-empty? swap ]
+        [ ] [
+            with-swapvar %l [ list-pop-head swap ]
+            with-swapvar %acc [
+                %fn eval-definition
+            ]
+            accum
+        ] %if
+    ]
+    accum
+    [] %acc
+]
+
+; [list ...] [elem -> ] list-iter -> 
+define list-iter [
+    list->definition local %fn
+    swapvar %l
+    define accum [
+        with-swapvar %l [ list-empty? swap ]
+        [ ] [
+            with-swapvar %l [ list-pop-head swap ]
+            %fn eval-definition
+            accum
+        ] %if
+    ]
+    accum
+]
+
 ; [list...] start-index [element -> element bool] -> found-index
 define list-index-where/from [
     "Not implemented" abort
@@ -48,10 +82,34 @@ define iota [
     drop
 ]
 
+; ... n %n->list
+; take n elements and put them on a list
+define %n->list [
+    [] swapvar acc
+    define next [
+        0 equal? [drop drop] [
+            drop
+            swap with-swapvar acc [
+                swap list-push-head
+            ]
+            1 negate add
+            next
+        ] %if
+    ]
+    next
+    [] acc
+]
+
+define n->list [ quote^ %n->list ]
+
 export-global list-empty?
 export-global list-map
 export-global list-index-where/from
 export-global iota
+export-global %n->list
+export-global n->list
+export-global list-fold
+export-global list-iter
 
 ; list-iterate has-next take-next [body]
 ; ???

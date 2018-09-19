@@ -40,6 +40,16 @@ define load-run-script [
     'interpreter-read-file uplevel
 ]
 
+define ansi-term-demo [
+    "ansi-term.w" load-lib
+    ansi [
+        256 iota
+        [clone fg bg "##" print-string] list-iter
+        reset
+        newline
+    ]
+]
+
 do [
 
     define show-help [
@@ -52,6 +62,7 @@ do [
         list-empty? [drop] [
             list-pop-head
             cond [
+                ["-A" equal? swap drop] [ ansi-term-demo ]
                 ["-h" equal? swap drop] [drop drop drop show-help abort] ; eg
                 ["-s" equal? swap drop] [
                     drop drop

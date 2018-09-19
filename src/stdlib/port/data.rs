@@ -11,7 +11,6 @@ use interpreter::exec;
 
 struct PortData {
     port: RefCell<Box<IsPort>>,
-    assoc: Option<Datum>,
 }
 
 #[derive(Clone)]
@@ -50,11 +49,7 @@ impl Value for Port {}
 impl Port {
     pub fn new<T: IsPort + 'static>(the: T) -> Self {
         let port = RefCell::new(Box::new(the));
-        Port(Rc::new(PortData { port, assoc: None }))
-    }
-    pub fn new_with_assoc<T: IsPort + 'static>(the: T, assoc: Datum) -> Self {
-        let port = RefCell::new(Box::new(the));
-        Port(Rc::new(PortData { port, assoc: Some(assoc) }))
+        Port(Rc::new(PortData { port }))
     }
 
     pub fn stdin() -> Self {
@@ -88,47 +83,6 @@ impl Port {
 }
 
 impl Port {
-    // pub fn read_char(&mut self) -> exec::Result<char> {
-    //     if !self.is_textual() {
-    //         return Err(WrongPortType().into());
-    //     }
-    //     let r: exec::Result<RefMut<Box<IsPort>>> =
-    //         self.0.try_borrow_mut()
-    //         .or(Err(error::NotUnique().into()));
-    //     let mut r = r?;
-    //     let inp: exec::Result<&mut io::BufRead> =
-    //         r.as_input().ok_or(WrongPortType().into());
-    //     let buf = inp?.read_exact(&mut buf).map_err(StdIoError::new)?;
-    //     Ok(buf[0])
-    // }
-    // pub fn read_byte(&mut self) -> exec::Result<u8> {
-    //     if !self.is_binary() {
-    //         return Err(WrongPortType().into());
-    //     }
-    //     let r: exec::Result<RefMut<Box<IsPort>>> =
-    //         self.0.try_borrow_mut()
-    //         .or(Err(error::NotUnique().into()));
-    //     let mut r = r?;
-    //     let inp: exec::Result<&mut io::BufRead> =
-    //         r.as_input().ok_or(WrongPortType().into());
-    //     let mut buf = [0; 1];
-    //     inp?.read_exact(&mut buf).map_err(StdIoError::new)?;
-    //     Ok(buf[0])
-    // }
-}
-
-impl Port {
-    // pub fn write_string(&mut self, s: &str) -> exec::Result<()> {
-    //     let r: exec::Result<RefMut<Box<IsPort>>> =
-    //         self.0.try_borrow_mut()
-    //         .or(Err(error::NotUnique().into()));
-    //     let mut r = r?;
-    //     let out: exec::Result<&mut io::Write> =
-    //         r.as_output().ok_or(WrongPortType().into());
-    //     out?.write(s.as_bytes()).map_err(StdIoError::new)?;
-    //     Ok(())
-    // }
-
     pub fn write(&mut self, data: Vec<u8>) -> exec::Result<()> {
         let r: exec::Result<RefMut<Box<IsPort>>> =
             self.0.port.try_borrow_mut()
@@ -188,16 +142,6 @@ impl Port {
 impl Port {
     pub fn is_unique(&self) -> bool {
         Rc::strong_count(&self.0) == 0
-    }
-
-    pub fn has_assoc(&self) -> bool {
-        self.0.assoc.is_some()
-    }
-
-    pub fn try_into_assoc(self) -> exec::Result<Option<Datum>> {
-        Rc::try_unwrap(self.0)
-            .map(|pd| pd.assoc)
-            .or_else(|_| Err(error::NotUnique().into()))
     }
 }
 

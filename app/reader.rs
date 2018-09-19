@@ -9,7 +9,8 @@ pub fn default_reader() -> Reader {
 
         ReaderArm::new("hash")
             .accept_input(Combo::Just('#'.into()))
-            .accept_state(Combo::Just("hash-bang-comment".into()).negate())
+            .accept_state(Combo::Just("hash-bang-comment".into())
+                          .or(Combo::Just("string".into())).negate())
             .run(ReaderInstruction::finish_token())
             .run(ReaderInstruction::set_state("hash"))
         ,
@@ -79,21 +80,6 @@ pub fn default_reader() -> Reader {
             .accept_state(Combo::Just("string".into()))
             .run(ReaderInstruction::append_token())
         ,
-
-        // ReaderArm::new("comment-start")
-        //     .accept_input(Combo::Just(';'.into()))
-        //     .run(ReaderInstruction::finish_token())
-        //     .run(ReaderInstruction::set_state("comment"))
-        // ,
-        // ReaderArm::new("comment-end")
-        //     .accept_input(Combo::Just('\n'.into()))
-        //     .accept_state(Combo::Just("comment".into()))
-        //     .run(ReaderInstruction::set_state("nothing"))
-        // ,
-        // ReaderArm::new("comment")
-        //     .accept_input(Combo::Anything)
-        //     .accept_state(Combo::Just("comment".into()))
-        // ,
 
         ReaderArm::new("whitespace")
             .accept_input(Combo::Just(CharClass::Whitespace))

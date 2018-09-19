@@ -40,8 +40,6 @@ pub enum IoOp {
     // given an input port, an output port and a count (of char or u8)
 
     IsPortUnique,
-    PortHasData,
-    PortIntoData,
 
     IsPortSeekable,
     PortSeekByStart,
@@ -66,8 +64,6 @@ impl EnumCommand for IoOp {
             IsEofObject => "eof-object?",
             EofObject => "eof-object",
             IsPortUnique => "port-unique?",
-            PortHasData => "port-has-data?",
-            PortIntoData => "port->data",
             IsPortSeekable => "port-seekable?",
             PortSeekByStart => "port-seek/start",
             PortSeekByEnd => "port-seek/end",
@@ -142,20 +138,6 @@ impl Command for IoOp {
                     p.is_unique()
                 };
                 interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            &PortHasData => {
-                let r = {
-                    let p = interpreter.stack.ref_at::<Port>(0)?;
-                    p.has_assoc()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            &PortIntoData => {
-                let r = interpreter.stack.pop::<Port>()?.try_into_assoc()?;
-                match r {
-                    Some(d) => interpreter.stack.push(d),
-                    None => interpreter.stack.push(Datum::build().with_source(source).ok(false)),
-                }
             },
 
             IsPortSeekable => {
