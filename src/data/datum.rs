@@ -29,9 +29,9 @@ impl DatumInfo {
         self.source = source.into();
         self
     }
-    pub fn symbol<S: Into<String>>(self, value: S) -> Datum {
+    pub fn symbol<S: AsRef<str>>(self, value: S) -> Datum {
         Datum {
-            value: BoxValue::new(Symbol(value.into())),
+            value: BoxValue::new(Symbol::from(value.as_ref())),
             info: self,
         }
     }

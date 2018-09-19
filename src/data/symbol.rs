@@ -1,40 +1,28 @@
 
 use std::fmt;
-use std::borrow::*;
 use data::value::*;
 use data::types::*;
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct Symbol(pub String);
+use internship::IStr;
 
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+pub struct Symbol(IStr);
+
+impl Symbol {
+    pub fn to_string(&self) -> String {
+        self.0.as_str().to_string()
+    }
+}
 
 impl<'a> From<&'a str> for Symbol {
     fn from(v: &'a str) -> Symbol {
-        Symbol(v.to_string())
+        Symbol(IStr::new(v))
     }
 }
 
 impl AsRef<str> for Symbol {
     fn as_ref(&self) -> &str {
-        self.0.as_ref()
-    }
-}
-
-impl Into<String> for Symbol {
-    fn into(self) -> String {
-        self.0
-    }
-}
-
-impl Borrow<String> for Symbol {
-    fn borrow(&self) -> &String {
-        &self.0
-    }
-}
-
-impl BorrowMut<String> for Symbol {
-    fn borrow_mut(&mut self) -> &mut String {
-        &mut self.0
+        self.0.as_str()
     }
 }
 

@@ -237,7 +237,7 @@ impl Command for StringOp {
             },
             SymbolToString => {
                 let (sym, source) = interpreter.stack.pop_source::<Symbol>()?;
-                interpreter.stack.push(Datum::build().with_source(source).ok::<String>(sym.into()));
+                interpreter.stack.push(Datum::build().with_source(source).ok::<String>(sym.to_string()));
             },
             StringToSymbol => {
                 let (a, source) = interpreter.stack.pop_source::<String>()?;

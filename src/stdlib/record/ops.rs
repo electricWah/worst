@@ -53,7 +53,7 @@ impl Command for RecordOp {
         match self {
             MakeRecordType => {
                 let name = interpreter.stack.pop::<Symbol>()?;
-                let t = RecordType::new(name.into());
+                let t = RecordType::new(name.to_string());
                 interpreter.stack.push(Datum::build().with_source(source).ok(t));
             },
             RecordTypeName => {

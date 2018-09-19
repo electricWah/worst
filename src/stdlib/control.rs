@@ -186,7 +186,7 @@ impl Command for Control {
             },
             &InterpreterSetContextName => {
                 let name = interpreter.stack.pop::<Symbol>()?;
-                interpreter.context.set_name(Some(name.into()));
+                interpreter.context.set_name(Some(name.to_string()));
             },
             &InterpreterContextName => {
                 let name = interpreter.context.name().map(Symbol::from);
@@ -213,20 +213,14 @@ impl Command for Control {
                 Err(error::Abort())?;
             }
             &Gensym => {
-                use std::borrow::BorrowMut;
-                let name = interpreter.stack.pop_datum()?;
+                let (name, orig_source) = interpreter.stack.pop_source::<Symbol>()?;
                 let sym = {
-                    let mut s = name.value_ref::<Symbol>()
-                        .map_err(|t| error::WrongType(Symbol::get_type(), t))?
-                        .clone();
                     let id = interpreter.gensym();
-                    {
-                        let ss: &mut String = s.borrow_mut();
-                        ss.push_str(format!("-{}", id).as_str());
-                    };
-                    s
+                    let mut ss = name.to_string();
+                    ss.push_str(format!("-{}", id).as_str());
+                    ss
                 };
-                interpreter.stack.push(name);
+                interpreter.stack.push(Datum::build().with_source(orig_source).ok(name));
                 interpreter.stack.push(Datum::build().with_source(source).ok(sym));
             },
         }
