@@ -17,8 +17,10 @@ pub fn install(interpreter: &mut Interpreter) {
 pub enum Control {
     Uplevel,
     Quote,
-    ListIntoDefinitition,
+    ListIntoDefinition,
+    GetDefinition,
     TakeDefinition,
+    ResolveDefinition,
     AddDefinition,
     EvalDefinition,
     IsDefined,
@@ -46,8 +48,10 @@ impl EnumCommand for Control {
         match self {
             Uplevel => "uplevel",
             Quote => "quote",
-            ListIntoDefinitition => "list->definition",
+            ListIntoDefinition => "list->definition",
+            GetDefinition => "get-definition",
             TakeDefinition => "take-definition",
+            ResolveDefinition => "resolve-definition",
             AddDefinition => "add-definition",
             EvalDefinition => "eval-definition",
             IsDefined => "defined?",
@@ -87,16 +91,34 @@ impl Command for Control {
             &Quote => {
                 interpreter.quote_next();
             },
-            &ListIntoDefinitition => {
+            &ListIntoDefinition => {
                 let code = interpreter.stack.pop::<List>()?.into();
                 let def = Code::from(Definition::new(code).with_source(source));
                 interpreter.stack.push(Datum::new(def));
+            },
+            &GetDefinition => {
+                let name = interpreter.stack.pop::<Symbol>()?;
+                match interpreter.context.get_definition(&name) {
+                    Some(def) => {
+                        interpreter.stack.push(Datum::new(def));
+                    },
+                    None => Err(error::NotDefined())?,
+                }
             },
             &TakeDefinition => {
                 let name = interpreter.stack.pop::<Symbol>()?;
                 match interpreter.context.undefine(&name) {
                     Some(def) => {
                         interpreter.stack.push(Datum::new(def));
+                    },
+                    None => Err(error::NotDefined())?,
+                }
+            },
+            &ResolveDefinition => {
+                let name = interpreter.stack.pop::<Symbol>()?;
+                match interpreter.context.resolve(&name) {
+                    Some(def) => {
+                        interpreter.stack.push(Datum::new(def.clone()));
                     },
                     None => Err(error::NotDefined())?,
                 }
@@ -114,7 +136,7 @@ impl Command for Control {
             &IsDefined => {
                 let r = {
                     let name = interpreter.stack.ref_at::<Symbol>(0)?;
-                    interpreter.context.resolve(name).is_some()
+                    interpreter.context.is_defined(name)
                 };
                 interpreter.stack.push(Datum::new(r));
             },

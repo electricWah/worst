@@ -168,7 +168,7 @@ impl Context {
         match self.parent.take() {
             None => return Ok(None),
             Some(mut p) => {
-                trace!("next_code parent up");
+                debug!("Leave context");
                 if self.env.len() > 0 {
                     let keys: Vec<&Symbol> = self.env.keys().collect();
                     warn!("Dropping defines: {:?}", keys);
@@ -204,6 +204,14 @@ impl Context {
     pub fn undefine(&mut self, name: &Symbol) -> Option<Code> {
         debug!("undefine");
         self.env.remove(name)
+    }
+
+    pub fn is_defined(&self, name: &Symbol) -> bool {
+        self.env.contains_key(name)
+    }
+
+    pub fn get_definition(&mut self, name: &Symbol) -> Option<Code> {
+        self.env.get(name).cloned()
     }
 
     pub fn resolve(&self, name: &Symbol) -> Option<&Code> {

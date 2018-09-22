@@ -50,6 +50,35 @@ define ansi-term-demo [
     ]
 ]
 
+define swapper [
+    1000 iota
+    "..." print-string/n
+    do [
+    do [
+    do [
+    do [
+    do [
+    do [
+    do [
+    do [
+    define/enclose runno [' quote quote^ drop list-push-tail eval-definition list->definition swap call-when uplevel call add-definition dig negate equal? list-length list-empty? define %define place-swap negate symbol? eval local with-swapvar list-pop-head %if if] [
+        ; define/enclose swap2 [dig] [??? 1 dig]
+        [1 2 swap drop drop drop] list-iter
+    ]
+    runno
+    ]
+    ]
+    ]
+    ]
+    ]
+    ]
+    ]
+    ]
+]
+
+; swapper
+; abort
+
 do [
 
     define show-help [

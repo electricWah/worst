@@ -68,10 +68,16 @@ define place->swapvar [
     swap '%define uplevel
 ]
 
-; Like take-definition but keeps it there
-define get-definition [
-    clone 'take-definition uplevel
-    clone 2 dig 'add-definition uplevel
+; resolve-definition
+define get-definition* [
+    datum-describe->string print-string/n
+    'defined? uplevel [
+        "defined" print-string/n
+        'get-definition uplevel
+    ] [
+        "not defined" print-string/n
+        'get-definition* 'uplevel uplevel
+    ] %if
 ]
 
 ; enclose [def ...] [body ...]
@@ -85,7 +91,9 @@ define enclose [
     define build-defs [
         list-empty? [drop] [
             list-pop-tail local def
-            def 'get-definition 'uplevel uplevel
+            ; def datum-describe->string print-string/n drop
+            def 'resolve-definition uplevel
+            ; datum-describe->string print-string/n
             with-swapvar body [
                 'add-definition list-push-head
                 def list-push-head
@@ -96,7 +104,9 @@ define enclose [
         ] %if
     ]
     build-defs
-    [] body list->definition
+    [] body
+    ; datum-describe->string print-string/n
+    list->definition
 ]
 
 define define/enclose [
@@ -112,7 +122,6 @@ export-global local
 export-global swapvar
 export-global with-swapvar
 export-global place->swapvar
-export-global get-definition
 export-global enclose
 export-global define/enclose
 

@@ -25,6 +25,7 @@ define uplevel% [''uplevel uplevel]
 export-global uplevel%
 
 "base/eval.w" load-lib
+
 "base/cond.w" load-lib
 "base/quasiquote.w" load-lib
 "base/list.w" load-lib
@@ -32,6 +33,14 @@ export-global uplevel%
 "base/env.w" load-lib
 "base/port.w" load-lib
 "base/process.w" load-lib
+
+; with enclose from eval, hopefully things should be quicker
+
+define/enclose swap [dig] [1 dig]
+define/enclose quote^ [' quote uplevel] ['quote 'uplevel uplevel]
+
+export-global swap
+export-global quote^
 
 ;;; vi: ft=scheme
 

@@ -60,11 +60,6 @@ define list-iter [
     accum
 ]
 
-; [list...] start-index [element -> element bool] -> found-index
-define list-index-where/from [
-    "Not implemented" abort
-]
-
 ; n -> [0 .. n]
 define iota [
     [] swap
@@ -104,7 +99,6 @@ define n->list [ quote^ %n->list ]
 
 export-global list-empty?
 export-global list-map
-export-global list-index-where/from
 export-global iota
 export-global %n->list
 export-global n->list

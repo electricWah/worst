@@ -161,6 +161,7 @@ impl Interpreter {
     }
 
     pub fn eval_symbol(&mut self, r: &Symbol, source: Option<Source>) -> exec::Result<()> {
+        debug!("Eval {:?}", r.as_ref());
         let code = self.context.resolve(r).ok_or(exec::Exception::from(error::NotDefined()))?.clone();
         let res = self.eval_code(&code, source.clone());
         if let Err(e) = res {

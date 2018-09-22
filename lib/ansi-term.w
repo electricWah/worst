@@ -84,8 +84,8 @@ define ansi [
     define fg [ 38 5 2 dig "m" csi/n 3 ]
     define bg [ 48 5 2 dig "m" csi/n 3 ]
 
-    ; with-output-to-u8vector [ eval ] write-u8vector
-    eval
+    with-output-to-u8vector [ eval ] write-u8vector
+    ; eval
 ]
 
 ; 1 1 csi-set-xy

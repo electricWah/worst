@@ -19,4 +19,5 @@ rustyline = "1.0"
 log = "0.4"
 env_logger = "0.5"
 internship = "0.6"
+# string_cache = "0.7" # alternative to internship
 
