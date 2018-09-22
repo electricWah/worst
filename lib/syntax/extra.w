@@ -28,6 +28,7 @@ parse-rule at-backslash-char [
 define parser-parentheses [
     local %end-char
     local %start-char
+    quote^ local %reader-function
     "" %start-char string-push %end-char string-push local parens-tag
     parse-rule extra-paren-end [
         accept [ %end-char ]
@@ -37,6 +38,7 @@ define parser-parentheses [
         type end-list
         append
         finish
+        prepend [ %reader-function ]
         set-state nothing
     ]
 

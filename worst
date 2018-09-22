@@ -44,6 +44,8 @@ define ansi-term-demo [
     "ansi-term.w" load-lib
     ansi [
         256 iota
+        ; [drop] list-iter
+        ; [fg "##" print-string] list-iter
         [clone fg bg "##" print-string] list-iter
         reset
         newline
