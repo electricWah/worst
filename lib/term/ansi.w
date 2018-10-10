@@ -47,8 +47,6 @@ define ansi [
         csi
     ]
 
-    define sgr [ "m" csi/n 1 ]
-
     define cursor-up [ "A" csi/n 1 ]
     define cursor-down [ "B" csi/n 1 ]
     define cursor-forward [ "C" csi/n 1 ]
@@ -57,6 +55,9 @@ define ansi [
     define cursor-previous-line [ "F" csi/n 1 ]
 
     define cursor-move [ "H" csi/n 2 ]
+
+    define cursor-show [ "?25h" csi ]
+    define cursor-hide [ "?25l" csi ]
 
     define clear-screen-from-cursor [ "0J" csi ]
     define clear-screen-to-cursor [ "1J" csi ]
@@ -68,6 +69,8 @@ define ansi [
 
     define scroll-up [ "S" csi/n 1 ]
     define scroll-down [ "T" csi/n 1 ]
+
+    define alternate-buffer [ if ["?1049h"] ["?1049l"] csi ]
 
     define reset [ "0m" csi ]
     define bold [ "1m" csi ]

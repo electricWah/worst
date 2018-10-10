@@ -17,14 +17,6 @@ pub enum NumRef<'a> {
     // Inexact(&'a Inexact),
 }
 
-// pub trait Numeric {
-//     fn is_exact(&self) -> bool;
-
-//     fn num_ref(&self) -> NumRef;
-//     fn to_exact(self) -> Exact;
-// }
-// downcast!(Numeric);
-
 #[derive(Clone)]
 pub struct Number(Exact);
 
@@ -195,6 +187,13 @@ impl Number {
     }
     pub fn floor(self) -> Self {
         Number::exact(self.0.floor())
+    }
+
+    pub fn numerator(&self) -> Self {
+        Number(self.0.numer().clone().into())
+    }
+    pub fn denominator(&self) -> Self {
+        Number(self.0.denom().clone().into())
     }
 
 }

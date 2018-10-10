@@ -34,6 +34,7 @@ pub enum Control {
     InterpreterIsRootContext,
     InterpreterSetContextName,
     InterpreterContextName,
+    UplevelInNamedContext,
     InterpreterReadFile,
     // InterpreterReadChar,
     // InterpreterReadEof,
@@ -65,6 +66,7 @@ impl EnumCommand for Control {
             InterpreterIsRootContext => "interpreter-root-context?",
             InterpreterSetContextName => "interpreter-set-context-name",
             InterpreterContextName => "interpreter-context-name",
+            UplevelInNamedContext => "uplevel-in-named-context",
             InterpreterReadFile => "interpreter-read-file",
             // InterpreterReadChar => "interpreter-read-char",
             // InterpreterReadEof => "interpreter-read-eof",
@@ -216,6 +218,14 @@ impl Command for Control {
                     Some(n) => interpreter.stack.push(Datum::new(n)),
                     None => interpreter.stack.push(Datum::new(false)),
                 }
+            },
+            &UplevelInNamedContext => {
+                let name = interpreter.stack.pop::<Symbol>()?;
+                let sym = interpreter.stack.pop::<Symbol>()?;
+                while interpreter.context.name() != Some(name.as_ref()) {
+                    interpreter.context.uplevel(None)?;
+                }
+                interpreter.eval_symbol(&sym, source)?;
             },
             &InterpreterReadFile => {
                 let file = interpreter.stack.pop::<String>()?;

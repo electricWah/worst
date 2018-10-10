@@ -448,6 +448,8 @@ impl command::Command for ProcessOp {
                 interpreter.stack.push(Datum::build().with_source(source).ok(r));
             },
             ProcessWait => {
+                let mut proc = interpreter.stack.top_mut::<Process>()?;
+                proc.0.borrow_mut().wait()?;
             },
             IsProcess => {
                 let r = interpreter.stack.type_predicate::<Process>(0)?;

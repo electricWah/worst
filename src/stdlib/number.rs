@@ -18,6 +18,11 @@ pub enum NumericOp {
 
     Abs,
     Floor,
+
+    Numerator,
+    Denominator,
+
+    IsNumber,
 }
 
 impl EnumCommand for NumericOp {
@@ -31,9 +36,12 @@ impl EnumCommand for NumericOp {
             GreaterThan => "greater-than",
             Abs => "abs",
             Floor => "floor",
+            Numerator => "numerator",
+            Denominator => "denominator",
+            IsNumber => "number?",
         }
     }
-    fn last() -> Self { NumericOp::Floor }
+    fn last() -> Self { NumericOp::IsNumber }
     fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
 }
 
@@ -78,6 +86,18 @@ impl Command for NumericOp {
             Floor => {
                 let a = interpreter.stack.pop::<Number>()?;
                 interpreter.stack.push(Datum::build().with_source(source).ok(a.floor()));
+            },
+            Numerator => {
+                let a = interpreter.stack.ref_at::<Number>(0)?.numerator();
+                interpreter.stack.push(Datum::build().with_source(source).ok(a));
+            },
+            Denominator => {
+                let a = interpreter.stack.ref_at::<Number>(0)?.denominator();
+                interpreter.stack.push(Datum::build().with_source(source).ok(a));
+            },
+            IsNumber => {
+                let v = interpreter.stack.type_predicate::<Number>(0)?;
+                interpreter.stack.push(Datum::build().with_source(source).ok(v));
             },
         }
         Ok(())

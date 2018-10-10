@@ -1,6 +1,9 @@
 
-define subprocess [
+;;; vi: ft=scheme
+
+define exec-command [
 ]
 
-;;; vi: ft=scheme
+define subprocess [
+]
 

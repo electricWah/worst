@@ -13,20 +13,10 @@ quote uplevel uplevel
 ] quote define %define
 
 [
-    quote interpreter-context-name uplevel
-    equal? 2 negate dig drop swap
-    [ quote %uplevel/named quote uplevel uplevel ]
-    [ drop uplevel ]
-    2 dig quote swap call-when drop
-    list->definition eval-definition
-] quote %uplevel/named
-quote %define quote uplevel uplevel
-
-[
     quote quote uplevel
     quote quote uplevel
     swap
-    %uplevel/named
+    uplevel-in-named-context
 ] quote uplevel/named
 quote %define quote uplevel uplevel
 

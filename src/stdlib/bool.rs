@@ -10,7 +10,7 @@ use stdlib::enumcommand::*;
 #[repr(usize)]
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum BoolOp {
-    And, Or, Not,
+    And, Or,
 }
 
 impl EnumCommand for BoolOp {
@@ -19,10 +19,9 @@ impl EnumCommand for BoolOp {
         match self {
             And => "and",
             Or => "or",
-            Not => "not",
         }
     }
-    fn last() -> Self { BoolOp::Not }
+    fn last() -> Self { BoolOp::Or }
     fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
 }
 
@@ -48,14 +47,6 @@ impl Command for BoolOp {
                     let a = interpreter.stack.ref_datum(0)?;
                     let b = interpreter.stack.ref_datum(1)?;
                     a.value_ref::<bool>() != Ok(&false) || b.value_ref::<bool>() != Ok(&false)
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(res));
-            },
-            Not => {
-                // interpreter.stack.expect(&[DatumType::Boolean.into()])?;
-                let res = {
-                    let a = interpreter.stack.ref_datum(0)?;
-                    a.value_ref::<bool>() == Ok(&false)
                 };
                 interpreter.stack.push(Datum::build().with_source(source).ok(res));
             },

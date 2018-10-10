@@ -3,7 +3,7 @@
 "base/syntax.w" load-lib
 
 [] 1 1 equal? 2 negate dig drop drop list-push-head 'true %define
-[] true not swap drop list-push-head 'false %define
+[] 0 1 equal? 2 negate dig drop drop list-push-head 'false %define
 
 export-global true
 export-global false
@@ -27,7 +27,10 @@ export-global uplevel%
 "base/eval.w" load-lib
 
 "base/cond.w" load-lib
+"base/control.w" load-lib
 "base/quasiquote.w" load-lib
+"base/number.w" load-lib
+"base/string.w" load-lib
 "base/list.w" load-lib
 "base/records.w" load-lib
 "base/env.w" load-lib

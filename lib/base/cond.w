@@ -33,14 +33,14 @@ define %cond [
             swapvar %cond-do-if
             swapvar %cond-body
             eval
-            false equal? not [
-                drop drop
-                [] %cond-do-if
-                'eval uplevel
-            ] [
-                drop drop drop
+            not [
+                drop
                 [] %cond-body
                 %cond
+            ] [
+                drop
+                [] %cond-do-if
+                'eval uplevel
             ] %if
         ] %if
     ] %if
@@ -59,8 +59,17 @@ define %case [
     ]
 ]
 
+define not [ false equal? swap drop ]
+define not! [ not swap drop ]
+define equal?! [ equal? swap drop ]
+define and! [ and local ok drop drop ok ]
+
 export-global %if
 export-global if
 export-global %cond
 export-global cond
+export-global not
+export-global not!
+export-global equal?!
+export-global and!
 

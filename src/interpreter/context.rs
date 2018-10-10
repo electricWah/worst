@@ -55,8 +55,9 @@ impl Context {
     }
 
     pub fn log(&self, s: &str) {
-        debug!("{} parser={} source={} code={} parent={} env={} children={}",
+        debug!("{} name={} parser={} source={} code={} parent={} env={} children={}",
                s,
+               self.name.as_ref().unwrap_or(&"".to_string()),
                self.parser.is_some(),
                self.source.is_some(),
                self.code.len(),
@@ -215,7 +216,7 @@ impl Context {
     }
 
     pub fn resolve(&self, name: &Symbol) -> Option<&Code> {
-        debug!("resolve {:?} (env#={})", name, self.env.len());
+        debug!("resolve {:?} in {:?} (env#={})", name, self.name, self.env.len());
         if let Some(def) = self.env.get(name) {
             return Some(def);
         }

@@ -7,7 +7,10 @@ exec cargo run -- "$0" --worst-args "$0" "$@"
 [swap string-append quote interpreter-read-file call]
     "./lib"
     "WORST_LIB" get-environment-variable
-    not quote swap call-when swap drop
+    0 1 equal? 2 negate dig drop drop
+    equal? swap drop
+    quote swap call-when
+    swap drop
     "/" string-append
 list-push-head
 list->definition quote load-lib add-definition
@@ -41,45 +44,16 @@ define load-run-script [
 ]
 
 define ansi-term-demo [
-    "ansi-term.w" load-lib
+    "term/ansi.w" load-lib
     ansi [
-        256 iota
-        ; [drop] list-iter
-        ; [fg "##" print-string] list-iter
-        [clone fg bg "##" print-string] list-iter
+        0 while [
+            clone clone fg bg "  " print-string
+            1 add 256 equal?! not!
+        ] drop
         reset
         newline
     ]
 ]
-
-define swapper [
-    1000 iota
-    "..." print-string/n
-    do [
-    do [
-    do [
-    do [
-    do [
-    do [
-    do [
-    do [
-    define/enclose runno [' quote quote^ drop list-push-tail eval-definition list->definition swap call-when uplevel call add-definition dig negate equal? list-length list-empty? define %define place-swap negate symbol? eval local with-swapvar list-pop-head %if if] [
-        ; define/enclose swap2 [dig] [??? 1 dig]
-        [1 2 swap drop drop drop] list-iter
-    ]
-    runno
-    ]
-    ]
-    ]
-    ]
-    ]
-    ]
-    ]
-    ]
-]
-
-; swapper
-; abort
 
 do [
 
@@ -93,14 +67,14 @@ do [
         list-empty? [drop] [
             list-pop-head
             cond [
-                ["-A" equal? swap drop] [ ansi-term-demo ]
-                ["-h" equal? swap drop] [drop drop drop show-help abort] ; eg
-                ["-s" equal? swap drop] [
-                    drop drop
+                ["-A" equal?!] [ drop drop ansi-term-demo ]
+                ["-h" equal?!] [ drop drop show-help abort ] ; eg
+                ["-s" equal?!] [
+                    drop
                     list-pop-head
                     'load-run-script uplevel
                 ]
-                [ drop read-command-line ]
+                [ read-command-line ]
             ]
         ] %if
     ]

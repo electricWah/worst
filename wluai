@@ -4,40 +4,150 @@ exec ./worst -s "$0" "$@"
 
 ;;; vi: ft=scheme
 
-define-record-type* &type [name]
-define-record-type* &literal [val]
-define-record-type* &variable [name]
-define-record-type* &funcall [name args]
-define-record-type* &expr [val type]
-define-record-type* &assign [name expr]
-define-record-type* &function [name args body]
-
-define type-of [
+define-record-type* &binop [op a b]
+define %binop [
+    []
+    swap list-push-tail
+    swap list-push-tail
+    swap list-push-tail
+    &binop from-list
 ]
 
-define assert-type [
-    
+define-record-type* &assign [var expr]
+define %assign [
+    []
+    swap list-push-tail
+    swap list-push-tail
+    &assign from-list
 ]
 
-define set [
-     quote^ local type
-     quote^ local name
-     local value
-     value type assert-type
+define-record-type* &return [val]
+define %return [
+    []
+    swap list-push-tail
+    &return from-list
 ]
 
-define fn [
+define-record-type* &var [name]
+define %var [
+    []
+    swap list-push-tail
+    &var from-list
 ]
 
-export-global fn
+define %write-expr [
+    cond [
+        [&binop is?] [
+            "(" print-string
+            &binop get a %write-expr drop
+            &binop get op symbol->string print-string
+            &binop get b %write-expr drop
+            ")" print-string
+        ]
+        [&var is?] [
+            &var get name symbol->string print-string
+        ]
+        [integer?] [
+            datum-describe->string print-string
+        ]
+        [number?] [
+            "(" print-string
+            datum-describe->string print-string
+            ")" print-string
+        ]
+        [ "Not an expr" abort ]
+    ]
+]
 
-abort
+define %write-indent []
+
+define %write-statement [
+    cond [
+        [&assign is?] [
+            %write-indent
+            "local " print-string
+            &assign get var %write-expr drop
+            " = " print-string
+            &assign get expr %write-expr drop
+            newline
+        ]
+        [&return is?] [
+            %write-indent
+            "return " print-string
+            &return get val %write-expr drop
+            newline
+        ]
+        [ "Not a statement" abort ]
+    ]
+]
+
+; define-record-type* &type [name]
+; define-record-type* &literal [val]
+; define-record-type* &variable [name]
+; define-record-type* &funcall [name args]
+; define-record-type* &expr [val type]
+; define-record-type* &assign [name expr]
+; define-record-type* &function [name args body]
+
+; define var? [&variable is?]
+
+define num->lua [
+    number? if [
+        integer? if [] [ number->fraction-pair %binop / ]
+    ] ["Not a number" abort]
+]
+define num->lua/2 [ num->lua swap num->lua swap ]
+
+define %numop/reduce [
+    quote^ local %op
+    quote^ local %opt
+    swap number? local numB
+    swap number? local numA
+    numA numB and! if [ %opt uplevel/named <compile> call ] [ %op %binop ]
+]
+
+define compile [
+    '<compile> interpreter-set-context-name
+    quote^ local %body
+    do [
+        [] swapvar %context
+        define %emit [
+            with-swapvar %context [
+                swap list-push-tail
+            ]
+        ]
+        define add [ %numop/reduce + add ]
+        define ::= [
+            quote^ local %name
+            %name %var local %luavar
+            %luavar %assign %emit
+            [quote] %luavar list-push-tail %name '%define uplevel
+        ]
+        define return [ %return %emit ]
+        %body eval
+        [] %context
+    ]
+]
+
+; define set [
+;      quote^ local type
+;      quote^ local name
+;      local value
+;      value type assert-type
+; ]
+
+; define fn [
+; ]
+
+; export-global fn
+
+; abort
 
 ; Testing
 
 ; types
-set test 1 ; based on type-of
-set: string test 1 ; fails
+; set test 1 ; based on type-of
+; set: string test 1 ; fails
 
 ; need to understand () and {}
 ; somehow have a reader for each? i.e. extend parser
@@ -47,10 +157,10 @@ set: string test 1 ; fails
 ; also [egg] => [egg] %brackets
 ; which would make regular array indexing syntax work, e.g.
 ; arr[2] => <var> [2] %brackets
-function blep() {
-    local testvar = 6
-    ...
-}
+; function blep() {
+;     local testvar = 6
+;     ...
+; }
 
 ; REPL things
 ; vim-like?
