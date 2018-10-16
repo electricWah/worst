@@ -46,7 +46,7 @@ pub enum IoOp {
     PortSeekByEnd,
     PortSeekByRelative,
 
-    FlushOutputPort,
+    OutputPortFlush,
 }
 
 impl EnumCommand for IoOp {
@@ -68,10 +68,10 @@ impl EnumCommand for IoOp {
             PortSeekByStart => "port-seek/start",
             PortSeekByEnd => "port-seek/end",
             PortSeekByRelative => "port-seek/relative",
-            FlushOutputPort => "flush-output-port",
+            OutputPortFlush => "output-port-flush",
         }
     }
-    fn last() -> Self { IoOp::FlushOutputPort }
+    fn last() -> Self { IoOp::OutputPortFlush }
     fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
 }
 
@@ -172,7 +172,7 @@ impl Command for IoOp {
                 interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(seek)));
             },
 
-            &FlushOutputPort => {
+            &OutputPortFlush => {
                 let mut port = interpreter.stack.top_mut::<Port>()?;
                 port.flush()?;
             },

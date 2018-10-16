@@ -11,6 +11,7 @@ use stdlib::enumcommand::*;
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum BoolOp {
     And, Or,
+    IsBool,
 }
 
 impl EnumCommand for BoolOp {
@@ -19,9 +20,10 @@ impl EnumCommand for BoolOp {
         match self {
             And => "and",
             Or => "or",
+            IsBool => "bool?",
         }
     }
-    fn last() -> Self { BoolOp::Or }
+    fn last() -> Self { BoolOp::IsBool }
     fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
 }
 
@@ -49,6 +51,10 @@ impl Command for BoolOp {
                     a.value_ref::<bool>() != Ok(&false) || b.value_ref::<bool>() != Ok(&false)
                 };
                 interpreter.stack.push(Datum::build().with_source(source).ok(res));
+            },
+            IsBool => {
+                let r = interpreter.stack.type_predicate::<bool>(0)?;
+                interpreter.stack.push(Datum::build().with_source(source).ok(r));
             },
         }
         Ok(())

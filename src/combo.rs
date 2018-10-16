@@ -1,5 +1,5 @@
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum Combo<T> {
     Nothing,
     Anything,

@@ -63,16 +63,16 @@ impl Command for U8VectorOp {
                 interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(len)));
             },
             &U8VectorGet => {
-                let idx = interpreter.stack.ref_at::<Number>(0)?.cast::<usize>()?;
+                let idx = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
                 let (len, got) = {
-                    let vec = interpreter.stack.ref_at::<U8Vector>(1)?;
+                    let vec = interpreter.stack.ref_at::<U8Vector>(0)?;
                     (vec.len(), vec.inner().get(idx).cloned())
                 };
                 match got {
                     Some(v) => {
                         interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(v)));
                     },
-                    None => return Err(error::OutOfRange(0, (len - 1) as isize, idx as isize).into()),
+                    None => return Err(error::OutOfRange(0, len as isize, idx as isize).into()),
                 }
             },
             &U8VectorSet => {

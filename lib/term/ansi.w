@@ -54,10 +54,15 @@ define ansi [
     define cursor-next-line [ "E" csi/n 1 ]
     define cursor-previous-line [ "F" csi/n 1 ]
 
+    define cursor-to-column [ "G" csi/n 1 ]
+
     define cursor-move [ "H" csi/n 2 ]
 
     define cursor-show [ "?25h" csi ]
     define cursor-hide [ "?25l" csi ]
+
+    define cursor-save [ "s" csi ]
+    define cursor-restore [ "u" csi ]
 
     define clear-screen-from-cursor [ "0J" csi ]
     define clear-screen-to-cursor [ "1J" csi ]
@@ -89,6 +94,8 @@ define ansi [
     define magenta [5]
     define cyan [6]
     define white [7]
+
+    define bright [ quote^ eval 8 add ]
 
     ; r g b rgb6, each 0 .. 5
     define rgb6 [

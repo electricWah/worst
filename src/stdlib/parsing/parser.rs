@@ -19,14 +19,6 @@ pub enum ParseOp {
     // New rule with name and accept rules
     ParserNewRule,
     IsParserRule,
-    // CharClass and Combo<char> ops
-    CharClassJustChar,
-    CharClassWhitespace,
-    CharClassAlpha,
-    CharClassNumeric,
-    CharClassSymbol,
-    CharClassEof,
-    IsCharClass,
     // Instructions mirroring parser::ReaderCommand
     ParserAcceptInput,
     ParserAcceptState,
@@ -53,13 +45,6 @@ impl EnumCommand for ParseOp {
         match self {
             ParserNewRule => "parser-new-rule",
             IsParserRule => "parser-rule?",
-            CharClassJustChar => "char-class-just",
-            CharClassWhitespace => "char-class-whitespace",
-            CharClassAlpha => "char-class-alpha",
-            CharClassNumeric => "char-class-numeric",
-            CharClassSymbol => "char-class-symbol",
-            CharClassEof => "char-class-eof",
-            IsCharClass => "char-class?",
             ParserAcceptInput => "parser-accept-input",
             ParserAcceptState => "parser-accept-state",
             ParserSetState => "parser-set-state",
@@ -89,19 +74,6 @@ impl Command for ParseOp {
             },
             &IsParserRule => {
                 let r = interpreter.stack.type_predicate::<ReaderArm>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            &CharClassJustChar => {
-                let chr: CharClass = interpreter.stack.pop::<char>()?.into();
-                interpreter.stack.push(Datum::build().with_source(source).ok(chr));
-            },
-            &CharClassWhitespace => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Whitespace)),
-            &CharClassAlpha => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Alpha)),
-            &CharClassNumeric => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Numeric)),
-            &CharClassSymbol => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Symbol)),
-            &CharClassEof => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Eof)),
-            &IsCharClass => {
-                let r = interpreter.stack.type_predicate::<CharClass>(0)?;
                 interpreter.stack.push(Datum::build().with_source(source).ok(r));
             },
 
@@ -180,18 +152,6 @@ impl ValueHash for ReaderArm {}
 impl DefaultValueEq for ReaderArm {}
 impl DefaultValueClone for ReaderArm {}
 impl Value for ReaderArm {}
-
-impl StaticType for CharClass {
-    fn static_type() -> Type {
-        Type::new("char-class")
-    }
-}
-impl ValueHash for CharClass {}
-impl DefaultValueEq for CharClass {}
-impl DefaultValueClone for CharClass {}
-impl ValueShow for CharClass {}
-impl ValueDebugDescribe for CharClass {}
-impl Value for CharClass {}
 
 impl TokenType {
     fn from_symbol(sym: Symbol) -> exec::Result<Self> {

@@ -36,6 +36,7 @@ export-global uplevel%
 "base/env.w" load-lib
 "base/port.w" load-lib
 "base/process.w" load-lib
+"base/interpreter.w" load-lib
 
 ; with enclose from eval, hopefully things should be quicker
 

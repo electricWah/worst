@@ -94,7 +94,7 @@ impl fmt::Display for Source {
     }
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub enum CharClass {
     One(char),
     Whitespace, Alpha, Numeric, Symbol,

@@ -17,7 +17,7 @@ list->definition quote load-lib add-definition
 
 quote <root> interpreter-set-context-name
 
-"base/bootstrap.w" load-lib
+"base.w" load-lib
 
 "syntax/base.w" load-lib
 
@@ -55,6 +55,14 @@ define ansi-term-demo [
     ]
 ]
 
+define run-repl [
+    "term/stty.w" load-lib
+    "term/ansi.w" load-lib
+    "term/readline.w" load-lib
+    "worst-repl.w" load-lib
+    worst-repl
+]
+
 do [
 
     define show-help [
@@ -68,6 +76,7 @@ do [
             list-pop-head
             cond [
                 ["-A" equal?!] [ drop drop ansi-term-demo ]
+                ["-i" equal?!] [ drop drop run-repl ]
                 ["-h" equal?!] [ drop drop show-help abort ] ; eg
                 ["-s" equal?!] [
                     drop

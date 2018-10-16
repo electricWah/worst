@@ -68,6 +68,14 @@ define place->swapvar [
     swap '%define uplevel
 ]
 
+; Clones swapvar value
+; swapvar-get <swapvar-name> => value
+define swapvar-get [
+    quote^ local %name
+    0 %name call
+    clone %name call drop
+]
+
 ; resolve-definition
 define get-definition* [
     datum-describe->string print-string/n
@@ -121,6 +129,7 @@ export-global with-lexical-define
 export-global local
 export-global swapvar
 export-global with-swapvar
+export-global swapvar-get
 export-global place->swapvar
 export-global enclose
 export-global define/enclose

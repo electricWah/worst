@@ -18,21 +18,17 @@ pub enum StringOp {
     IsString,
     StringToList,
     // StringToListWithRange,
-    // StringToListWithRangeByU8,
     StringLength,
-    StringLengthByU8,
     StringGet,
-    StringGetByU8,
     StringSet,
-    StringSetByU8,
     StringCompare,
     StringCompareCaseless,
     StringUpcase,
     StringDowncase,
     StringAppend,
     StringPush,
+    StringPop,
     StringRange,
-    StringRangeByU8,
 
     // string <-> u8vector
     StringToU8Vector,
@@ -45,7 +41,6 @@ pub enum StringOp {
     // Other non-r7rs
     IsStringCharBoundary,
     StringSplit,
-    StringSplitByU8,
     SymbolToString,
     StringToSymbol,
 }
@@ -57,6 +52,16 @@ impl Error for BadStringIndex {}
 impl fmt::Display for BadStringIndex {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "Not a valid string index: {}", self.0)
+    }
+}
+
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+pub struct StringEmpty();
+impl Error for StringEmpty {}
+
+impl fmt::Display for StringEmpty {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "Empty string")
     }
 }
 
@@ -77,27 +82,22 @@ impl EnumCommand for StringOp {
             IsString => "string?",
             StringToList => "string->list",
             // StringToListWithRange => "string->list/range",
-            // StringToListWithRangeByU8 => "string->list/range/u8",
             StringLength => "string-length",
-            StringLengthByU8 => "string-length/u8",
             StringGet => "string-get",
-            StringGetByU8 => "string-get/u8",
             StringSet => "string-set",
-            StringSetByU8 => "string-set/u8",
             StringCompare => "string-compare",
             StringCompareCaseless => "string-compare/ci",
             StringUpcase => "string-upcase",
             StringDowncase => "string-downcase",
             StringAppend => "string-append",
             StringPush => "string-push",
+            StringPop => "string-pop",
             StringRange => "string-range",
-            StringRangeByU8 => "string-range/u8",
             StringToU8Vector => "string->u8vector",
             U8VectorToString => "u8vector->string",
             U8VectorInvalidCharIndex => "u8vector-invalid-char-index",
             IsStringCharBoundary => "string-char-boundary?",
             StringSplit => "string-split",
-            StringSplitByU8 => "string-split/u8",
             SymbolToString => "symbol->string",
             StringToSymbol => "string->symbol",
         }
@@ -110,21 +110,21 @@ pub fn install(interpreter: &mut Interpreter) {
     StringOp::install(interpreter);
 }
 
-impl StringOp {
-    fn wrap_index(len: usize, idx: isize) -> exec::Result<usize> {
-        let len = len as isize;
-        if idx.abs() >= len {
-            return Err(error::OutOfRange(-len, len, idx).into());
-        }
-        let udx =
-            if idx < 0 {
-                (len + idx) as usize
-            } else {
-                idx as usize
-            };
-        Ok(udx)
-    }
-}
+// impl StringOp {
+//     fn wrap_index(len: usize, idx: isize) -> exec::Result<usize> {
+//         let len = len as isize;
+//         if idx.abs() >= len {
+//             return Err(error::OutOfRange(-len, len, idx).into());
+//         }
+//         let udx =
+//             if idx < 0 {
+//                 (len + idx) as usize
+//             } else {
+//                 idx as usize
+//             };
+//         Ok(udx)
+//     }
+// }
 
 impl Command for StringOp {
     fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
@@ -139,13 +139,6 @@ impl Command for StringOp {
                 let chars: Vec<char> = s.drain(..).collect();
                 let l = List::from(chars);
                 interpreter.stack.push(Datum::build().with_source(source).ok(l));
-            },
-            StringLengthByU8 => {
-                let len = {
-                    let s = interpreter.stack.ref_at::<String>(0)?;
-                    s.len()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(len)));
             },
             StringLength => {
                 let len = {
@@ -223,17 +216,12 @@ impl Command for StringOp {
                 let mut s = interpreter.stack.top_mut::<String>()?;
                 s.push(c);
             },
-            StringSplitByU8 => {
-                let idx = interpreter.stack.pop::<Number>()?.cast::<isize>()?;
-                let ss = {
+            StringPop => {
+                let c = {
                     let mut s = interpreter.stack.top_mut::<String>()?;
-                    let udx = Self::wrap_index(s.len(), idx)?;
-                    if !s.as_str().is_char_boundary(udx) {
-                        return Err(BadStringIndex(idx).into());
-                    }
-                    s.split_off(udx)
+                    s.pop().ok_or(StringEmpty())?
                 };
-                interpreter.stack.push(Datum::build().with_source(source).ok(ss));
+                interpreter.stack.push(Datum::build().with_source(source).ok(c));
             },
             SymbolToString => {
                 let (sym, source) = interpreter.stack.pop_source::<Symbol>()?;

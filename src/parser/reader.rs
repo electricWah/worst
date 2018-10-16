@@ -57,7 +57,7 @@ pub struct ReaderArm {
     pub instructions: Vec<ReaderInstruction>,
 }
 
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Clone, Debug)]
 pub struct Reader {
     init_state: Symbol,
     rules: Vec<ReaderArm>,
