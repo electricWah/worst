@@ -4,7 +4,7 @@ exec cargo run -- "$0" --worst-args "$0" "$@"
 
 [1 dig] list->definition quote swap add-definition
 
-[swap string-append quote interpreter-read-file call]
+[swap string-append read-eval-file]
     "./lib"
     "WORST_LIB" get-environment-variable
     0 1 equal? 2 negate dig drop drop
@@ -15,7 +15,7 @@ exec cargo run -- "$0" --worst-args "$0" "$@"
 list-push-head
 list->definition quote load-lib add-definition
 
-quote <root> interpreter-set-context-name
+current-interpreter quote <root> interpreter-set-context-name drop
 
 "base.w" load-lib
 

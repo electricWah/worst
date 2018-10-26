@@ -73,14 +73,14 @@ impl Command for ListOp {
             ListPopHead => {
                 let a = {
                     let mut l = interpreter.stack.top_mut::<List>()?;
-                    l.pop_head().ok_or(exec::Exception::from(error::ListEmpty()))?
+                    l.pop_head().ok_or(error::ListEmpty())?
                 };
                 interpreter.stack.push(a);
             },
             ListPopTail => {
                 let a = {
                     let mut l = interpreter.stack.top_mut::<List>()?;
-                    l.pop_tail().ok_or(exec::Exception::from(error::ListEmpty()))?
+                    l.pop_tail().ok_or(error::ListEmpty())?
                 };
                 interpreter.stack.push(a);
             },

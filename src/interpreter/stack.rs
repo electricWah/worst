@@ -7,17 +7,8 @@ use interpreter::exec;
 
 #[derive(Default, Debug)]
 pub struct Stack {
-    transaction: Option<Vec<StackOp>>,
     stack: Vec<Datum>,
 }
-
-#[derive(Debug)]
-enum StackOp {
-    Push(Datum),
-    Pop,
-}
-
-pub struct TransactionHandle();
 
 pub struct StackShow<'a>(&'a Stack);
 pub struct StackDescribe<'a>(&'a Stack);
@@ -31,36 +22,15 @@ impl Stack {
         self.stack.len()
     }
 
-    fn pop_stack(&mut self) -> Option<Datum> {
-        match self.stack.pop() {
-            Some(d) => {
-                match &mut self.transaction {
-                    &mut Some(ref mut ops) => {
-                        ops.push(StackOp::Push(d.clone()));
-                    },
-                    &mut None => {},
-                }
-                Some(d)
-            },
-            None => None,
-        }
-    }
-
     pub fn push(&mut self, d: Datum) {
-        match &mut self.transaction {
-            &mut Some(ref mut ops) => {
-                ops.push(StackOp::Pop);
-            },
-            &mut None => {},
-        }
         self.stack.push(d);
     }
 
     pub fn pop_datum(&mut self) -> Result<Datum, StackEmpty> {
-        self.pop_stack().ok_or(StackEmpty())
+        self.stack.pop().ok_or(StackEmpty())
     }
     pub fn pop_datum_source(&mut self) -> Result<Datum, StackEmpty> {
-        self.pop_stack().ok_or(StackEmpty())
+        self.stack.pop().ok_or(StackEmpty())
     }
 
     pub fn insert(&mut self, d: Datum, idx: usize) -> Result<(), StackEmpty> {
@@ -109,6 +79,11 @@ impl Stack {
         datum.value_ref::<T>().map_err(|t| WrongType(T::get_type(), t).into())
     }
 
+    pub fn assert_type<T: IsType + Value>(&self, idx: usize) -> exec::Result<()> {
+        self.ref_at::<T>(idx)?;
+        Ok(())
+    }
+
     pub fn type_predicate<T: IsType + Value>(&self, idx: usize) -> exec::Result<bool> {
         let datum = self.ref_datum(idx)?;
         Ok(datum.value_ref::<T>().is_ok())
@@ -120,28 +95,10 @@ impl Stack {
         m.value_mut::<T>().map_err(|t| WrongType(T::get_type(), t).into())
     }
 
-    pub fn transaction(&mut self) -> TransactionHandle {
-        self.transaction = Some(vec![]);
-        TransactionHandle()
+    pub fn vec_data_mut(&mut self) -> &mut Vec<Datum> {
+        &mut self.stack
     }
 
-    pub fn commit(&mut self, _t: TransactionHandle) {
-        self.transaction = None;
-    }
-
-    pub fn rollback(&mut self, _t: TransactionHandle) {
-        match self.transaction.take() {
-            None => {},
-            Some(mut ops) => {
-                while let Some(op) = ops.pop() {
-                    match op {
-                        StackOp::Push(d) => self.stack.push(d),
-                        StackOp::Pop => { self.stack.pop(); },
-                    }
-                }
-            },
-        }
-    }
     pub fn describe<'a>(&'a self) -> StackDescribe<'a> {
         StackDescribe(&self)
     }

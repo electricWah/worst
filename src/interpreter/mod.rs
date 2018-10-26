@@ -23,24 +23,24 @@ pub struct Interpreter {
     quoting: bool,
 }
 
-// TODO Failure is just for use by outside stuff (main program)
+// TODO Exception is just for use by outside stuff (main program)
 // - rename "_stackless" versions to reflect that they are normal
-// - remove Value/Error for Failure
+// - remove Value/Error for Exception
 #[derive(Debug, Clone)]
-pub struct Failure {
-    exception: Rc<exec::Exception>,
+pub struct Exception {
+    exception: Rc<exec::Failure>,
     stack_trace: Vec<Option<Source>>,
     uplevel_trace: Vec<Vec<Option<Source>>>,
 }
 
-impl Failure {
-    fn new<E: Into<Rc<exec::Exception>>>(exception: E,
+impl Exception {
+    fn new<E: Into<Rc<exec::Failure>>>(exception: E,
            (stack_trace, uplevel_trace): (Vec<Option<Source>>, Vec<Vec<Option<Source>>>)) -> Self {
-        Failure { exception: exception.into(), stack_trace, uplevel_trace }
+        Exception { exception: exception.into(), stack_trace, uplevel_trace }
     }
 }
 
-impl fmt::Display for Failure {
+impl fmt::Display for Exception {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(&self.exception, fmt)?;
         if self.stack_trace.len() + self.uplevel_trace.len() > 0 {
@@ -69,27 +69,26 @@ impl fmt::Display for Failure {
     }
 }
 
-impl ValueDescribe for Failure {
+impl ValueDescribe for Exception {
     fn fmt_describe(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self, fmt)
     }
 }
 
-impl HasType for Failure {
+impl HasType for Exception {
     fn type_of(&self) -> Type {
         Type::new("error")
     }
 }
 
-impl Error for Failure {}
-impl DefaultValueClone for Failure {}
-impl ValueShow for Failure {}
-impl ValueEq for Failure {}
-impl ValueHash for Failure {}
-impl Value for Failure {}
+impl Error for Exception {}
+impl DefaultValueClone for Exception {}
+impl ValueShow for Exception {}
+impl ValueEq for Exception {}
+impl ValueHash for Exception {}
+impl Value for Exception {}
 
 impl Interpreter {
-
     pub fn new(reader: Reader) -> Self {
         let parser = Parser::new(Source::new(), &reader);
         Interpreter {
@@ -101,51 +100,68 @@ impl Interpreter {
         }
     }
 
-    pub fn define<S: Into<Symbol>, C: Into<Code>>(&mut self, name: S, code: C) {
-        self.context.define(name, code);
-    }
-
     pub fn quoting(&self) -> bool {
         self.quoting
     }
 
-    fn run_available_stackless(&mut self) -> exec::Result<()> {
-        while let Some(d) = self.context.next(&self.reader, self.quoting)? {
-            if self.quoting {
-                self.quoting = false;
-                self.stack.push(d);
-            } else {
-                let t = self.stack.transaction();
-                match self.interpret(d) {
-                    Ok(()) => {
-                        self.stack.commit(t);
-                    },
-                    Err(e) => {
-                        self.stack.rollback(t);
-                        Err(e)?;
-                    },
-                }
-            }
-        }
-        Ok(())
+    pub fn set_quoting(&mut self, q: bool) {
+        self.quoting = q;
     }
 
-    pub fn wrap_failure<T>(&self, e: exec::Result<T>) -> Result<T, Failure> {
-        e.map_err(|err| Failure::new(err, (self.context.stack_sources(), self.context.stack_uplevel_sources())))
+    pub fn gensym(&mut self) -> usize {
+        self.gensym += 1;
+        self.gensym
     }
 
-    pub fn eval_run(&mut self) -> exec::Result<()> {
-        self.run_available_stackless()
+    pub fn quote_next(&mut self) {
+        self.quoting = true;
     }
 
-    pub fn run_available(&mut self) -> Result<(), Failure> {
-        let r = self.run_available_stackless();
-        self.wrap_failure(r)
+    pub fn reader_mut(&mut self) -> &mut Reader {
+        &mut self.reader
+    }
+
+    pub fn define<S: Into<Symbol>, C: Into<Code>>(&mut self, name: S, code: C) {
+        self.context.define(name, code);
     }
 
     pub fn clear(&mut self) {
         self.context.reset();
         self.quoting = false;
+    }
+
+    pub fn unfinished(&self) -> Vec<&str> {
+        match self.context.parser() {
+            Some(p) => p.unfinished(),
+            None => vec![],
+        }
+    }
+}
+
+impl Interpreter {
+
+    pub fn read_next(&mut self) -> exec::Result<Option<Datum>> {
+        self.context.next(&self.reader, self.quoting)
+    }
+
+    fn run_available_stackless(&mut self) -> exec::Result<()> {
+        while let Some(d) = self.read_next()? {
+            if self.quoting {
+                self.quoting = false;
+                self.stack.push(d);
+            } else {
+                self.eval_datum(d)?;
+            }
+        }
+        Ok(())
+    }
+    pub fn eval_run(&mut self) -> exec::Result<()> {
+        self.run_available_stackless()
+    }
+
+    pub fn run_available(&mut self) -> Result<(), Exception> {
+        let r = self.run_available_stackless();
+        self.wrap_failure(r)
     }
 
     pub fn eval_code(&mut self, code: &Code, source: Option<Source>) -> exec::Result<()> {
@@ -160,9 +176,13 @@ impl Interpreter {
         Ok(())
     }
 
+    pub fn resolve_symbol(&self, r: &Symbol) -> Option<Code> {
+        self.context.resolve(r).cloned()
+    }
+
     pub fn eval_symbol(&mut self, r: &Symbol, source: Option<Source>) -> exec::Result<()> {
         debug!("Eval {:?}", r.as_ref());
-        let code = self.context.resolve(r).ok_or(exec::Exception::from(error::NotDefined()))?.clone();
+        let code = self.resolve_symbol(r).ok_or(error::NotDefined())?;
         let res = self.eval_code(&code, source.clone());
         if let Err(e) = res {
             // Hack to show where the error occurred
@@ -172,7 +192,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn interpret(&mut self, d: Datum) -> exec::Result<()> {
+    pub fn eval_datum(&mut self, d: Datum) -> exec::Result<()> {
         debug!("Interpret {}", d.dump());
         trace!("Stack: {}", self.stack.show());
         if let Ok(r) = d.value_ref::<Symbol>() {
@@ -182,11 +202,11 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn unfinished(&self) -> Vec<&str> {
-        match self.context.parser() {
-            Some(p) => p.unfinished(),
-            None => vec![],
-        }
+}
+
+impl Interpreter {
+    fn wrap_failure<T>(&self, e: exec::Result<T>) -> Result<T, Exception> {
+        e.map_err(|err| Exception::new(err, (self.context.stack_sources(), self.context.stack_uplevel_sources())))
     }
 
     pub fn push_input(&mut self, input: &str) {
@@ -221,19 +241,6 @@ impl Interpreter {
         parser.set_eof(true);
         self.context.set_parser(parser);
         Ok(())
-    }
-
-    pub fn gensym(&mut self) -> usize {
-        self.gensym += 1;
-        self.gensym
-    }
-
-    pub fn quote_next(&mut self) {
-        self.quoting = true;
-    }
-
-    pub fn reader_mut(&mut self) -> &mut Reader {
-        &mut self.reader
     }
 
 }

@@ -31,11 +31,8 @@ pub enum Control {
     TakeDefineMeta,
     Call,
     CallWhen,
-    InterpreterIsRootContext,
-    InterpreterSetContextName,
-    InterpreterContextName,
+    ReadEvalFile,
     UplevelInNamedContext,
-    InterpreterReadFile,
     // InterpreterReadChar,
     // InterpreterReadEof,
     // InterpreterEvalRead,
@@ -63,11 +60,8 @@ impl EnumCommand for Control {
             TakeDefineMeta => "definition-take-meta",
             Call => "call",
             CallWhen => "call-when",
-            InterpreterIsRootContext => "interpreter-root-context?",
-            InterpreterSetContextName => "interpreter-set-context-name",
-            InterpreterContextName => "interpreter-context-name",
+            ReadEvalFile => "read-eval-file",
             UplevelInNamedContext => "uplevel-in-named-context",
-            InterpreterReadFile => "interpreter-read-file",
             // InterpreterReadChar => "interpreter-read-char",
             // InterpreterReadEof => "interpreter-read-eof",
             // InterpreterEvalRead => "interpreter-eval-read",
@@ -172,7 +166,7 @@ impl Command for Control {
                 let name = interpreter.stack.pop::<Symbol>()?;
                 let mut def = interpreter.context.undefine(&name);
                 match def {
-                    None => Err(exec::Exception::from(error::NotDefined()))?,
+                    None => Err(error::NotDefined())?,
                     Some(mut d) => {
                         d.set_meta(meta);
                         interpreter.context.define(name, d);
@@ -183,7 +177,7 @@ impl Command for Control {
                 let name = interpreter.stack.pop::<Symbol>()?;
                 let mut def = interpreter.context.undefine(&name);
                 match def {
-                    None => Err(exec::Exception::from(error::NotDefined()))?,
+                    None => Err(error::NotDefined())?,
                     Some(mut d) => {
                         match d.take_meta() {
                             None => interpreter.stack.push(Datum::new(false)),
@@ -204,20 +198,9 @@ impl Command for Control {
                     return interpreter.eval_symbol(&name, source);
                 }
             },
-            &InterpreterIsRootContext => {
-                let r = interpreter.context.is_root();
-                interpreter.stack.push(Datum::new(r));
-            },
-            &InterpreterSetContextName => {
-                let name = interpreter.stack.pop::<Symbol>()?;
-                interpreter.context.set_name(Some(name.to_string()));
-            },
-            &InterpreterContextName => {
-                let name = interpreter.context.name().map(Symbol::from);
-                match name {
-                    Some(n) => interpreter.stack.push(Datum::new(n)),
-                    None => interpreter.stack.push(Datum::new(false)),
-                }
+            ReadEvalFile => {
+                let file = interpreter.stack.pop::<String>()?;
+                interpreter.load_file(&file)?;
             },
             &UplevelInNamedContext => {
                 let name = interpreter.stack.pop::<Symbol>()?;
@@ -226,10 +209,6 @@ impl Command for Control {
                     interpreter.context.uplevel(None)?;
                 }
                 interpreter.eval_symbol(&sym, source)?;
-            },
-            &InterpreterReadFile => {
-                let file = interpreter.stack.pop::<String>()?;
-                interpreter.load_file(&file)?;
             },
             // &InterpreterReadChar => {
             //     let c = interpreter.stack.pop::<char>()?;

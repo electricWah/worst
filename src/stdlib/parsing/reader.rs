@@ -2,12 +2,10 @@
 use std::fmt;
 use parser::*;
 use data::*;
-use data::error;
 use interpreter::Interpreter;
 use interpreter::command::*;
 use interpreter::exec;
 use stdlib::enumcommand::*;
-use stdlib::combo::ComboValue;
 
 pub fn install(interpreter: &mut Interpreter) {
     ReaderOp::install(interpreter);

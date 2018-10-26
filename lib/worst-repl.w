@@ -15,14 +15,13 @@
 define worst-repl [
 
     current-interpreter interpreter-get-reader swap drop
-    make-interpreter
+    make-interpreter local %interpreter
     
     read-line
 
     newline
     string? if [
-        print-string
-        newline
+        %interpreter swap interpreter-push-input drop
     ] []
 
     ; o yeah nice
