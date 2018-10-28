@@ -79,6 +79,12 @@ impl Code {
     pub fn set_meta(&mut self, meta: Datum) {
         self.meta = Some(meta);
     }
+    pub fn source(&self) -> Option<Source> {
+        match self.value {
+            Instruction::Definition(ref d) => d.source().cloned(),
+            Instruction::Command(_) => None,
+        }
+    }
 }
 
 impl<T: Command + 'static> From<T> for Code {

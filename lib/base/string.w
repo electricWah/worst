@@ -7,6 +7,12 @@ define u8->char [
 
 define char->string [ "" swap string-push ]
 
+define %newline [
+"
+" 0 string-get swap drop
+]
+
 export-global u8->char
 export-global char->string
+export-global %newline
 

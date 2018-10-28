@@ -20,8 +20,6 @@ pub enum InterpreterOp {
     InterpreterClear,
     InterpreterPushInput,
     InterpreterReadNext,
-    InterpreterResolveSymbol,
-    InterpreterEvalCode,
     InterpreterReadFile,
 
     InterpreterSwapReader,
@@ -30,6 +28,12 @@ pub enum InterpreterOp {
     IsInterpreterQuoting,
     // InterpreterSetQuoting,
 
+    InterpreterAddDefinition,
+    InterpreterGetDefinition,
+    InterpreterTakeDefinition,
+    InterpreterResolveSymbol,
+    InterpreterEvalCode,
+    // InterpreterIsDefined,
     InterpreterIsRootContext,
 
     InterpreterContextName,
@@ -48,13 +52,17 @@ impl EnumCommand for InterpreterOp {
             InterpreterClear => "interpreter-clear",
             InterpreterPushInput => "interpreter-push-input",
             InterpreterReadNext => "interpreter-read-next",
-            InterpreterResolveSymbol => "interpreter-resolve-symbol",
-            InterpreterEvalCode => "interpreter-eval-code",
             InterpreterReadFile => "interpreter-read-file",
             InterpreterSwapReader => "interpreter-swap-reader",
             InterpreterSwapStack => "interpreter-swap-stack",
-            InterpreterSetContextName => "interpreter-set-context-name",
+            InterpreterAddDefinition => "interpreter-add-definition",
+            InterpreterGetDefinition => "interpreter-get-definition",
+            InterpreterTakeDefinition => "interpreter-take-definition",
+            InterpreterResolveSymbol => "interpreter-resolve-symbol",
+            InterpreterEvalCode => "interpreter-eval-code",
+            // InterpreterIsDefined => "interpreter-defined?",
             InterpreterIsRootContext => "interpreter-root-context?",
+            InterpreterSetContextName => "interpreter-set-context-name",
             InterpreterContextName => "interpreter-context-name",
             IsInterpreterQuoting => "interpreter-quoting?",
             // InterpreterSetQuoting => "interpreter-set-quoting",
@@ -114,6 +122,34 @@ impl Command for InterpreterOp {
                     mem::swap(i.stack.vec_data_mut(), &mut l);
                 })?;
                 interpreter.stack.push(Datum::build().with_source(source).ok(List::from(l)));
+            },
+
+            InterpreterAddDefinition => {
+                let name = interpreter.stack.pop::<Symbol>()?;
+                let def = interpreter.stack.pop::<Code>()?;
+                with_top_mut(interpreter, |i| {
+                    i.context.define(name, def)
+                })?;
+            },
+
+            InterpreterGetDefinition => {
+                let name = interpreter.stack.pop::<Symbol>()?;
+                let r = with_top_mut(interpreter, |i| {
+                    i.context.get_definition(&name)
+                })?;
+
+                interpreter.stack.push(r.map_or(Datum::new(false),
+                    |v| Datum::build().with_source(v.source()).ok(v)));
+            },
+
+            InterpreterTakeDefinition => {
+                let name = interpreter.stack.pop::<Symbol>()?;
+                let r = with_top_mut(interpreter, |i| {
+                    i.context.undefine(&name)
+                })?;
+
+                interpreter.stack.push(r.map_or(Datum::new(false),
+                    |v| Datum::build().with_source(v.source()).ok(v)));
             },
 
             &InterpreterIsRootContext => {

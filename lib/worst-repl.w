@@ -16,12 +16,43 @@ define worst-repl [
 
     current-interpreter interpreter-get-reader swap drop
     make-interpreter local %interpreter
-    
-    read-line
 
-    newline
+    ; interpreter item => interpreter
+    define %interpreter-push-stack [
+        swap
+        [] interpreter-swap-stack
+        2 dig list-push-tail
+        interpreter-swap-stack
+        drop
+    ]
+
+    define error [
+        ansi [ "Error: " bold red fg print-string reset ]
+        print-string/n
+    ]
+    
+    read-line newline
+
     string? if [
-        %interpreter swap interpreter-push-input drop
+        %newline string-push
+        %interpreter swap interpreter-push-input
+        interpreter-read-next
+        if [
+            local %read
+            %read symbol? if [
+                interpreter-resolve-symbol if [
+                    interpreter-eval-code
+                ] [
+                    "Not defined" error
+                    %read symbol->string print-string/n
+                ]
+            ] [
+                %interpreter-push-stack
+            ]
+        ] [
+            failure-message error
+            drop
+        ]
     ] []
 
     ; o yeah nice

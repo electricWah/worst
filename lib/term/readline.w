@@ -41,6 +41,7 @@ define *draw-read-line* [
 define/enclose read-line [
         %special-chars %special-char-get %special-char?
 ] [
+    false swapvar %ctrl-d
     false swapvar %entered
     false swapvar %cancelled
     "" swapvar %reading-line
@@ -64,7 +65,7 @@ define/enclose read-line [
             swap string-append
         ]
     ]
-    define %key-eof []
+    define %key-eof [ true %ctrl-d drop ]
     define %key-escape []
     define %key-enter [ true %entered drop ]
     define %key-ctrl-c [ true %cancelled drop ]
@@ -107,11 +108,21 @@ define/enclose read-line [
         refresh-line
         read-char
         swapvar-get %entered [] [
-            swapvar-get %cancelled [] [read-line-loop] %if
+            false cond [
+                [swapvar-get %cancelled] []
+                [swapvar-get %ctrl-d] []
+                [not!]
+            ]
+            [read-line-loop] [] %if
         ] %if
     ]
     read-line-loop
-    swapvar-get %cancelled if [false] ["" %reading-line]
+
+    cond [
+        [swapvar-get %cancelled] [ false ]
+        [swapvar-get %ctrl-d] [ 'eof ]
+        ["" %reading-line]
+    ]
 ]
 
 export-global *draw-read-line*

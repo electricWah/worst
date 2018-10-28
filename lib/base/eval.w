@@ -76,18 +76,6 @@ define swapvar-get [
     clone %name call drop
 ]
 
-; resolve-definition
-define get-definition* [
-    datum-describe->string print-string/n
-    'defined? uplevel [
-        "defined" print-string/n
-        'get-definition uplevel
-    ] [
-        "not defined" print-string/n
-        'get-definition* 'uplevel uplevel
-    ] %if
-]
-
 ; enclose [def ...] [body ...]
 ; Take every def in the list and put it at the front of body
 ; then turn body into a definition

@@ -4,6 +4,7 @@ use parser::*;
 use interpreter::Interpreter;
 use interpreter::command::*;
 use interpreter::exec;
+use interpreter::exec::Failure;
 use stdlib::enumcommand::*;
 
 #[allow(dead_code)]
@@ -18,6 +19,9 @@ pub enum DatumOp {
     IsChar,
 
     DatumDescribeToString,
+
+    IsFailure,
+    FailureMessage,
 
     // Comparison
     Equal, // Inner values are equal
@@ -34,6 +38,8 @@ impl EnumCommand for DatumOp {
             IsSymbol => "symbol?",
             IsChar => "char?",
             DatumDescribeToString => "datum-describe->string",
+            IsFailure => "failure?",
+            FailureMessage => "failure-message",
             Equal => "equal?",
             Identical => "identical?",
         }
@@ -79,6 +85,16 @@ impl Command for DatumOp {
                     format!("{}", d.describe())
                 };
                 interpreter.stack.push(Datum::build().with_source(source).ok(res));
+            },
+
+            IsFailure => {
+                let r = interpreter.stack.type_predicate::<Failure>(0)?;
+                interpreter.stack.push(Datum::build().with_source(source).ok(r));
+            },
+
+            FailureMessage => {
+                let msg = interpreter.stack.ref_at::<Failure>(0)?.message();
+                interpreter.stack.push(Datum::build().with_source(source).ok(msg));
             },
 
             Equal => {

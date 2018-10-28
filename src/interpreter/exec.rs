@@ -10,6 +10,12 @@ pub struct Failure {
     pub error: Rc<Box<Error>>,
 }
 
+impl Failure {
+    pub fn message(&self) -> String {
+        format!("{}", self.error)
+    }
+}
+
 impl<T: 'static + Error> From<T> for Failure {
     fn from(error: T) -> Self {
         Failure {
@@ -20,7 +26,7 @@ impl<T: 'static + Error> From<T> for Failure {
 
 impl fmt::Display for Failure {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Error: {}", self.error)
+        write!(fmt, "{}", self.error)
     }
 }
 
