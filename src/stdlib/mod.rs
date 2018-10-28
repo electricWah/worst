@@ -10,6 +10,7 @@ pub mod file;
 pub mod hashtable;
 pub mod interpreter;
 pub mod list;
+pub mod net;
 pub mod number;
 pub mod parsing;
 pub mod place;
@@ -32,6 +33,7 @@ pub fn install(interpreter: &mut Interpreter) {
     hashtable::install(interpreter);
     interpreter::install(interpreter);
     list::install(interpreter);
+    net::install(interpreter);
     number::install(interpreter);
     parsing::install(interpreter);
     place::install(interpreter);
