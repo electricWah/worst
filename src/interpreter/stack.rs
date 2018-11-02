@@ -1,9 +1,11 @@
 
+use std::error::Error;
 use std::fmt;
 use parser::*;
 use data::*;
 use data::error::*;
 use interpreter::exec;
+use interpreter::exec::Failure;
 
 #[derive(Default, Debug)]
 pub struct Stack {
@@ -24,6 +26,18 @@ impl Stack {
 
     pub fn push(&mut self, d: Datum) {
         self.stack.push(d);
+    }
+
+    pub fn push_res<V: Value, E: 'static + Error, S: Into<Option<Source>>>(&mut self, r: Result<V, E>, src: S) {
+        match r {
+            Ok(v) => {
+                self.push(Datum::build().with_source(src).ok(v));
+            },
+            Err(e) => {
+                self.push(Datum::build().with_source(src).ok(Failure::from(e)));
+            },
+        }
+
     }
 
     pub fn pop_datum(&mut self) -> Result<Datum, StackEmpty> {
