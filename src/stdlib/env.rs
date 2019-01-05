@@ -1,13 +1,13 @@
 
 use std::env;
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
-use stdlib::hashtable::HashTable;
+use crate::stdlib::hashtable::HashTable;
 
 pub fn install(interpreter: &mut Interpreter) {
     EnvOp::install(interpreter);

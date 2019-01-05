@@ -1,10 +1,10 @@
 
 use std::fmt;
-use parser::Source;
-use interpreter::Interpreter;
-use interpreter::exec;
+use crate::parser::Source;
+use crate::interpreter::Interpreter;
+use crate::interpreter::exec;
 
 pub trait Command: fmt::Debug {
-    fn run(&self, &mut Interpreter, Option<Source>) -> exec::Result<()>;
+    fn run(&self, interp: &mut Interpreter, src: Option<Source>) -> exec::Result<()>;
 }
 

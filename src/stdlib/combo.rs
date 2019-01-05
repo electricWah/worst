@@ -1,11 +1,11 @@
 
-use combo::*;
-use parser::*;
-use data::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::combo::*;
+use crate::parser::*;
+use crate::data::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
 pub fn install(interpreter: &mut Interpreter) {
     ComboOp::install(interpreter);
@@ -51,7 +51,7 @@ impl Command for ComboOp {
                 interpreter.stack.push(Datum::build().with_source(source).ok(ComboValue::just(chr)));
             },
             &ComboNegate => {
-                let mut c = interpreter.stack.top_mut::<ComboValue>()?;
+                let c = interpreter.stack.top_mut::<ComboValue>()?;
                 c.negate();
             },
             &ComboEither => {

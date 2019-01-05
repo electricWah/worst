@@ -1,10 +1,10 @@
 
-use parser::*;
-use data::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::parser::*;
+use crate::data::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
 pub fn install(interpreter: &mut Interpreter) {
     CharClassOp::install(interpreter);

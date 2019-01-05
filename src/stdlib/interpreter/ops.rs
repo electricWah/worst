@@ -1,12 +1,12 @@
 
 use std::mem;
-use data::*;
-use parser::*;
-use interpreter::*;
-use interpreter::command::*;
-use interpreter::exec;
-use interpreter::code::*;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::*;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::interpreter::code::*;
+use crate::stdlib::enumcommand::*;
 
 use super::data::*;
 

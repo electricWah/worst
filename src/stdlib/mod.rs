@@ -21,7 +21,7 @@ pub mod stack;
 pub mod string;
 pub mod vector;
 
-use interpreter::Interpreter;
+use crate::interpreter::Interpreter;
 
 pub fn install(interpreter: &mut Interpreter) {
     bool::install(interpreter);

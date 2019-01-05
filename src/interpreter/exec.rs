@@ -2,8 +2,8 @@
 use std::rc::Rc;
 use std::fmt;
 use std::result;
-use data::*;
-use data::error::Error;
+use crate::data::*;
+use crate::data::error::Error;
 
 #[derive(Debug, Clone)]
 pub struct Failure {

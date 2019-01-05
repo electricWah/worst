@@ -3,9 +3,9 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::fs;
 use std::io;
-use data::*;
-use interpreter::exec;
-use stdlib::port::{Port, IsPort};
+use crate::data::*;
+use crate::interpreter::exec;
+use crate::stdlib::port::{Port, IsPort};
 
 #[derive(Debug, PartialEq, Eq, Clone, Default, Hash)]
 pub struct OpenFileOptions {

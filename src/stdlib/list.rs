@@ -1,10 +1,10 @@
 
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
 #[allow(dead_code)]
 #[repr(usize)]
@@ -62,37 +62,37 @@ impl Command for ListOp {
             },
             ListPushHead => {
                 let a = interpreter.stack.pop_datum()?;
-                let mut l = interpreter.stack.top_mut::<List>()?;
+                let l = interpreter.stack.top_mut::<List>()?;
                 l.push_head(a);
             },
             ListPushTail => {
                 let a = interpreter.stack.pop_datum()?;
-                let mut l = interpreter.stack.top_mut::<List>()?;
+                let l = interpreter.stack.top_mut::<List>()?;
                 l.push_tail(a);
             },
             ListPopHead => {
                 let a = {
-                    let mut l = interpreter.stack.top_mut::<List>()?;
+                    let l = interpreter.stack.top_mut::<List>()?;
                     l.pop_head().ok_or(error::ListEmpty())?
                 };
                 interpreter.stack.push(a);
             },
             ListPopTail => {
                 let a = {
-                    let mut l = interpreter.stack.top_mut::<List>()?;
+                    let l = interpreter.stack.top_mut::<List>()?;
                     l.pop_tail().ok_or(error::ListEmpty())?
                 };
                 interpreter.stack.push(a);
             },
             ListAppend => {
                 let b = interpreter.stack.pop::<List>()?;
-                let mut a = interpreter.stack.top_mut::<List>()?;
+                let a = interpreter.stack.top_mut::<List>()?;
                 a.append(b);
             },
             ListSwap => {
                 let j = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
                 let i = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
-                let mut lis = interpreter.stack.top_mut::<List>()?;
+                let lis = interpreter.stack.top_mut::<List>()?;
                 let len = lis.len();
                 if i > len {
                     Err(error::OutOfRange(0, len as isize - 1, i as isize))?;

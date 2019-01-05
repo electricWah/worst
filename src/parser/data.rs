@@ -1,7 +1,7 @@
 
 use std::fmt;
-use data::*;
-use combo::*;
+use crate::data::*;
+use crate::combo::*;
 
 #[derive(Eq, PartialEq, Clone, Debug, Hash)]
 struct SourcePos {

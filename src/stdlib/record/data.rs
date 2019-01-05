@@ -1,8 +1,8 @@
 
 use std::mem;
 use std::rc::Rc;
-use data::*;
-use interpreter::exec;
+use crate::data::*;
+use crate::interpreter::exec;
 
 #[derive(Debug, Clone)]
 pub struct RecordType(Rc<String>);

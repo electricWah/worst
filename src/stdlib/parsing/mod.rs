@@ -1,5 +1,5 @@
 
-use interpreter::Interpreter;
+use crate::interpreter::Interpreter;
 
 mod parser;
 mod reader;

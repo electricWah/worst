@@ -1,8 +1,8 @@
 
 use std::rc::Rc;
-use data::*;
-use interpreter::command::*;
-use parser::*;
+use crate::data::*;
+use crate::interpreter::command::*;
+use crate::parser::*;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Definition {

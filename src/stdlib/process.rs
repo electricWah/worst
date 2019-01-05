@@ -5,13 +5,13 @@ use std::fmt;
 use std::io;
 use std::process;
 use std::rc::Rc;
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command;
-use interpreter::exec;
-use stdlib::enumcommand::*;
-use stdlib::port::{Port, IsPort};
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
+use crate::stdlib::port::{Port, IsPort};
 
 pub fn install(interpreter: &mut Interpreter) {
     ProcessOp::install(interpreter);
@@ -327,58 +327,58 @@ impl command::Command for ProcessOp {
             },
             CommandAddArgument => {
                 let s = interpreter.stack.pop::<String>()?;
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.args.push(s);
             },
             CommandCd => {
                 let s = interpreter.stack.pop::<String>()?;
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.cd = Some(s);
             },
             CommandClearEnv => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.env = HashMap::default();
             },
             CommandSetEnv => {
                 let v = interpreter.stack.pop::<String>()?;
                 let k = interpreter.stack.pop::<String>()?;
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.env.insert(k, v);
             },
             CommandStdinPipe => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stdin = StdioMode::Pipe;
             },
             CommandStdinNull => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stdin = StdioMode::Null;
             },
             CommandStdinInherit => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stdin = StdioMode::Inherit;
             },
             CommandStdoutPipe => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stdout = StdioMode::Pipe;
             },
             CommandStdoutNull => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stdout = StdioMode::Null;
             },
             CommandStdoutInherit => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stdout = StdioMode::Inherit;
             },
             CommandStderrPipe => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stderr = StdioMode::Pipe;
             },
             CommandStderrNull => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stderr = StdioMode::Null;
             },
             CommandStderrInherit => {
-                let mut cmd = interpreter.stack.top_mut::<Command>()?;
+                let cmd = interpreter.stack.top_mut::<Command>()?;
                 cmd.stderr = StdioMode::Inherit;
             },
             CommandSpawn => {
@@ -433,7 +433,7 @@ impl command::Command for ProcessOp {
                 interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
             },
             ProcessKill => {
-                let mut proc = interpreter.stack.top_mut::<Process>()?;
+                let proc = interpreter.stack.top_mut::<Process>()?;
                 if let Err(e) = proc.0.borrow_mut().kill() {
                     if e.kind() != io::ErrorKind::InvalidInput {
                         Err(e)?;
@@ -442,13 +442,13 @@ impl command::Command for ProcessOp {
             },
             IsProcessRunning => {
                 let r = {
-                    let mut proc = interpreter.stack.top_mut::<Process>()?;
+                    let proc = interpreter.stack.top_mut::<Process>()?;
                     proc.0.borrow_mut().try_wait()?.is_none()
                 };
                 interpreter.stack.push(Datum::build().with_source(source).ok(r));
             },
             ProcessWait => {
-                let mut proc = interpreter.stack.top_mut::<Process>()?;
+                let proc = interpreter.stack.top_mut::<Process>()?;
                 proc.0.borrow_mut().wait()?;
             },
             IsProcess => {

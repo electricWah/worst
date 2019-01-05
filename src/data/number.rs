@@ -5,9 +5,9 @@ use std::ops;
 use std::cmp;
 use num_rational::BigRational;
 use num_traits::{ToPrimitive, Signed};
-use data::*;
-use data::error::*;
-use interpreter::exec;
+use crate::data::*;
+use crate::data::error::*;
+use crate::interpreter::exec;
 
 pub type Exact = BigRational;
 // pub type Inexact = f64;
@@ -137,7 +137,7 @@ impl fmt::Display for NumberConvertError {
 }
 
 pub trait FromNumber: Sized {
-    fn from_exact(&Exact) -> Result<Self, NumberConvertError>;
+    fn from_exact(from: &Exact) -> Result<Self, NumberConvertError>;
     // fn from_inexact(&Inexact) -> Result<Self, NumberConvertError>;
 }
 

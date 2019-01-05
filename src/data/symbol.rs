@@ -1,7 +1,7 @@
 
 use std::fmt;
-use data::value::*;
-use data::types::*;
+use crate::data::value::*;
+use crate::data::types::*;
 
 use internship::IStr;
 

@@ -1,10 +1,10 @@
 
 use std::mem;
 use std::collections::{HashMap, VecDeque};
-use interpreter::code::*;
-use interpreter::exec;
-use parser::*;
-use data::*;
+use crate::interpreter::code::*;
+use crate::interpreter::exec;
+use crate::parser::*;
+use crate::data::*;
 
 type Env = HashMap<Symbol, Code>;
 

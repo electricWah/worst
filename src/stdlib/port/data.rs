@@ -5,9 +5,9 @@ use std::io;
 use std::fmt;
 use std::rc::Rc;
 use std::cell::{RefCell, RefMut};
-use data::*;
-use data::error::*;
-use interpreter::exec;
+use crate::data::*;
+use crate::data::error::*;
+use crate::interpreter::exec;
 
 struct PortData {
     port: RefCell<Box<IsPort>>,

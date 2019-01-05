@@ -1,11 +1,11 @@
 
 use std::error::Error;
 use std::fmt;
-use parser::*;
-use data::*;
-use data::error::*;
-use interpreter::exec;
-use interpreter::exec::Failure;
+use crate::parser::*;
+use crate::data::*;
+use crate::data::error::*;
+use crate::interpreter::exec;
+use crate::interpreter::exec::Failure;
 
 #[derive(Default, Debug)]
 pub struct Stack {

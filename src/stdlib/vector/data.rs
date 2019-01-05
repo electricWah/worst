@@ -1,6 +1,6 @@
 
 use std::fmt;
-use data::*;
+use crate::data::*;
 
 #[derive(Clone, Hash, Eq, PartialEq, Debug)]
 pub struct U8Vector(Vec<u8>);

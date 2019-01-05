@@ -1,7 +1,7 @@
 
 use std::fmt;
-use data::types::*;
-use data::value::hash::*;
+use crate::data::types::*;
+use crate::data::value::hash::*;
 use downcast::*;
 
 pub trait Value: Any + 'static + HasType + ValueEq + ValueClone + ValueHash + ValueShow + ValueDescribe {}

@@ -1,8 +1,8 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use data::*;
-use data::error::*;
+use crate::data::*;
+use crate::data::error::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct HashTable(pub HashMap<BoxValue, Datum>);

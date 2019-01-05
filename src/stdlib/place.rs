@@ -4,12 +4,12 @@ use std::mem;
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
 #[derive(Clone, Debug)]
 struct Place(Rc<RefCell<Datum>>);
@@ -91,9 +91,9 @@ impl Command for PlaceOp {
                 interpreter.stack.push(Datum::build().with_source(source).ok(place));
             },
             PlaceSwap => {
-                let mut d = interpreter.stack.pop_datum()?;
+                let d = interpreter.stack.pop_datum()?;
                 let d = {
-                    let mut place = interpreter.stack.top_mut::<Place>()?;
+                    let place = interpreter.stack.top_mut::<Place>()?;
                     place.swap(d)
                 };
                 interpreter.stack.push(d);

@@ -1,7 +1,7 @@
 
 use std::fmt;
-use data::error::*;
-use parser::data::Source;
+use crate::data::error::*;
+use crate::parser::data::Source;
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub enum ParseErrorReason {

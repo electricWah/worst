@@ -1,6 +1,6 @@
 
-use stdlib::enumcommand::*;
-use interpreter::Interpreter;
+use crate::stdlib::enumcommand::*;
+use crate::interpreter::Interpreter;
 
 pub mod data;
 mod ops;

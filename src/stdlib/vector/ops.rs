@@ -1,12 +1,12 @@
 
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
-use stdlib::vector::data::*;
+use crate::stdlib::vector::data::*;
 
 #[allow(dead_code)]
 #[repr(usize)]
@@ -79,7 +79,7 @@ impl Command for U8VectorOp {
                 let idx = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
                 let val = interpreter.stack.pop::<Number>()?.cast::<u8>()?;
                 let bad = {
-                    let mut vec = interpreter.stack.top_mut::<U8Vector>()?.inner_mut();
+                    let vec = interpreter.stack.top_mut::<U8Vector>()?.inner_mut();
                     let len = vec.len();
                     if let Some(x) = vec.get_mut(idx) {
                         *x = val;
@@ -94,25 +94,25 @@ impl Command for U8VectorOp {
             },
             &U8VectorTruncate => {
                 let len = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
-                let mut vec = interpreter.stack.top_mut::<U8Vector>()?;
+                let vec = interpreter.stack.top_mut::<U8Vector>()?;
                 vec.inner_mut().truncate(len);
                 vec.inner_mut().shrink_to_fit();
             },
             &U8VectorExtend => {
                 let len = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
                 let val = interpreter.stack.pop::<Number>()?.cast::<u8>()?;
-                let mut vec = interpreter.stack.top_mut::<U8Vector>()?;
+                let vec = interpreter.stack.top_mut::<U8Vector>()?;
                 let clen = vec.len();
                 vec.inner_mut().resize(len + clen, val);
             },
             &U8VectorAppend => {
                 let mut b = interpreter.stack.pop::<U8Vector>()?;
-                let mut a = interpreter.stack.top_mut::<U8Vector>()?;
+                let a = interpreter.stack.top_mut::<U8Vector>()?;
                 a.inner_mut().append(b.inner_mut());
             },
             &U8VectorPush => {
                 let v = interpreter.stack.pop::<Number>()?.cast::<u8>()?;
-                let mut vec = interpreter.stack.top_mut::<U8Vector>()?;
+                let vec = interpreter.stack.top_mut::<U8Vector>()?;
                 vec.inner_mut().push(v);
             },
             &IsU8Vector => {

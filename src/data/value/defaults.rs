@@ -1,9 +1,9 @@
 
 use std::fmt;
 use std::hash::Hash;
-use data::types::*;
-use data::value::types::*;
-use data::value::hash::*;
+use crate::data::types::*;
+use crate::data::value::types::*;
+use crate::data::value::hash::*;
 
 pub trait ValueDefaults {}
 impl<T: ValueDefaults + Eq> DefaultValueEq for T {}

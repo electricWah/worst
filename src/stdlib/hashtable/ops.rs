@@ -1,11 +1,11 @@
 
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
-use stdlib::hashtable::data::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
+use crate::stdlib::hashtable::data::*;
 
 /// Inspired by SRFI-69
 #[allow(dead_code)]

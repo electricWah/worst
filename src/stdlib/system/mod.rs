@@ -3,7 +3,7 @@
 // subprocesses
 // net
 
-use interpreter::Interpreter;
+use crate::interpreter::Interpreter;
 
 pub fn install(interpreter: &mut Interpreter) {
     // env::install(interpreter);

@@ -1,15 +1,15 @@
 
 use std::fmt;
 use std::str;
-use data::*;
-use data::error::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::data::error::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
-use stdlib::vector::data::*;
+use crate::stdlib::vector::data::*;
 
 #[allow(dead_code)]
 #[repr(usize)]
@@ -208,17 +208,17 @@ impl Command for StringOp {
             },
             StringAppend => {
                 let app = interpreter.stack.pop::<String>()?;
-                let mut s = interpreter.stack.top_mut::<String>()?;
+                let s = interpreter.stack.top_mut::<String>()?;
                 s.push_str(app.as_str());
             },
             StringPush => {
                 let c = interpreter.stack.pop::<char>()?;
-                let mut s = interpreter.stack.top_mut::<String>()?;
+                let s = interpreter.stack.top_mut::<String>()?;
                 s.push(c);
             },
             StringPop => {
                 let c = {
-                    let mut s = interpreter.stack.top_mut::<String>()?;
+                    let s = interpreter.stack.top_mut::<String>()?;
                     s.pop().ok_or(StringEmpty())?
                 };
                 interpreter.stack.push(Datum::build().with_source(source).ok(c));

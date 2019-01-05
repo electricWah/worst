@@ -3,8 +3,8 @@ pub use std::error::Error;
 use std::fmt;
 use std::io;
 use std::rc::Rc;
-use data::value::*;
-use data::types::*;
+use crate::data::value::*;
+use crate::data::types::*;
 
 #[derive(Debug)]
 pub struct Abort();

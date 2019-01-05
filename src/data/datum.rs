@@ -1,11 +1,11 @@
 
 use std::str::FromStr;
 use std::fmt;
-use parser::*;
-use data::symbol::*;
-use data::number::*;
-use data::value::*;
-use data::types::*;
+use crate::parser::*;
+use crate::data::symbol::*;
+use crate::data::number::*;
+use crate::data::value::*;
+use crate::data::types::*;
 
 // XXX replace Eq with StructuralEq and IdentityEq?
 

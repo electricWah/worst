@@ -7,10 +7,10 @@ mod stack;
 
 use std::rc::Rc;
 use std::fmt;
-use data::*;
-use parser::*;
-use data::error;
-use data::error::Error;
+use crate::data::*;
+use crate::parser::*;
+use crate::data::error;
+use crate::data::error::Error;
 use self::context::*;
 use self::code::*;
 use self::stack::Stack;

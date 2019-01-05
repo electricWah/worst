@@ -1,10 +1,10 @@
 
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
 use super::data::*;
 
@@ -74,14 +74,14 @@ impl Command for RecordOp {
             },
             RecordSlotAdd => {
                 let d = interpreter.stack.pop_datum()?;
-                let mut rec = interpreter.stack.top_mut::<Record>()?;
+                let rec = interpreter.stack.top_mut::<Record>()?;
                 rec.slot_add(d);
             },
             RecordSlotSwap => {
                 let idx = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
                 let d = {
-                    let mut d = interpreter.stack.pop_datum()?;
-                    let mut rec = interpreter.stack.top_mut::<Record>()?;
+                    let d = interpreter.stack.pop_datum()?;
+                    let rec = interpreter.stack.top_mut::<Record>()?;
                     rec.slot_swap(idx, d)?
                 };
                 interpreter.stack.push(d);

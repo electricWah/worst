@@ -1,6 +1,6 @@
 
 use std::io;
-use data::*;
+use crate::data::*;
 
 pub trait IsPort {
     fn is_input(&self) -> bool { false }

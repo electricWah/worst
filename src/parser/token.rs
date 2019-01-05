@@ -1,5 +1,5 @@
 
-use data::*;
+use crate::data::*;
 
 // TODO remove this and have start_list, end_list, start_atom
 // then give interpreter a hash map of token tag => reader function

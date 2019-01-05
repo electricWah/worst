@@ -10,6 +10,7 @@ stdenv.mkDerivation {
       pkgconfig
       openssl
       cmake
+      csound
     ];
 }
 

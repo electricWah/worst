@@ -1,6 +1,6 @@
 
 use std::collections::VecDeque;
-use data::*;
+use crate::data::*;
 
 mod data;
 mod reader;
@@ -231,7 +231,7 @@ impl Parser {
             &FinishToken => {
                 if let Some(tok) = self.tokens.pop_back() {
                     match tok {
-                        Token::Unparsed(mut t) => {
+                        Token::Unparsed(t) => {
                             self.finish_token(t)?;
                         },
                         _ => self.tokens.push_back(tok),

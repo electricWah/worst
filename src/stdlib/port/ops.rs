@@ -1,13 +1,13 @@
 
 use std::io::SeekFrom;
-use data::*;
-use parser::*;
-use interpreter::Interpreter;
-use interpreter::command::*;
-use interpreter::exec;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::*;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::stdlib::enumcommand::*;
 
-use stdlib::vector::data::U8Vector;
+use crate::stdlib::vector::data::U8Vector;
 use super::data::*;
 
 #[allow(dead_code)]
@@ -118,9 +118,9 @@ impl Command for IoOp {
             &PortRead => {
                 let mut bufd = interpreter.stack.pop_datum()?;
                 let c = {
-                    let mut buf = bufd.value_mut::<U8Vector>()
+                    let buf = bufd.value_mut::<U8Vector>()
                         .map_err(|t| error::WrongType(U8Vector::get_type(), t))?;
-                    let mut port = interpreter.stack.top_mut::<Port>()?;
+                    let port = interpreter.stack.top_mut::<Port>()?;
                     port.read_into(buf.inner_mut())?
                 };
                 interpreter.stack.push(bufd);
@@ -128,7 +128,7 @@ impl Command for IoOp {
             },
             &PortWrite => {
                 let data = interpreter.stack.pop::<U8Vector>()?;
-                let mut port = interpreter.stack.top_mut::<Port>()?;
+                let port = interpreter.stack.top_mut::<Port>()?;
                 port.write(data.into())?;
             },
 
@@ -173,7 +173,7 @@ impl Command for IoOp {
             },
 
             &OutputPortFlush => {
-                let mut port = interpreter.stack.top_mut::<Port>()?;
+                let port = interpreter.stack.top_mut::<Port>()?;
                 port.flush()?;
             },
             _ => return Err(error::NotImplemented().into()),

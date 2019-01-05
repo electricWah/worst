@@ -1,9 +1,9 @@
 
 use std::fmt;
 use std::collections::VecDeque;
-use data::value::*;
-use data::datum::*;
-use data::types::*;
+use crate::data::value::*;
+use crate::data::datum::*;
+use crate::data::types::*;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct List(VecDeque<Datum>);

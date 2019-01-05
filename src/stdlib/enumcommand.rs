@@ -1,17 +1,17 @@
 
 use std::str::FromStr;
-use data::error;
-use interpreter::Interpreter;
-use interpreter::command::Command;
+use crate::data::error;
+use crate::interpreter::Interpreter;
+use crate::interpreter::command::Command;
 
 pub trait EnumCommand: Eq {
     fn as_str(&self) -> &str;
     fn last() -> Self;
-    fn from_usize(usize) -> Self;
+    fn from_usize(u: usize) -> Self;
 }
 
 pub trait InterpreterCommand {
-    fn install(&mut Interpreter);
+    fn install(interp: &mut Interpreter);
 }
 
 impl<T: 'static + EnumCommand + Command + Clone> InterpreterCommand for T {

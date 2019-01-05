@@ -4,22 +4,18 @@ exec ./worst -s "$0" "$@"
 
 ;;; vi: ft=scheme
 
-; Worst CSound frontend
+; Worst CSound language
 
-define-record-type* &instr [name body]
+; TODO
+; - run csound listening on a known port
+; - make a connection by udp socket
+; - write messages to it
 
-@\{ @\} parser-parentheses
+define csound-send [
+]
 
-define write-synthesizer-string {
-    "<CsoundSynthesizer>" print-string/n
-    "<CsOptions></CsOptions>" print-string/n
-    "<CsInstruments>" print-string/n
-    "</CsInstruments>" print-string/n
-    "</CsoundSynthesizer>" print-string/n
-}
-
-define demo {
-}
+define midi-instrument [
+]
 
 abort
 

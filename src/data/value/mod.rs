@@ -2,7 +2,7 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 use downcast::*;
-use data::types::*;
+use crate::data::types::*;
 
 mod hash;
 mod types;

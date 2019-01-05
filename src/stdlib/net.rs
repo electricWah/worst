@@ -4,14 +4,14 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::net;
 use std::net::SocketAddr;
-use data::*;
-use parser::Source;
-use interpreter::command::*;
-use interpreter::exec;
-use interpreter::exec::Failure;
-use interpreter::Interpreter;
-use stdlib::enumcommand::*;
-use stdlib::vector::U8Vector;
+use crate::data::*;
+use crate::parser::Source;
+use crate::interpreter::command::*;
+use crate::interpreter::exec;
+use crate::interpreter::exec::Failure;
+use crate::interpreter::Interpreter;
+use crate::stdlib::enumcommand::*;
+use crate::stdlib::vector::U8Vector;
 
 pub fn install(interpreter: &mut Interpreter) {
     NetOp::install(interpreter);

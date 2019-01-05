@@ -1,11 +1,11 @@
 
-use data::*;
-use parser::Source;
-use interpreter::command::*;
-use interpreter::code::*;
-use interpreter::exec;
-use interpreter::Interpreter;
-use stdlib::enumcommand::*;
+use crate::data::*;
+use crate::parser::Source;
+use crate::interpreter::command::*;
+use crate::interpreter::code::*;
+use crate::interpreter::exec;
+use crate::interpreter::Interpreter;
+use crate::stdlib::enumcommand::*;
 
 pub fn install(interpreter: &mut Interpreter) {
     Control::install(interpreter);
@@ -164,7 +164,7 @@ impl Command for Control {
             &SetDefineMeta => {
                 let meta = interpreter.stack.pop_datum()?;
                 let name = interpreter.stack.pop::<Symbol>()?;
-                let mut def = interpreter.context.undefine(&name);
+                let def = interpreter.context.undefine(&name);
                 match def {
                     None => Err(error::NotDefined())?,
                     Some(mut d) => {
@@ -175,7 +175,7 @@ impl Command for Control {
             },
             &TakeDefineMeta => {
                 let name = interpreter.stack.pop::<Symbol>()?;
-                let mut def = interpreter.context.undefine(&name);
+                let def = interpreter.context.undefine(&name);
                 match def {
                     None => Err(error::NotDefined())?,
                     Some(mut d) => {

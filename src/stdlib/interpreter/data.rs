@@ -2,8 +2,8 @@
 use std::fmt;
 use std::rc::Rc;
 use std::cell::RefCell;
-use data::*;
-use interpreter::Interpreter;
+use crate::data::*;
+use crate::interpreter::Interpreter;
 
 #[derive(Clone)]
 pub enum InterpRef {

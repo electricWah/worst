@@ -1,9 +1,9 @@
 
-use data::*;
-use combo::*;
+use crate::data::*;
+use crate::combo::*;
 
-use parser::token::*;
-use parser::data::*;
+use crate::parser::token::*;
+use crate::parser::data::*;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct ReaderInstruction {

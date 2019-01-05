@@ -1,7 +1,7 @@
 
 use std::io;
 use super::port::*;
-use data::*;
+use crate::data::*;
 
 impl IsPort for io::Stdin {
     fn is_input(&self) -> bool { true }
