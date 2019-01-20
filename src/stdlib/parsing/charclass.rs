@@ -2,64 +2,53 @@
 use crate::parser::*;
 use crate::data::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 
 pub fn install(interpreter: &mut Interpreter) {
-    CharClassOp::install(interpreter);
+    interpreter.define_type_predicate::<CharClass>("char-class?");
+    interpreter.add_builtin("char-class-just", char_class_just);
+    interpreter.add_builtin("char-class-whitespace", char_class_whitespace);
+    interpreter.add_builtin("char-class-alpha", char_class_alpha);
+    interpreter.add_builtin("char-class-numeric", char_class_numeric);
+    interpreter.add_builtin("char-class-symbol", char_class_symbol);
+    interpreter.add_builtin("char-class-eof", char_class_eof);
 }
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum CharClassOp {
-    CharClassJust,
-    CharClassWhitespace,
-    CharClassAlpha,
-    CharClassNumeric,
-    CharClassSymbol,
-    CharClassEof,
-    IsCharClass,
+fn char_class_just(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let chr: CharClass = interpreter.stack.pop::<char>()?.into();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(chr));
+    Ok(())
 }
 
-impl EnumCommand for CharClassOp {
-    fn as_str(&self) -> &str {
-        use self::CharClassOp::*;
-        match self {
-            CharClassJust => "char-class-just",
-            CharClassWhitespace => "char-class-whitespace",
-            CharClassAlpha => "char-class-alpha",
-            CharClassNumeric => "char-class-numeric",
-            CharClassSymbol => "char-class-symbol",
-            CharClassEof => "char-class-eof",
-            IsCharClass => "char-class?",
-        }
-    }
-    fn last() -> Self { CharClassOp::IsCharClass }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+fn char_class_whitespace(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Whitespace));
+    Ok(())
 }
 
-impl Command for CharClassOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::CharClassOp::*;
-        match self {
-            &CharClassJust => {
-                let chr: CharClass = interpreter.stack.pop::<char>()?.into();
-                interpreter.stack.push(Datum::build().with_source(source).ok(chr));
-            },
-            &CharClassWhitespace => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Whitespace)),
-            &CharClassAlpha => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Alpha)),
-            &CharClassNumeric => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Numeric)),
-            &CharClassSymbol => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Symbol)),
-            &CharClassEof => interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Eof)),
-            &IsCharClass => {
-                let r = interpreter.stack.type_predicate::<CharClass>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-        }
-        Ok(())
-    }
+fn char_class_alpha(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Alpha));
+    Ok(())
+}
+
+fn char_class_numeric(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Numeric));
+    Ok(())
+}
+
+fn char_class_symbol(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Symbol));
+    Ok(())
+}
+
+fn char_class_eof(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Eof));
+    Ok(())
 }
 
 impl StaticType for CharClass {

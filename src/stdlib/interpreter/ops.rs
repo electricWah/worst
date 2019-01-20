@@ -3,75 +3,222 @@ use std::mem;
 use crate::data::*;
 use crate::parser::*;
 use crate::interpreter::*;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
 use crate::interpreter::code::*;
-use crate::stdlib::enumcommand::*;
 
 use super::data::*;
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum InterpreterOp {
-    CurrentInterpreter,
-    MakeInterpreter,
+pub fn install(interpreter: &mut Interpreter) {
+    interpreter.define_type_predicate::<InterpRef>("interpreter?");
 
-    InterpreterClear,
-    InterpreterPushInput,
-    InterpreterReadNext,
-    InterpreterReadFile,
+    interpreter.add_builtin("current-interpreter", current_interpreter);
+    interpreter.add_builtin("make-interpreter", make_interpreter);
+    interpreter.add_builtin("interpreter-clear", interpreter_clear);
+    interpreter.add_builtin("interpreter-push-input", interpreter_push_input);
+    interpreter.add_builtin("interpreter-read-next", interpreter_read_next);
+    interpreter.add_builtin("interpreter-read-file", interpreter_read_file);
+    interpreter.add_builtin("interpreter-swap-reader", interpreter_swap_reader);
+    interpreter.add_builtin("interpreter-swap-stack", interpreter_swap_stack);
+    interpreter.add_builtin("interpreter-add-definition", interpreter_add_definition);
+    interpreter.add_builtin("interpreter-get-definition", interpreter_get_definition);
+    interpreter.add_builtin("interpreter-take-definition", interpreter_take_definition);
+    interpreter.add_builtin("interpreter-resolve-symbol", interpreter_resolve_symbol);
+    interpreter.add_builtin("interpreter-eval-code", interpreter_eval_code);
+    interpreter.add_builtin("interpreter-root-context?", is_interpreter_root_context);
+    interpreter.add_builtin("interpreter-set-context-name", interpreter_set_context_name);
+    interpreter.add_builtin("interpreter-context-name", interpreter_context_name);
+    interpreter.add_builtin("interpreter-quoting?", is_interpreter_quoting);
+    interpreter.add_builtin("current-interpreter?", is_current_interpreter);
 
-    InterpreterSwapReader,
-    InterpreterSwapStack,
-
-    IsInterpreterQuoting,
-    // InterpreterSetQuoting,
-
-    InterpreterAddDefinition,
-    InterpreterGetDefinition,
-    InterpreterTakeDefinition,
-    InterpreterResolveSymbol,
-    InterpreterEvalCode,
-    // InterpreterIsDefined,
-    InterpreterIsRootContext,
-
-    InterpreterContextName,
-    InterpreterSetContextName,
-
-    IsCurrentInterpreter,
-    IsInterpreter,
 }
 
-impl EnumCommand for InterpreterOp {
-    fn as_str(&self) -> &str {
-        use self::InterpreterOp::*;
-        match self {
-            CurrentInterpreter => "current-interpreter",
-            MakeInterpreter => "make-interpreter",
-            InterpreterClear => "interpreter-clear",
-            InterpreterPushInput => "interpreter-push-input",
-            InterpreterReadNext => "interpreter-read-next",
-            InterpreterReadFile => "interpreter-read-file",
-            InterpreterSwapReader => "interpreter-swap-reader",
-            InterpreterSwapStack => "interpreter-swap-stack",
-            InterpreterAddDefinition => "interpreter-add-definition",
-            InterpreterGetDefinition => "interpreter-get-definition",
-            InterpreterTakeDefinition => "interpreter-take-definition",
-            InterpreterResolveSymbol => "interpreter-resolve-symbol",
-            InterpreterEvalCode => "interpreter-eval-code",
-            // InterpreterIsDefined => "interpreter-defined?",
-            InterpreterIsRootContext => "interpreter-root-context?",
-            InterpreterSetContextName => "interpreter-set-context-name",
-            InterpreterContextName => "interpreter-context-name",
-            IsInterpreterQuoting => "interpreter-quoting?",
-            // InterpreterSetQuoting => "interpreter-set-quoting",
-            IsCurrentInterpreter => "current-interpreter?",
-            IsInterpreter => "interpreter?",
-        }
+fn current_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(InterpRef::current()));
+    Ok(())
+}
+
+fn make_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let reader = interpreter.stack.pop::<Reader>()?;
+    let interp = InterpRef::from(Interpreter::new(reader));
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(interp));
+    Ok(())
+}
+
+fn interpreter_clear(interpreter: &mut Interpreter) -> exec::Result<()> {
+    with_top_mut(interpreter, |i| {
+        i.clear();
+    })?;
+    Ok(())
+}
+
+fn interpreter_push_input(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let input = interpreter.stack.pop::<String>()?;
+    with_top_mut(interpreter, |i| {
+        i.push_input(input.as_str());
+    })?;
+    Ok(())
+}
+
+fn interpreter_read_next(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = with_top_mut(interpreter, |i| {
+        i.read_next()
+    })?;
+    match r {
+        Ok(None) => {
+            interpreter.stack.push(Datum::new(false));
+            interpreter.stack.push(Datum::new(true));
+        },
+        Ok(Some(res)) => {
+            interpreter.stack.push(res);
+            interpreter.stack.push(Datum::new(true));
+        },
+        Err(e) => {
+            interpreter.stack.push(Datum::new(e));
+            interpreter.stack.push(Datum::new(false));
+        },
     }
-    fn last() -> Self { InterpreterOp::IsInterpreter }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+    Ok(())
+}
+
+fn interpreter_read_file(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let file = interpreter.stack.pop::<String>()?;
+    let r = with_top_mut(interpreter, |i| {
+        i.load_file(&file)
+    })?;
+    match r {
+        Ok(()) => {
+            interpreter.stack.push(Datum::new(true));
+        },
+        Err(e) => {
+            interpreter.stack.push(Datum::new(e));
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
+    Ok(())
+}
+
+fn interpreter_swap_reader(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let (mut reader, src) = interpreter.stack.pop_source::<Reader>()?;
+    with_top_mut(interpreter, |i| {
+        mem::swap(i.reader_mut(), &mut reader);
+    })?;
+    interpreter.stack.push(Datum::build().with_source(src).ok(reader));
+    Ok(())
+}
+
+fn interpreter_swap_stack(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let mut l = interpreter.stack.pop::<List>()?.into();
+    with_top_mut(interpreter, |i| {
+        mem::swap(i.stack.vec_data_mut(), &mut l);
+    })?;
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(List::from(l)));
+    Ok(())
+}
+
+fn interpreter_add_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<Symbol>()?;
+    let def = interpreter.stack.pop::<Code>()?;
+    with_top_mut(interpreter, |i| {
+        i.context.define(name, def)
+    })?;
+    Ok(())
+}
+
+fn interpreter_get_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<Symbol>()?;
+    let r = with_top_mut(interpreter, |i| {
+        i.context.get_definition(&name)
+    })?;
+
+    interpreter.stack.push(r.map_or(Datum::new(false),
+    |v| Datum::build().with_source(v.source()).ok(v)));
+    Ok(())
+}
+
+fn interpreter_take_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<Symbol>()?;
+    let r = with_top_mut(interpreter, |i| {
+        i.context.undefine(&name)
+    })?;
+
+    interpreter.stack.push(r.map_or(Datum::new(false),
+    |v| Datum::build().with_source(v.source()).ok(v)));
+    Ok(())
+}
+
+fn interpreter_resolve_symbol(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let sym = interpreter.stack.pop::<Symbol>()?;
+    let r = with_top_mut(interpreter, |i| {
+        i.resolve_symbol(&sym)
+    })?;
+    match r {
+        Some(r) => interpreter.stack.push(Datum::new(r)),
+        None => interpreter.stack.push(Datum::new(false)),
+    }
+    Ok(())
+}
+
+fn interpreter_eval_code(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let (code, src) = interpreter.stack.pop_source::<Code>()?;
+    let r = with_top_mut(interpreter, |i| {
+        i.eval_code(&code, src)
+    })?;
+    match r {
+        Ok(()) => {
+            interpreter.stack.push(Datum::new(true));
+        },
+        Err(e) => {
+            interpreter.stack.push(Datum::new(e));
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
+    Ok(())
+}
+
+fn is_interpreter_root_context(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = with_top_mut(interpreter, |i| {
+        i.context.is_root()
+    })?;
+    interpreter.stack.push(Datum::new(r));
+    Ok(())
+}
+
+fn interpreter_set_context_name(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<Symbol>()?;
+    with_top_mut(interpreter, |i| {
+        i.context.set_name(Some(name.to_string()));
+    })?;
+    Ok(())
+}
+
+fn interpreter_context_name(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = with_top_mut(interpreter, |i| {
+        i.context.name().map(Symbol::from)
+    })?;
+    match name {
+        Some(n) => interpreter.stack.push(Datum::new(n)),
+        None => interpreter.stack.push(Datum::new(false)),
+    }
+    Ok(())
+}
+
+fn is_interpreter_quoting(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = with_top_mut(interpreter, |i| {
+        i.quoting()
+    })?;
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    Ok(())
+}
+
+fn is_current_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = interpreter.stack.ref_at::<InterpRef>(0)? == &InterpRef::Current;
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    Ok(())
 }
 
 fn with_top_mut<T, F: FnOnce(&mut Interpreter) -> T>(i: &mut Interpreter, f: F) -> exec::Result<T> {
@@ -82,178 +229,5 @@ fn with_top_mut<T, F: FnOnce(&mut Interpreter) -> T>(i: &mut Interpreter, f: F) 
     };
     i.stack.push(Datum::build().with_source(src).ok(interp));
     Ok(r)
-}
-
-impl Command for InterpreterOp {
-
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::InterpreterOp::*;
-        match self {
-            CurrentInterpreter => {
-                interpreter.stack.push(Datum::build().with_source(source).ok(InterpRef::current()));
-            },
-            MakeInterpreter => {
-                let reader = interpreter.stack.pop::<Reader>()?;
-                let interp = InterpRef::from(Interpreter::new(reader));
-                interpreter.stack.push(Datum::build().with_source(source).ok(interp));
-            },
-
-            InterpreterClear => {
-                with_top_mut(interpreter, |i| {
-                    i.clear();
-                })?;
-            },
-            InterpreterPushInput => {
-                let input = interpreter.stack.pop::<String>()?;
-                with_top_mut(interpreter, |i| {
-                    i.push_input(input.as_str());
-                })?;
-            },
-            InterpreterSwapReader => {
-                let (mut reader, src) = interpreter.stack.pop_source::<Reader>()?;
-                with_top_mut(interpreter, |i| {
-                    mem::swap(i.reader_mut(), &mut reader);
-                })?;
-                interpreter.stack.push(Datum::build().with_source(src).ok(reader));
-            },
-            InterpreterSwapStack => {
-                let mut l = interpreter.stack.pop::<List>()?.into();
-                with_top_mut(interpreter, |i| {
-                    mem::swap(i.stack.vec_data_mut(), &mut l);
-                })?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(List::from(l)));
-            },
-
-            InterpreterAddDefinition => {
-                let name = interpreter.stack.pop::<Symbol>()?;
-                let def = interpreter.stack.pop::<Code>()?;
-                with_top_mut(interpreter, |i| {
-                    i.context.define(name, def)
-                })?;
-            },
-
-            InterpreterGetDefinition => {
-                let name = interpreter.stack.pop::<Symbol>()?;
-                let r = with_top_mut(interpreter, |i| {
-                    i.context.get_definition(&name)
-                })?;
-
-                interpreter.stack.push(r.map_or(Datum::new(false),
-                    |v| Datum::build().with_source(v.source()).ok(v)));
-            },
-
-            InterpreterTakeDefinition => {
-                let name = interpreter.stack.pop::<Symbol>()?;
-                let r = with_top_mut(interpreter, |i| {
-                    i.context.undefine(&name)
-                })?;
-
-                interpreter.stack.push(r.map_or(Datum::new(false),
-                    |v| Datum::build().with_source(v.source()).ok(v)));
-            },
-
-            &InterpreterIsRootContext => {
-                let r = with_top_mut(interpreter, |i| {
-                    i.context.is_root()
-                })?;
-                interpreter.stack.push(Datum::new(r));
-            },
-            &InterpreterSetContextName => {
-                let name = interpreter.stack.pop::<Symbol>()?;
-                with_top_mut(interpreter, |i| {
-                    i.context.set_name(Some(name.to_string()));
-                })?;
-            },
-            &InterpreterContextName => {
-                let name = with_top_mut(interpreter, |i| {
-                    i.context.name().map(Symbol::from)
-                })?;
-                match name {
-                    Some(n) => interpreter.stack.push(Datum::new(n)),
-                    None => interpreter.stack.push(Datum::new(false)),
-                }
-            },
-            InterpreterReadFile => {
-                let file = interpreter.stack.pop::<String>()?;
-                let r = with_top_mut(interpreter, |i| {
-                    i.load_file(&file)
-                })?;
-                match r {
-                    Ok(()) => {
-                        interpreter.stack.push(Datum::new(true));
-                    },
-                    Err(e) => {
-                        interpreter.stack.push(Datum::new(e));
-                        interpreter.stack.push(Datum::new(false));
-                    },
-                }
-            },
-
-            InterpreterReadNext => {
-                let r = with_top_mut(interpreter, |i| {
-                    i.read_next()
-                })?;
-                match r {
-                    Ok(None) => {
-                        interpreter.stack.push(Datum::new(false));
-                        interpreter.stack.push(Datum::new(true));
-                    },
-                    Ok(Some(res)) => {
-                        interpreter.stack.push(res);
-                        interpreter.stack.push(Datum::new(true));
-                    },
-                    Err(e) => {
-                        interpreter.stack.push(Datum::new(e));
-                        interpreter.stack.push(Datum::new(false));
-                    },
-                }
-            },
-
-            InterpreterEvalCode => {
-                let (code, src) = interpreter.stack.pop_source::<Code>()?;
-                let r = with_top_mut(interpreter, |i| {
-                    i.eval_code(&code, src)
-                })?;
-                match r {
-                    Ok(()) => {
-                        interpreter.stack.push(Datum::new(true));
-                    },
-                    Err(e) => {
-                        interpreter.stack.push(Datum::new(e));
-                        interpreter.stack.push(Datum::new(false));
-                    },
-                }
-            },
-
-            InterpreterResolveSymbol => {
-                let sym = interpreter.stack.pop::<Symbol>()?;
-                let r = with_top_mut(interpreter, |i| {
-                    i.resolve_symbol(&sym)
-                })?;
-                match r {
-                    Some(r) => interpreter.stack.push(Datum::new(r)),
-                    None => interpreter.stack.push(Datum::new(false)),
-                }
-            },
-
-            IsInterpreterQuoting => {
-                let r = with_top_mut(interpreter, |i| {
-                    i.quoting()
-                })?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-
-            IsCurrentInterpreter => {
-                let r = interpreter.stack.ref_at::<InterpRef>(0)? == &InterpRef::Current;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            IsInterpreter => {
-                let r = interpreter.stack.type_predicate::<InterpRef>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            // _ => return Err(error::NotImplemented().into()),
-        }
-        Ok(())
-    }
 }
 

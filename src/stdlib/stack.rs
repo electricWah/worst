@@ -1,69 +1,45 @@
 
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 
 pub fn install(interpreter: &mut Interpreter) {
-    StackOp::install(interpreter);
+    interpreter.add_builtin("clone", op_clone);
+    interpreter.add_builtin("dig", op_dig);
+    interpreter.add_builtin("drop", op_drop);
+    interpreter.add_builtin("stack-empty?", is_stack_empty);
 }
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum StackOp {
-    // Stack ops
-    Clone, Dig, Drop,
-
-    IsStackEmpty,
+fn op_clone(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let d = { interpreter.stack.ref_datum(0)?.clone() };
+    interpreter.stack.push(d);
+    Ok(())
 }
 
-impl EnumCommand for StackOp {
-    fn as_str(&self) -> &str {
-        use self::StackOp::*;
-        match self {
-            Clone => "clone",
-            Dig => "dig",
-            Drop => "drop",
-            IsStackEmpty => "stack-empty?",
-        }
+fn op_dig(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let n = interpreter.stack.pop::<Number>()?.cast::<isize>()?;
+    if n > 0 {
+        let n = n as usize;
+        let a = interpreter.stack.remove(n)?;
+        interpreter.stack.push(a);
+    } else if n < 0 {
+        let n = -n as usize;
+        let a = interpreter.stack.pop_datum()?;
+        interpreter.stack.insert(a, n - 1)?;
     }
-    fn last() -> Self { StackOp::IsStackEmpty }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+    Ok(())
 }
 
-impl Command for StackOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::StackOp::*;
-        match self {
-            Clone => {
-                let d = { interpreter.stack.ref_datum(0)?.clone() };
-                interpreter.stack.push(d);
-            },
-            Dig => {
-                let n = interpreter.stack.pop::<Number>()?.cast::<isize>()?;
-                if n > 0 {
-                    let n = n as usize;
-                    let a = interpreter.stack.remove(n)?;
-                    interpreter.stack.push(a);
-                } else if n < 0 {
-                    let n = -n as usize;
-                    let a = interpreter.stack.pop_datum()?;
-                    interpreter.stack.insert(a, n - 1)?;
-                }
-            },
-            Drop => {
-                interpreter.stack.pop_datum()?;
-            },
-            IsStackEmpty => {
-                let size = interpreter.stack.size();
-                interpreter.stack.push(Datum::build().with_source(source).ok(size == 0));
-            },
-        }
-        Ok(())
-    }
+fn op_drop(interpreter: &mut Interpreter) -> exec::Result<()> {
+    interpreter.stack.pop_datum()?;
+    Ok(())
+}
+
+fn is_stack_empty(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let size = interpreter.stack.size();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(size == 0));
+    Ok(())
 }
 
 

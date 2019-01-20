@@ -1,114 +1,76 @@
 
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
-
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ListOp {
-
-    ListPushHead,
-    ListPushTail,
-    ListPopHead,
-    ListPopTail,
-    ListAppend,
-    ListLength,
-    // ListGet,
-    // ListSet,
-    ListSwap,
-    // ListTakeWithHead,
-    // ListTakeWithTail,
-
-    IsList,
-}
-
-impl EnumCommand for ListOp {
-    fn as_str(&self) -> &str {
-        use self::ListOp::*;
-        match self {
-            ListPushHead => "list-push-head",
-            ListPushTail => "list-push-tail",
-            ListPopHead => "list-pop-head",
-            ListPopTail => "list-pop-tail",
-            ListAppend => "list-append",
-            ListLength => "list-length",
-            // ListGet => "list-get",
-            // ListSet => "list-set",
-            ListSwap => "list-swap",
-            // ListTakeWithHead => "list-take/head",
-            // ListTakeWithTail => "list-take/tail",
-            IsList => "list?",
-        }
-    }
-    fn last() -> Self { ListOp::IsList }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
-}
 
 pub fn install(interpreter: &mut Interpreter) {
-    ListOp::install(interpreter);
+    interpreter.define_type_predicate::<List>("list?");
+    interpreter.add_builtin("list-push-head", list_push_head);
+    interpreter.add_builtin("list-push-tail", list_push_tail);
+    interpreter.add_builtin("list-pop-head", list_pop_head);
+    interpreter.add_builtin("list-pop-tail", list_pop_tail);
+    interpreter.add_builtin("list-append", list_append);
+    interpreter.add_builtin("list-length", list_length);
+    interpreter.add_builtin("list-swap", list_swap);
 }
 
-impl Command for ListOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::ListOp::*;
-        match self {
-            ListLength => {
-                let len = { interpreter.stack.ref_at::<List>(0)?.len() };
-                interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(len)));
-            },
-            ListPushHead => {
-                let a = interpreter.stack.pop_datum()?;
-                let l = interpreter.stack.top_mut::<List>()?;
-                l.push_head(a);
-            },
-            ListPushTail => {
-                let a = interpreter.stack.pop_datum()?;
-                let l = interpreter.stack.top_mut::<List>()?;
-                l.push_tail(a);
-            },
-            ListPopHead => {
-                let a = {
-                    let l = interpreter.stack.top_mut::<List>()?;
-                    l.pop_head().ok_or(error::ListEmpty())?
-                };
-                interpreter.stack.push(a);
-            },
-            ListPopTail => {
-                let a = {
-                    let l = interpreter.stack.top_mut::<List>()?;
-                    l.pop_tail().ok_or(error::ListEmpty())?
-                };
-                interpreter.stack.push(a);
-            },
-            ListAppend => {
-                let b = interpreter.stack.pop::<List>()?;
-                let a = interpreter.stack.top_mut::<List>()?;
-                a.append(b);
-            },
-            ListSwap => {
-                let j = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
-                let i = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
-                let lis = interpreter.stack.top_mut::<List>()?;
-                let len = lis.len();
-                if i > len {
-                    Err(error::OutOfRange(0, len as isize - 1, i as isize))?;
-                }
-                if j > len {
-                    Err(error::OutOfRange(0, len as isize - 1, j as isize))?;
-                }
-                lis.swap(i, j);
-            },
-            IsList => {
-                let ok = interpreter.stack.type_predicate::<List>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(ok));
-            },
-        }
-        Ok(())
+fn list_push_head(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let a = interpreter.stack.pop_datum()?;
+    let l = interpreter.stack.top_mut::<List>()?;
+    l.push_head(a);
+    Ok(())
+}
+
+fn list_push_tail(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let a = interpreter.stack.pop_datum()?;
+    let l = interpreter.stack.top_mut::<List>()?;
+    l.push_tail(a);
+    Ok(())
+}
+
+fn list_pop_head(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let a = {
+        let l = interpreter.stack.top_mut::<List>()?;
+        l.pop_head().ok_or(error::ListEmpty())?
+    };
+    interpreter.stack.push(a);
+    Ok(())
+}
+
+fn list_pop_tail(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let a = {
+        let l = interpreter.stack.top_mut::<List>()?;
+        l.pop_tail().ok_or(error::ListEmpty())?
+    };
+    interpreter.stack.push(a);
+    Ok(())
+}
+
+fn list_append(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let b = interpreter.stack.pop::<List>()?;
+    let a = interpreter.stack.top_mut::<List>()?;
+    a.append(b);
+    Ok(())
+}
+
+fn list_length(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let len = { interpreter.stack.ref_at::<List>(0)?.len() };
+    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(Number::exact(len)));
+    Ok(())
+}
+
+fn list_swap(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let j = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
+    let i = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
+    let lis = interpreter.stack.top_mut::<List>()?;
+    let len = lis.len();
+    if i > len {
+        Err(error::OutOfRange(0, len as isize - 1, i as isize))?;
     }
+    if j > len {
+        Err(error::OutOfRange(0, len as isize - 1, j as isize))?;
+    }
+    lis.swap(i, j);
+    Ok(())
 }
-
 

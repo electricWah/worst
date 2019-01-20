@@ -6,16 +6,227 @@ use std::io;
 use std::process;
 use std::rc::Rc;
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 use crate::stdlib::port::{Port, IsPort};
 
 pub fn install(interpreter: &mut Interpreter) {
-    ProcessOp::install(interpreter);
+    interpreter.define_type_predicate::<Command>("command?");
+    interpreter.define_type_predicate::<Process>("process?");
+    interpreter.add_builtin("make-command", make_command);
+    interpreter.add_builtin("command-add-argument", command_add_argument);
+    interpreter.add_builtin("command-cd", command_cd);
+    interpreter.add_builtin("command-clear-env", command_clear_env);
+    interpreter.add_builtin("command-set-env", command_set_env);
+    interpreter.add_builtin("command-stdin-pipe", command_stdin_pipe);
+    interpreter.add_builtin("command-stdin-null", command_stdin_null);
+    interpreter.add_builtin("command-stdin-inherit", command_stdin_inherit);
+    interpreter.add_builtin("command-stdout-pipe", command_stdout_pipe);
+    interpreter.add_builtin("command-stdout-null", command_stdout_null);
+    interpreter.add_builtin("command-stdout-inherit", command_stdout_inherit);
+    interpreter.add_builtin("command-stderr-pipe", command_stderr_pipe);
+    interpreter.add_builtin("command-stderr-null", command_stderr_null);
+    interpreter.add_builtin("command-stderr-inherit", command_stderr_inherit);
+    interpreter.add_builtin("command-spawn", command_spawn);
+    interpreter.add_builtin("process-has-stdin", process_has_stdin);
+    interpreter.add_builtin("process-has-stdout", process_has_stdout);
+    interpreter.add_builtin("process-has-stderr", process_has_stderr);
+    interpreter.add_builtin("process-stdin-port", process_stdin_port);
+    interpreter.add_builtin("process-stdout-port", process_stdout_port);
+    interpreter.add_builtin("process-stderr-port", process_stderr_port);
+    interpreter.add_builtin("process-id", process_id);
+    interpreter.add_builtin("process-kill", process_kill);
+    interpreter.add_builtin("process-running?", is_process_running);
+    interpreter.add_builtin("process-wait", process_wait);
 }
+
+fn make_command(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let s = interpreter.stack.pop::<String>()?;
+    let cmd = Command::new(s);
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(cmd));
+    Ok(())
+}
+
+fn command_add_argument(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let s = interpreter.stack.pop::<String>()?;
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.args.push(s);
+    Ok(())
+}
+
+fn command_cd(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let s = interpreter.stack.pop::<String>()?;
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.cd = Some(s);
+    Ok(())
+}
+
+fn command_clear_env(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.env = HashMap::default();
+    Ok(())
+}
+
+fn command_set_env(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let v = interpreter.stack.pop::<String>()?;
+    let k = interpreter.stack.pop::<String>()?;
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.env.insert(k, v);
+    Ok(())
+}
+
+fn command_stdin_pipe(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stdin = StdioMode::Pipe;
+    Ok(())
+}
+
+fn command_stdin_null(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stdin = StdioMode::Null;
+    Ok(())
+}
+
+fn command_stdin_inherit(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stdin = StdioMode::Inherit;
+    Ok(())
+}
+
+fn command_stdout_pipe(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stdout = StdioMode::Pipe;
+    Ok(())
+}
+
+fn command_stdout_null(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stdout = StdioMode::Null;
+    Ok(())
+}
+
+fn command_stdout_inherit(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stdout = StdioMode::Inherit;
+    Ok(())
+}
+
+fn command_stderr_pipe(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stderr = StdioMode::Pipe;
+    Ok(())
+}
+
+fn command_stderr_null(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stderr = StdioMode::Null;
+    Ok(())
+}
+
+fn command_stderr_inherit(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let cmd = interpreter.stack.top_mut::<Command>()?;
+    cmd.stderr = StdioMode::Inherit;
+    Ok(())
+}
+
+fn command_spawn(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let proc = {
+        let cmd = interpreter.stack.ref_at::<Command>(0)?;
+        Process::new(cmd.compile().spawn()?)
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(proc));
+    Ok(())
+}
+
+fn process_has_stdin(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = {
+        let proc = interpreter.stack.ref_at::<Process>(0)?;
+        proc.0.borrow().stdin.is_some()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    Ok(())
+}
+
+fn process_has_stdout(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = {
+        let proc = interpreter.stack.ref_at::<Process>(0)?;
+        proc.0.borrow().stdout.is_some()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    Ok(())
+}
+
+fn process_has_stderr(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = {
+        let proc = interpreter.stack.ref_at::<Process>(0)?;
+        proc.0.borrow().stderr.is_some()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    Ok(())
+}
+
+fn process_stdin_port(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let p = interpreter.stack.ref_at::<Process>(0)?.stdin()?;
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    Ok(())
+}
+
+fn process_stdout_port(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let p = interpreter.stack.ref_at::<Process>(0)?.stdout()?;
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    Ok(())
+}
+
+fn process_stderr_port(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let p = interpreter.stack.ref_at::<Process>(0)?.stderr()?;
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    Ok(())
+}
+
+fn process_id(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = {
+        let proc = interpreter.stack.ref_at::<Process>(0)?;
+        proc.0.borrow().id()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
+    Ok(())
+}
+
+fn process_kill(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let proc = interpreter.stack.top_mut::<Process>()?;
+    if let Err(e) = proc.0.borrow_mut().kill() {
+        if e.kind() != io::ErrorKind::InvalidInput {
+            Err(e)?;
+        }
+    }
+    Ok(())
+}
+
+fn is_process_running(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = {
+        let proc = interpreter.stack.top_mut::<Process>()?;
+        proc.0.borrow_mut().try_wait()?.is_none()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    Ok(())
+}
+
+fn process_wait(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let proc = interpreter.stack.top_mut::<Process>()?;
+    proc.0.borrow_mut().wait()?;
+    Ok(())
+}
+
 
 #[derive(Eq, PartialEq, Debug, Copy, Clone)]
 enum StdioMode { Inherit, Pipe, Null }
@@ -222,241 +433,19 @@ impl IsPort for ProcessPortHandle {
     fn as_input(&mut self) -> Option<&mut io::Read> {
         match self.port {
             ProcessPort::Stdin => None,
-            ProcessPort::Stdout => Some(self), // self.proc.0.borrow_mut().stdout.as_mut(),
+            ProcessPort::Stdout => Some(self),
             ProcessPort::Stderr => Some(self),
         }
     }
     fn as_output(&mut self) -> Option<&mut io::Write> {
         match self.port {
-            ProcessPort::Stdin => Some(self), // self.proc.0.borrow_mut().stdin.as_mut(),
+            ProcessPort::Stdin => Some(self),
             ProcessPort::Stdout => None,
             ProcessPort::Stderr => None,
         }
     }
     fn port_type(&self) -> Option<Type> {
         Some(self.type_of())
-    }
-}
-
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ProcessOp {
-    MakeCommand,
-    CommandAddArgument,
-    CommandCd,
-
-    CommandClearEnv,
-    CommandSetEnv,
-
-    CommandStdinPipe,
-    CommandStdinNull,
-    CommandStdinInherit,
-    CommandStdoutPipe,
-    CommandStdoutNull,
-    CommandStdoutInherit,
-    CommandStderrPipe,
-    CommandStderrNull,
-    CommandStderrInherit,
-
-    CommandSpawn,
-    IsCommand,
-
-    ProcessHasStdin,
-    ProcessHasStdout,
-    ProcessHasStderr,
-    ProcessStdinPort,
-    ProcessStdoutPort,
-    ProcessStderrPort,
-
-    ProcessId,
-    ProcessKill,
-
-    IsProcessRunning,
-    ProcessWait,
-
-    IsProcess,
-}
-
-impl EnumCommand for ProcessOp {
-    fn as_str(&self) -> &str {
-        use self::ProcessOp::*;
-        match self {
-            MakeCommand => "make-command",
-            CommandAddArgument => "command-add-argument",
-            CommandCd => "command-cd",
-            CommandClearEnv => "command-clear-env",
-            CommandSetEnv => "command-set-env",
-            CommandStdinPipe => "command-stdin-pipe",
-            CommandStdinNull => "command-stdin-null",
-            CommandStdinInherit => "command-stdin-inherit",
-            CommandStdoutPipe => "command-stdout-pipe",
-            CommandStdoutNull => "command-stdout-null",
-            CommandStdoutInherit => "command-stdout-inherit",
-            CommandStderrPipe => "command-stderr-pipe",
-            CommandStderrNull => "command-stderr-null",
-            CommandStderrInherit => "command-stderr-inherit",
-            CommandSpawn => "command-spawn",
-            IsCommand => "command?",
-            ProcessHasStdin => "process-has-stdin",
-            ProcessHasStdout => "process-has-stdout",
-            ProcessHasStderr => "process-has-stderr",
-            ProcessStdinPort => "process-stdin-port",
-            ProcessStdoutPort => "process-stdout-port",
-            ProcessStderrPort => "process-stderr-port",
-            ProcessId => "process-id",
-            ProcessKill => "process-kill",
-            IsProcessRunning => "process-running?",
-            ProcessWait => "process-wait",
-            IsProcess => "process?",
-        }
-    }
-    fn last() -> Self { ProcessOp::IsProcess }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
-}
-
-impl command::Command for ProcessOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        debug!("ProcessOp: {:?}", self);
-        use self::ProcessOp::*;
-        match self {
-            MakeCommand => {
-                let s = interpreter.stack.pop::<String>()?;
-                let cmd = Command::new(s);
-                interpreter.stack.push(Datum::build().with_source(source).ok(cmd));
-            },
-            CommandAddArgument => {
-                let s = interpreter.stack.pop::<String>()?;
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.args.push(s);
-            },
-            CommandCd => {
-                let s = interpreter.stack.pop::<String>()?;
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.cd = Some(s);
-            },
-            CommandClearEnv => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.env = HashMap::default();
-            },
-            CommandSetEnv => {
-                let v = interpreter.stack.pop::<String>()?;
-                let k = interpreter.stack.pop::<String>()?;
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.env.insert(k, v);
-            },
-            CommandStdinPipe => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stdin = StdioMode::Pipe;
-            },
-            CommandStdinNull => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stdin = StdioMode::Null;
-            },
-            CommandStdinInherit => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stdin = StdioMode::Inherit;
-            },
-            CommandStdoutPipe => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stdout = StdioMode::Pipe;
-            },
-            CommandStdoutNull => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stdout = StdioMode::Null;
-            },
-            CommandStdoutInherit => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stdout = StdioMode::Inherit;
-            },
-            CommandStderrPipe => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stderr = StdioMode::Pipe;
-            },
-            CommandStderrNull => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stderr = StdioMode::Null;
-            },
-            CommandStderrInherit => {
-                let cmd = interpreter.stack.top_mut::<Command>()?;
-                cmd.stderr = StdioMode::Inherit;
-            },
-            CommandSpawn => {
-                let proc = {
-                    let cmd = interpreter.stack.ref_at::<Command>(0)?;
-                    Process::new(cmd.compile().spawn()?)
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(proc));
-            },
-            IsCommand => {
-                let r = interpreter.stack.type_predicate::<Command>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            ProcessHasStdin => {
-                let r = {
-                    let proc = interpreter.stack.ref_at::<Process>(0)?;
-                    proc.0.borrow().stdin.is_some()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            ProcessHasStdout => {
-                let r = {
-                    let proc = interpreter.stack.ref_at::<Process>(0)?;
-                    proc.0.borrow().stdout.is_some()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            ProcessHasStderr => {
-                let r = {
-                    let proc = interpreter.stack.ref_at::<Process>(0)?;
-                    proc.0.borrow().stderr.is_some()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            ProcessStdinPort => {
-                let p = interpreter.stack.ref_at::<Process>(0)?.stdin()?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(p));
-            },
-            ProcessStdoutPort => {
-                let p = interpreter.stack.ref_at::<Process>(0)?.stdout()?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(p));
-            },
-            ProcessStderrPort => {
-                let p = interpreter.stack.ref_at::<Process>(0)?.stderr()?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(p));
-            },
-            ProcessId => {
-                let r = {
-                    let proc = interpreter.stack.ref_at::<Process>(0)?;
-                    proc.0.borrow().id()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
-            },
-            ProcessKill => {
-                let proc = interpreter.stack.top_mut::<Process>()?;
-                if let Err(e) = proc.0.borrow_mut().kill() {
-                    if e.kind() != io::ErrorKind::InvalidInput {
-                        Err(e)?;
-                    }
-                }
-            },
-            IsProcessRunning => {
-                let r = {
-                    let proc = interpreter.stack.top_mut::<Process>()?;
-                    proc.0.borrow_mut().try_wait()?.is_none()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            ProcessWait => {
-                let proc = interpreter.stack.top_mut::<Process>()?;
-                proc.0.borrow_mut().wait()?;
-            },
-            IsProcess => {
-                let r = interpreter.stack.type_predicate::<Process>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-        }
-        Ok(())
     }
 }
 

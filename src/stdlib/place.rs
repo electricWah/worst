@@ -5,11 +5,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 
 #[derive(Clone, Debug)]
 struct Place(Rc<RefCell<Datum>>);
@@ -55,57 +52,27 @@ impl ValueHash for Place {}
 impl ValueShow for Place {}
 impl Value for Place {}
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum PlaceOp {
-    MakePlace,
-    PlaceSwap,
-    IsPlace,
-}
-
-impl EnumCommand for PlaceOp {
-    fn as_str(&self) -> &str {
-        use self::PlaceOp::*;
-        match self {
-            MakePlace => "make-place",
-            PlaceSwap => "place-swap",
-            IsPlace => "place?",
-        }
-    }
-    fn last() -> Self { PlaceOp::IsPlace }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
-}
-
 pub fn install(interpreter: &mut Interpreter) {
-    PlaceOp::install(interpreter);
+    interpreter.define_type_predicate::<Place>("place?");
+    interpreter.add_builtin("make-place", make_place);
+    interpreter.add_builtin("place-swap", place_swap);
 }
 
-impl Command for PlaceOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::PlaceOp::*;
-        match self {
-            MakePlace => {
-                let d = interpreter.stack.pop_datum()?;
-                let place = Place::new(d);
-                interpreter.stack.push(Datum::build().with_source(source).ok(place));
-            },
-            PlaceSwap => {
-                let d = interpreter.stack.pop_datum()?;
-                let d = {
-                    let place = interpreter.stack.top_mut::<Place>()?;
-                    place.swap(d)
-                };
-                interpreter.stack.push(d);
-            },
-            IsPlace => {
-                let ok = interpreter.stack.type_predicate::<Place>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(ok));
-            },
-        }
-        Ok(())
-    }
+fn make_place(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let d = interpreter.stack.pop_datum()?;
+    let place = Place::new(d);
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(place));
+    Ok(())
 }
 
-
+fn place_swap(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let d = interpreter.stack.pop_datum()?;
+    let d = {
+        let place = interpreter.stack.top_mut::<Place>()?;
+        place.swap(d)
+    };
+    interpreter.stack.push(d);
+    Ok(())
+}
 

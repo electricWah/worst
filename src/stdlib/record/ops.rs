@@ -1,111 +1,86 @@
 
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 
 use super::data::*;
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum RecordOp {
-    // type-name slot-count -> record-type
-    MakeRecordType,
-    RecordTypeName,
-
-    MakeRecord,
-    RecordSlotCount,
-    RecordSlotAdd,
-    RecordSlotSwap,
-    RecordIntoList,
-    GetRecordType,
-    IsRecord,
-
-    IsRecordType,
+pub fn install(interpreter: &mut Interpreter) {
+    interpreter.define_type_predicate::<Record>("record?");
+    interpreter.define_type_predicate::<RecordType>("record-type?");
+    interpreter.add_builtin("make-record-type", make_record_type);
+    interpreter.add_builtin("record-type-name", record_type_name);
+    interpreter.add_builtin("make-record", make_record);
+    interpreter.add_builtin("record-slot-count", record_slot_count);
+    interpreter.add_builtin("record-slot-add", record_slot_add);
+    interpreter.add_builtin("record-slot-swap", record_slot_swap);
+    interpreter.add_builtin("record->list", record_into_list);
+    interpreter.add_builtin("record-type", record_type);
 }
 
-impl EnumCommand for RecordOp {
-    fn as_str(&self) -> &str {
-        use self::RecordOp::*;
-        match self {
-            MakeRecordType => "make-record-type",
-            RecordTypeName => "record-type-name",
-            MakeRecord => "make-record",
-            RecordSlotCount => "record-slot-count",
-            RecordSlotAdd => "record-slot-add",
-            RecordSlotSwap => "record-slot-swap",
-            RecordIntoList => "record->list",
-            GetRecordType => "record-type",
-            IsRecord => "record?",
-            IsRecordType => "record-type?",
-        }
-    }
-    fn last() -> Self { RecordOp::IsRecordType }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+fn make_record_type(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<Symbol>()?;
+    let t = RecordType::new(name.to_string());
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(t));
+    Ok(())
 }
 
-impl Command for RecordOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::RecordOp::*;
-        match self {
-            MakeRecordType => {
-                let name = interpreter.stack.pop::<Symbol>()?;
-                let t = RecordType::new(name.to_string());
-                interpreter.stack.push(Datum::build().with_source(source).ok(t));
-            },
-            RecordTypeName => {
-                let name = {
-                    let ty = interpreter.stack.ref_at::<RecordType>(0)?;
-                    ty.name().to_string()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(name));
-            },
-            MakeRecord => {
-                let ty = interpreter.stack.pop::<RecordType>()?;
-                let rec = Record::new(ty);
-                interpreter.stack.push(Datum::build().with_source(source).ok(rec));
-            },
-            RecordSlotCount => {
-                let r = interpreter.stack.ref_at::<Record>(0)?.slot_count();
-                interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
-            },
-            RecordSlotAdd => {
-                let d = interpreter.stack.pop_datum()?;
-                let rec = interpreter.stack.top_mut::<Record>()?;
-                rec.slot_add(d);
-            },
-            RecordSlotSwap => {
-                let idx = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
-                let d = {
-                    let d = interpreter.stack.pop_datum()?;
-                    let rec = interpreter.stack.top_mut::<Record>()?;
-                    rec.slot_swap(idx, d)?
-                };
-                interpreter.stack.push(d);
-            },
-            RecordIntoList => {
-                let slots = interpreter.stack.pop::<Record>()?.deconstruct().1;
-                let slots: Vec<Datum> = slots.into_iter().collect();
-                interpreter.stack.push(Datum::build().with_source(source).ok(List::from(slots)));
-            },
-            GetRecordType => {
-                let t = interpreter.stack.ref_at::<Record>(0)?.type_ref().clone();
-                interpreter.stack.push(Datum::build().with_source(source).ok(t));
-            },
-            IsRecord => {
-                let r = interpreter.stack.type_predicate::<Record>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            IsRecordType => {
-                let r = interpreter.stack.type_predicate::<RecordType>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-        }
-        Ok(())
-    }
+fn record_type_name(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = {
+        let ty = interpreter.stack.ref_at::<RecordType>(0)?;
+        ty.name().to_string()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(name));
+    Ok(())
 }
 
+fn make_record(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let ty = interpreter.stack.pop::<RecordType>()?;
+    let rec = Record::new(ty);
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(rec));
+    Ok(())
+}
+
+fn record_slot_count(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = interpreter.stack.ref_at::<Record>(0)?.slot_count();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
+    Ok(())
+}
+
+fn record_slot_add(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let d = interpreter.stack.pop_datum()?;
+    let rec = interpreter.stack.top_mut::<Record>()?;
+    rec.slot_add(d);
+    Ok(())
+}
+
+fn record_slot_swap(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let idx = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
+    let d = {
+        let d = interpreter.stack.pop_datum()?;
+        let rec = interpreter.stack.top_mut::<Record>()?;
+        rec.slot_swap(idx, d)?
+    };
+    interpreter.stack.push(d);
+    Ok(())
+}
+
+fn record_into_list(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let slots = interpreter.stack.pop::<Record>()?.deconstruct().1;
+    let slots: Vec<Datum> = slots.into_iter().collect();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(List::from(slots)));
+    Ok(())
+}
+
+fn record_type(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let t = interpreter.stack.ref_at::<Record>(0)?.type_ref().clone();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(t));
+    Ok(())
+}
 

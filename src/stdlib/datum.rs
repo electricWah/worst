@@ -1,122 +1,74 @@
 
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
 use crate::interpreter::exec::Failure;
-use crate::stdlib::enumcommand::*;
-
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum DatumOp {
-    // Meta
-    TypeOf,
-    HasSource,
-
-    IsSymbol,
-    IsChar,
-
-    DatumDescribeToString,
-
-    IsFailure,
-    FailureMessage,
-
-    // Comparison
-    Equal, // Inner values are equal
-    Identical, // Datums are fully equal
-    // Gt, Gte,
-}
-
-impl EnumCommand for DatumOp {
-    fn as_str(&self) -> &str {
-        use self::DatumOp::*;
-        match self {
-            TypeOf => "type-of",
-            HasSource => "has-source?",
-            IsSymbol => "symbol?",
-            IsChar => "char?",
-            DatumDescribeToString => "datum-describe->string",
-            IsFailure => "failure?",
-            FailureMessage => "failure-message",
-            Equal => "equal?",
-            Identical => "identical?",
-        }
-    }
-    fn last() -> Self { DatumOp::Identical }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
-}
 
 pub fn install(interpreter: &mut Interpreter) {
-    DatumOp::install(interpreter)
+    interpreter.define_type_predicate::<Symbol>("symbol?");
+    interpreter.define_type_predicate::<char>("char?");
+    interpreter.define_type_predicate::<Failure>("failure?");
+    interpreter.add_builtin("type-of", type_of);
+    interpreter.add_builtin("has-source?", has_source);
+    interpreter.add_builtin("datum-describe->string", datum_describe_into_string);
+    interpreter.add_builtin("failure-message", failure_message);
+    interpreter.add_builtin("equal?", is_equal);
+    interpreter.add_builtin("identical?", is_identical);
 }
 
-impl Command for DatumOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::DatumOp::*;
-        match self {
-            TypeOf => {
-                let s = format!("{}", interpreter.stack.ref_datum(0)?.type_of());
-                interpreter.stack.push(Datum::build().with_source(source).symbol(s));
-            },
-
-            HasSource => {
-                let res = {
-                    let d = interpreter.stack.ref_datum(0)?;
-                    d.source().is_some()
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(res));
-            },
-
-            IsSymbol => {
-                let r = interpreter.stack.type_predicate::<Symbol>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-
-            IsChar => {
-                let r = interpreter.stack.type_predicate::<char>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-
-            DatumDescribeToString => {
-                let res = {
-                    let d = interpreter.stack.ref_datum(0)?;
-                    format!("{}", d.describe())
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(res));
-            },
-
-            IsFailure => {
-                let r = interpreter.stack.type_predicate::<Failure>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-
-            FailureMessage => {
-                let msg = interpreter.stack.ref_at::<Failure>(0)?.message();
-                interpreter.stack.push(Datum::build().with_source(source).ok(msg));
-            },
-
-            Equal => {
-                let res = {
-                    let a = interpreter.stack.ref_datum(0)?;
-                    let b = interpreter.stack.ref_datum(1)?;
-                    a.value_equal(&b)
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(res));
-            },
-            Identical => {
-                let res = {
-                    let a = interpreter.stack.ref_datum(0)?;
-                    let b = interpreter.stack.ref_datum(1)?;
-                    a == b
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(res));
-            },
-
-        }
-        Ok(())
-    }
+fn type_of(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let s = format!("{}", interpreter.stack.ref_datum(0)?.type_of());
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).symbol(s));
+    Ok(())
 }
 
+fn has_source(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let res = {
+        let d = interpreter.stack.ref_datum(0)?;
+        d.source().is_some()
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    Ok(())
+}
+
+fn datum_describe_into_string(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let res = {
+        let d = interpreter.stack.ref_datum(0)?;
+        format!("{}", d.describe())
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    Ok(())
+}
+
+fn failure_message(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let msg = interpreter.stack.ref_at::<Failure>(0)?.message();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(msg));
+    Ok(())
+}
+
+fn is_equal(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let res = {
+        let a = interpreter.stack.ref_datum(0)?;
+        let b = interpreter.stack.ref_datum(1)?;
+        a.value_equal(&b)
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    Ok(())
+}
+
+fn is_identical(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let res = {
+        let a = interpreter.stack.ref_datum(0)?;
+        let b = interpreter.stack.ref_datum(1)?;
+        a == b
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    Ok(())
+}
 

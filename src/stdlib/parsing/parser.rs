@@ -3,142 +3,102 @@ use crate::parser::*;
 use crate::data::*;
 use crate::data::error;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 use crate::stdlib::combo::ComboValue;
 
 pub fn install(interpreter: &mut Interpreter) {
-    ParseOp::install(interpreter);
+    interpreter.define_type_predicate::<ReaderArm>("parser-rule?");
+    interpreter.add_builtin("parser-new-rule", parser_new_rule);
+    interpreter.add_builtin("parser-accept-input", parser_accept_input);
+    interpreter.add_builtin("parser-accept-state", parser_accept_state);
+    interpreter.add_builtin("parser-set-state", parser_set_state);
+    interpreter.add_builtin("parser-start-token", parser_start_token);
+    interpreter.add_builtin("parser-set-token-tag", parser_set_token_tag);
+    interpreter.add_builtin("parser-set-token-type", parser_set_token_type);
+    interpreter.add_builtin("parser-append-token", parser_append_token);
+    interpreter.add_builtin("parser-finish-token", parser_finish_token);
+    interpreter.add_builtin("parser-prepend-datum", parser_prepend_datum);
+    interpreter.add_builtin("parser-save-rule", parser_save_rule);
+    interpreter.add_builtin("parser-delete-rule", parser_delete_rule);
 }
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ParseOp {
-    // New rule with name and accept rules
-    ParserNewRule,
-    IsParserRule,
-    // Instructions mirroring parser::ReaderCommand
-    ParserAcceptInput,
-    ParserAcceptState,
-    ParserSetState,
-    ParserStartToken,
-    ParserSetTokenTag,
-    ParserSetTokenType,
-    ParserAppendToken,
-    ParserFinishToken,
-    ParserPrependDatum,
-
-    // CurrentSourcePosition,
-    // ParserSetFile,
-
-    // Put the rule in
-    ParserSaveRule,
-    // leave this at the end
-    ParserDeleteRule,
+fn parser_new_rule(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<String>()?;
+    let arm = ReaderArm::new(name);
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(arm));
+    Ok(())
 }
 
-impl EnumCommand for ParseOp {
-    fn as_str(&self) -> &str {
-        use self::ParseOp::*;
-        match self {
-            ParserNewRule => "parser-new-rule",
-            IsParserRule => "parser-rule?",
-            ParserAcceptInput => "parser-accept-input",
-            ParserAcceptState => "parser-accept-state",
-            ParserSetState => "parser-set-state",
-            ParserStartToken => "parser-start-token",
-            ParserSetTokenTag => "parser-set-token-tag",
-            ParserSetTokenType => "parser-set-token-type",
-            ParserAppendToken => "parser-append-token",
-            ParserFinishToken => "parser-finish-token",
-            ParserPrependDatum => "parser-prepend-datum",
-            ParserSaveRule => "parser-save-rule",
-            ParserDeleteRule => "parser-delete-rule",
-        }
-    }
-    fn last() -> Self { ParseOp::ParserDeleteRule }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+fn parser_accept_input(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let class = interpreter.stack.pop::<ComboValue>()?.into_combo::<CharClass>()?;
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.set_accept_input(class);
+    Ok(())
 }
 
-impl Command for ParseOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        debug!("ParseOp: {:?}", self);
-        use self::ParseOp::*;
-        match self {
-            &ParserNewRule => {
-                let name = interpreter.stack.pop::<String>()?;
-                let arm = ReaderArm::new(name);
-                interpreter.stack.push(Datum::build().with_source(source).ok(arm));
-            },
-            &IsParserRule => {
-                let r = interpreter.stack.type_predicate::<ReaderArm>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
+fn parser_accept_state(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let combo = interpreter.stack.pop::<ComboValue>()?.into_combo::<Symbol>()?;
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.set_accept_state(combo);
+    Ok(())
+}
 
-            &ParserAcceptInput => {
-                let class = interpreter.stack.pop::<ComboValue>()?.into_combo::<CharClass>()?;
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.set_accept_input(class);
-            },
-            &ParserAcceptState => {
-                let combo = interpreter.stack.pop::<ComboValue>()?.into_combo::<Symbol>()?;
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.set_accept_state(combo);
-            },
+fn parser_set_state(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let state = interpreter.stack.pop::<Symbol>()?;
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::set_state(state));
+    Ok(())
+}
 
-            &ParserSetState => {
-                let state = interpreter.stack.pop::<Symbol>()?;
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::set_state(state));
-            },
+fn parser_start_token(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::start_token());
+    Ok(())
+}
 
-            &ParserStartToken => {
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::start_token());
-            },
+fn parser_set_token_tag(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let tag = interpreter.stack.pop::<String>()?;
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::set_tag(tag));
+    Ok(())
+}
 
-            &ParserSetTokenTag => {
-                let tag = interpreter.stack.pop::<String>()?;
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::set_tag(tag));
-            },
+fn parser_set_token_type(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let state = interpreter.stack.pop::<Symbol>()?;
+    let ty = TokenType::from_symbol(state)?;
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::set_type(ty));
+    Ok(())
+}
 
-            &ParserSetTokenType => {
-                let state = interpreter.stack.pop::<Symbol>()?;
-                let ty = TokenType::from_symbol(state)?;
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::set_type(ty));
-            },
+fn parser_append_token(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::append_token());
+    Ok(())
+}
 
-            &ParserAppendToken => {
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::append_token());
-            },
+fn parser_finish_token(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::finish_token());
+    Ok(())
+}
 
-            &ParserFinishToken => {
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::finish_token());
-            },
+fn parser_prepend_datum(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let d = interpreter.stack.pop_datum()?;
+    let arm = interpreter.stack.top_mut::<ReaderArm>()?;
+    arm.push_run(ReaderInstruction::prepend_datum(d));
+    Ok(())
+}
 
-            &ParserPrependDatum => {
-                let d = interpreter.stack.pop_datum()?;
-                let arm = interpreter.stack.top_mut::<ReaderArm>()?;
-                arm.push_run(ReaderInstruction::prepend_datum(d));
-            },
+fn parser_save_rule(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let arm = interpreter.stack.pop::<ReaderArm>()?;
+    interpreter.reader_mut().add_rule(arm);
+    Ok(())
+}
 
-            &ParserSaveRule => {
-                let arm = interpreter.stack.pop::<ReaderArm>()?;
-                interpreter.reader_mut().add_rule(arm);
-            },
-
-            // &ParseOp::DeleteRule,
-
-            _ => return Err(error::NotImplemented().into()),
-        }
-        Ok(())
-    }
+fn parser_delete_rule(interpreter: &mut Interpreter) -> exec::Result<()> {
+    Err(error::NotImplemented().into())
 }
 
 impl StaticType for ReaderArm {

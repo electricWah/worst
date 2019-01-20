@@ -1,74 +1,50 @@
 
 use std::env;
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 
 use crate::stdlib::hashtable::HashTable;
 
 pub fn install(interpreter: &mut Interpreter) {
-    EnvOp::install(interpreter);
+    interpreter.add_builtin("command-line", command_line);
+    interpreter.add_builtin("get-environment-variable", get_environment_variable);
+    interpreter.add_builtin("set-environment-variable", set_environment_variable);
+    interpreter.add_builtin("get-environment-variables", get_environment_variables);
 }
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum EnvOp {
-    CommandLine,
-    GetEnvironmentVariable,
-    SetEnvironmentVariable,
-    GetEnvironmentVariables,
+fn command_line(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(List::from(args)));
+    Ok(())
 }
 
-impl EnumCommand for EnvOp {
-    fn as_str(&self) -> &str {
-        use self::EnvOp::*;
-        match self {
-            CommandLine => "command-line",
-            GetEnvironmentVariable => "get-environment-variable",
-            SetEnvironmentVariable => "set-environment-variable",
-            GetEnvironmentVariables => "get-environment-variables",
-        }
+fn get_environment_variable(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let var = interpreter.stack.pop::<String>()?;
+    let res = env::var(var).ok();
+    let source = interpreter.current_source();
+    match res {
+        Some(r) => interpreter.stack.push(Datum::build().with_source(source).ok(r)),
+        None => interpreter.stack.push(Datum::build().with_source(source).ok(false)),
     }
-    fn last() -> Self { EnvOp::GetEnvironmentVariables }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+    Ok(())
 }
 
-impl Command for EnvOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        debug!("EnvOp: {:?}", self);
-        use self::EnvOp::*;
-        match self {
-            CommandLine => {
-                let args: Vec<String> = env::args().collect();
-                interpreter.stack.push(Datum::build().with_source(source).ok(List::from(args)));
-            },
+fn set_environment_variable(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let v = interpreter.stack.pop::<String>()?;
+    let k = interpreter.stack.pop::<String>()?;
+    env::set_var(k, v);
+    Ok(())
+}
 
-            GetEnvironmentVariable => {
-                let var = interpreter.stack.pop::<String>()?;
-                let res = env::var(var).ok();
-                match res {
-                    Some(r) => interpreter.stack.push(Datum::build().with_source(source).ok(r)),
-                    None => interpreter.stack.push(Datum::build().with_source(source).ok(false)),
-                }
-            },
-            SetEnvironmentVariable => {
-                let v = interpreter.stack.pop::<String>()?;
-                let k = interpreter.stack.pop::<String>()?;
-                env::set_var(k, v);
-            },
-            GetEnvironmentVariables => {
-                let mut tbl = HashTable::default();
-                env::vars().for_each(
-                    |(k, v)| tbl.set(Datum::build().ok(k),
-                                     Datum::build().ok(v)));
-                interpreter.stack.push(Datum::build().with_source(source).ok(tbl));
-            },
-        }
-        Ok(())
-    }
+fn get_environment_variables(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let mut tbl = HashTable::default();
+    env::vars().for_each(
+        |(k, v)| tbl.set(Datum::build().ok(k),
+        Datum::build().ok(v)));
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(tbl));
+    Ok(())
 }
 

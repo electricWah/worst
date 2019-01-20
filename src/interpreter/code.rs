@@ -1,8 +1,8 @@
 
 use std::rc::Rc;
 use crate::data::*;
-use crate::interpreter::command::*;
 use crate::parser::*;
+use crate::interpreter::builtin::BuiltinRef;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Definition {
@@ -33,8 +33,7 @@ impl Definition {
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
-    Command(Rc<Command>),
-    // Builtin(Builtin),
+    Builtin(BuiltinRef),
     Definition(Rc<Definition>),
     // Reference(String),
     // PushLiteral(Datum),
@@ -44,7 +43,7 @@ impl PartialEq for Instruction {
     fn eq(&self, other: &Self) -> bool {
         use self::Instruction::*;
         match (self, other) {
-            (Command(a), Command(b)) => Rc::ptr_eq(a, b),
+            (Builtin(a), Builtin(b)) => a == b,
             (Definition(a), Definition(b)) => a == b,
             _ => false,
         }
@@ -82,20 +81,20 @@ impl Code {
     pub fn source(&self) -> Option<Source> {
         match self.value {
             Instruction::Definition(ref d) => d.source().cloned(),
-            Instruction::Command(_) => None,
+            Instruction::Builtin(_) => None,
         }
-    }
-}
-
-impl<T: Command + 'static> From<T> for Code {
-    fn from(c: T) -> Self {
-        Code::new(Instruction::Command(Rc::new(c)))
     }
 }
 
 impl From<Rc<Definition>> for Code {
     fn from(d: Rc<Definition>) -> Self {
         Code::new(Instruction::Definition(d))
+    }
+}
+
+impl From<BuiltinRef> for Code {
+    fn from(b: BuiltinRef) -> Self {
+        Code::new(Instruction::Builtin(b))
     }
 }
 

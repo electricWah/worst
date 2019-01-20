@@ -1,9 +1,9 @@
 
 pub mod code;
 mod context;
-pub mod command;
 pub mod exec;
 mod stack;
+pub mod builtin;
 
 use std::rc::Rc;
 use std::fmt;
@@ -19,6 +19,8 @@ pub struct Interpreter {
     pub reader: Reader,
     pub stack: Stack,
     pub context: Context,
+    builtins: builtin::BuiltinLookup,
+    evaling_source: Option<Source>, // for builtins
     gensym: usize,
     quoting: bool,
 }
@@ -88,6 +90,12 @@ impl ValueEq for Exception {}
 impl ValueHash for Exception {}
 impl Value for Exception {}
 
+fn type_predicate<T: IsType + Value>(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let r = interpreter.stack.type_predicate::<T>(0)?;
+    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(r));
+    Ok(())
+}
+
 impl Interpreter {
     pub fn new(reader: Reader) -> Self {
         let parser = Parser::new(Source::new(), &reader);
@@ -96,6 +104,8 @@ impl Interpreter {
             stack: Default::default(),
             context: Context::default().with_parser(parser),
             gensym: Default::default(),
+            builtins: Default::default(),
+            evaling_source: None,
             quoting: false,
         }
     }
@@ -123,6 +133,25 @@ impl Interpreter {
 
     pub fn define<S: Into<Symbol>, C: Into<Code>>(&mut self, name: S, code: C) {
         self.context.define(name, code);
+    }
+
+    pub fn define_type_predicate<T: IsType + Value>(&mut self, name: &str) {
+        self.add_builtin(name, type_predicate::<T>);
+    }
+
+    pub fn add_builtin<S: Into<Symbol>, B: 'static + builtin::BuiltinFn>(&mut self, name: S, builtin: B) {
+        let name = name.into();
+        let builtin_ref = self.builtins.add(name.clone(), builtin);
+        self.context.define(name, builtin_ref);
+    }
+
+    pub fn evaluate<A: builtin::BuiltinFnArgs, R: builtin::BuiltinFnRets, F: FnMut(A) -> exec::Result<R>>(&mut self, mut f: F) -> exec::Result<()> {
+        use self::builtin::BuiltinFnRet;
+        let args = A::extract(self)?;
+        for r in f(args)?.into_datums().into_iter() {
+            self.stack.push(r.into_datum());
+        }
+        Ok(())
     }
 
     pub fn clear(&mut self) {
@@ -166,14 +195,21 @@ impl Interpreter {
 
     pub fn eval_code(&mut self, code: &Code, source: Option<Source>) -> exec::Result<()> {
         match code.value() {
-            Instruction::Command(ref cmd) => {
-                cmd.run(self, source)?;
+            Instruction::Builtin(ref b) => {
+                let mut b = self.builtins.lookup(b);
+                self.evaling_source = source;
+                b.call(self)?;
+                // b.borrow().call(self, source)?;
             },
             Instruction::Definition(ref def) => {
                 self.context.push_def(source, def);
             },
         }
         Ok(())
+    }
+
+    pub fn current_source(&self) -> Option<Source> {
+        self.evaling_source.clone()
     }
 
     pub fn resolve_symbol(&self, r: &Symbol) -> Option<Code> {

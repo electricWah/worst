@@ -1,5 +1,5 @@
 
-pub mod enumcommand;
+// pub mod enumcommand;
 
 pub mod bool;
 pub mod combo;

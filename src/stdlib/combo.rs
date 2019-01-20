@@ -1,71 +1,45 @@
 
 use crate::combo::*;
-use crate::parser::*;
 use crate::data::*;
 use crate::interpreter::Interpreter;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
-use crate::stdlib::enumcommand::*;
 
 pub fn install(interpreter: &mut Interpreter) {
-    ComboOp::install(interpreter);
+    interpreter.define_type_predicate::<ComboValue>("combo?");
+    interpreter.add_builtin("combo-nothing", combo_nothing);
+    interpreter.add_builtin("combo-anything", combo_anything);
+    interpreter.add_builtin("combo-just", combo_just);
+    interpreter.add_builtin("combo-negate", combo_negate);
+    interpreter.add_builtin("combo-either", combo_either);
 }
 
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ComboOp {
-    ComboNothing,
-    ComboAnything,
-    ComboJust,
-    ComboNegate,
-    ComboEither,
-    IsCombo,
+fn combo_nothing(interpreter: &mut Interpreter) -> exec::Result<()> {
+    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(ComboValue::nothing()));
+    Ok(())
 }
 
-impl EnumCommand for ComboOp {
-    fn as_str(&self) -> &str {
-        use self::ComboOp::*;
-        match self {
-            ComboNothing => "combo-nothing",
-            ComboAnything => "combo-anything",
-            ComboJust => "combo-just",
-            ComboNegate => "combo-negate",
-            ComboEither => "combo-either",
-            IsCombo => "combo?",
-        }
-    }
-    fn last() -> Self { ComboOp::IsCombo }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
+fn combo_anything(interpreter: &mut Interpreter) -> exec::Result<()> {
+    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(ComboValue::anything()));
+    Ok(())
 }
 
-impl Command for ComboOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        use self::ComboOp::*;
-        debug!("ComboOp: {:?}", self);
-        match self {
-            &ComboNothing => interpreter.stack.push(Datum::build().with_source(source).ok(ComboValue::nothing())),
-            &ComboAnything => interpreter.stack.push(Datum::build().with_source(source).ok(ComboValue::anything())),
-            &ComboJust => {
-                let chr = interpreter.stack.pop_datum()?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(ComboValue::just(chr)));
-            },
-            &ComboNegate => {
-                let c = interpreter.stack.top_mut::<ComboValue>()?;
-                c.negate();
-            },
-            &ComboEither => {
-                let either = interpreter.stack.pop::<ComboValue>()?;
-                let combo = interpreter.stack.top_mut::<ComboValue>()?;
-                combo.either(either)?;
-            },
-            &IsCombo => {
-                let r = interpreter.stack.type_predicate::<ComboValue>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-        }
-        Ok(())
-    }
+fn combo_just(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let chr = interpreter.stack.pop_datum()?;
+    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(ComboValue::just(chr)));
+    Ok(())
+}
+
+fn combo_negate(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let c = interpreter.stack.top_mut::<ComboValue>()?;
+    c.negate();
+    Ok(())
+}
+
+fn combo_either(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let either = interpreter.stack.pop::<ComboValue>()?;
+    let combo = interpreter.stack.top_mut::<ComboValue>()?;
+    combo.either(either)?;
+    Ok(())
 }
 
 #[derive(Eq, PartialEq, Debug, Clone)]

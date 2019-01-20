@@ -10,6 +10,8 @@ extern crate log;
 
 extern crate internship;
 
+extern crate objekt;
+
 pub mod combo;
 
 pub mod data;

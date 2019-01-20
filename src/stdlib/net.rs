@@ -5,16 +5,74 @@ use std::cell::RefCell;
 use std::net;
 use std::net::SocketAddr;
 use crate::data::*;
-use crate::parser::Source;
-use crate::interpreter::command::*;
 use crate::interpreter::exec;
 use crate::interpreter::exec::Failure;
 use crate::interpreter::Interpreter;
-use crate::stdlib::enumcommand::*;
 use crate::stdlib::vector::U8Vector;
 
 pub fn install(interpreter: &mut Interpreter) {
-    NetOp::install(interpreter);
+    interpreter.define_type_predicate::<UdpSocket>("udp-socket?");
+    interpreter.define_type_predicate::<SocketAddr>("socket-addr??");
+    interpreter.add_builtin("udp-socket-bind", udp_socket_bind);
+    interpreter.add_builtin("udp-socket-recv-from", udp_socket_recv_from);
+    interpreter.add_builtin("udp-socket-send-to", udp_socket_send_to);
+    interpreter.add_builtin("udp-socket-local-addr", udp_socket_local_addr);
+
+    interpreter.add_builtin("string->socket-addr", string_into_socket_addr);
+}
+
+fn udp_socket_bind(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let source = interpreter.current_source();
+    let addr = interpreter.stack.pop::<SocketAddr>()?;
+    let sock = net::UdpSocket::bind(addr).map(UdpSocket::from);
+    interpreter.stack.push_res(sock, source);
+    Ok(())
+}
+
+fn udp_socket_recv_from(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let (mut buf, bufsrc) = interpreter.stack.pop_source::<U8Vector>()?;
+    let lenaddr = {
+        let sock = interpreter.stack.ref_at::<UdpSocket>(0)?;
+        sock.inner().recv_from(&mut buf.inner_mut())
+    };
+
+    interpreter.stack.push(Datum::build().with_source(bufsrc).ok(buf));
+    match lenaddr {
+        Ok((len, addr)) => {
+            interpreter.stack.push(Datum::new(Number::exact(len)));
+            interpreter.stack.push(Datum::new(addr));
+        },
+        Err(e) => {
+            interpreter.stack.push(Datum::new(Failure::from(e)));
+        },
+    }
+    Ok(())
+}
+
+fn udp_socket_send_to(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let addr = interpreter.stack.ref_at::<SocketAddr>(0)?;
+    let buf = interpreter.stack.ref_at::<U8Vector>(1)?;
+    let sock = interpreter.stack.ref_at::<UdpSocket>(2)?;
+    sock.inner().send_to(&buf.inner().as_ref(), addr)?;
+    Ok(())
+}
+
+fn udp_socket_local_addr(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let addr = {
+        let sock = interpreter.stack.ref_at::<UdpSocket>(0)?;
+        sock.inner().local_addr()?
+    };
+    let source = interpreter.current_source();
+    interpreter.stack.push(Datum::build().with_source(source).ok(addr));
+    Ok(())
+}
+
+fn string_into_socket_addr(interpreter: &mut Interpreter) -> exec::Result<()> {
+    use std::str::FromStr;
+    let a = SocketAddr::from_str(interpreter.stack.pop::<String>()?.as_str());
+    let source = interpreter.current_source();
+    interpreter.stack.push_res(a, source);
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -44,101 +102,6 @@ impl ValueShow for UdpSocket {}
 impl ValueEq for UdpSocket {}
 impl ValueHash for UdpSocket {}
 impl Value for UdpSocket {}
-
-#[allow(dead_code)]
-#[repr(usize)]
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum NetOp {
-    UdpSocketBind,
-    UdpSocketRecvFrom,
-    // UdpSocketPeekFrom,
-    UdpSocketSendTo,
-    UdpSocketLocalAddr,
-    IsUdpSocket,
-
-    StringToSocketAddr,
-    IsSocketAddr,
-}
-
-impl EnumCommand for NetOp {
-    fn as_str(&self) -> &str {
-        use self::NetOp::*;
-        match self {
-            UdpSocketBind => "udp-socket-bind",
-            UdpSocketRecvFrom => "udp-socket-recv-from",
-            // UdpSocketPeekFrom => "udp-socket-peek-from",
-            UdpSocketSendTo => "udp-socket-send-to",
-            UdpSocketLocalAddr => "udp-socket-local-addr",
-            IsUdpSocket => "udp-socket?",
-
-            StringToSocketAddr => "string->socket-addr",
-            IsSocketAddr => "socket-addr?",
-        }
-    }
-    fn last() -> Self { NetOp::IsSocketAddr }
-    fn from_usize(s: usize) -> Self { unsafe { ::std::mem::transmute(s) } }
-}
-
-impl Command for NetOp {
-    fn run(&self, interpreter: &mut Interpreter, source: Option<Source>) -> exec::Result<()> {
-        debug!("NetOp: {:?}", self);
-        use self::NetOp::*;
-        match self {
-            UdpSocketBind => {
-                let addr = interpreter.stack.pop::<SocketAddr>()?;
-                let sock = net::UdpSocket::bind(addr).map(UdpSocket::from);
-                interpreter.stack.push_res(sock, source);
-            },
-            UdpSocketRecvFrom => {
-                let (mut buf, bufsrc) = interpreter.stack.pop_source::<U8Vector>()?;
-                let lenaddr = {
-                    let sock = interpreter.stack.ref_at::<UdpSocket>(0)?;
-                    sock.inner().recv_from(&mut buf.inner_mut())
-                };
-
-                interpreter.stack.push(Datum::build().with_source(bufsrc).ok(buf));
-                match lenaddr {
-                    Ok((len, addr)) => {
-                        interpreter.stack.push(Datum::new(Number::exact(len)));
-                        interpreter.stack.push(Datum::new(addr));
-                    },
-                    Err(e) => {
-                        interpreter.stack.push(Datum::new(Failure::from(e)));
-                    },
-                }
-            },
-            // UdpSocketPeekFrom => {
-            // },
-            UdpSocketSendTo => {
-                let addr = interpreter.stack.ref_at::<SocketAddr>(0)?;
-                let buf = interpreter.stack.ref_at::<U8Vector>(1)?;
-                let sock = interpreter.stack.ref_at::<UdpSocket>(2)?;
-                sock.inner().send_to(&buf.inner().as_ref(), addr)?;
-            },
-            UdpSocketLocalAddr => {
-                let addr = {
-                    let sock = interpreter.stack.ref_at::<UdpSocket>(0)?;
-                    sock.inner().local_addr()?
-                };
-                interpreter.stack.push(Datum::build().with_source(source).ok(addr));
-            },
-            IsUdpSocket => {
-                let r = interpreter.stack.type_predicate::<UdpSocket>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-            StringToSocketAddr => {
-                use std::str::FromStr;
-                let a = SocketAddr::from_str(interpreter.stack.pop::<String>()?.as_str());
-                interpreter.stack.push_res(a, source);
-            },
-            IsSocketAddr => {
-                let r = interpreter.stack.type_predicate::<SocketAddr>(0)?;
-                interpreter.stack.push(Datum::build().with_source(source).ok(r));
-            },
-        }
-        Ok(())
-    }
-}
 
 impl StaticType for SocketAddr {
     fn static_type() -> Type {
