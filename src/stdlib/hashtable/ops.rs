@@ -31,7 +31,7 @@ fn hash_table_size(interpreter: &mut Interpreter) -> exec::Result<()> {
         tbl.size()
     };
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(len)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
     Ok(())
 }
 

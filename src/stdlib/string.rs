@@ -13,20 +13,20 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("string->list", string_into_list);
     interpreter.add_builtin("string-length", string_length);
     interpreter.add_builtin("string-get", string_get);
-    interpreter.add_builtin("string-set", string_set);
-    interpreter.add_builtin("string-compare", string_compare);
-    interpreter.add_builtin("string-compare/ci", string_compare_ci);
-    interpreter.add_builtin("string-upcase", string_upcase);
-    interpreter.add_builtin("string-downcase", string_downcase);
+    // interpreter.add_builtin("string-set", string_set);
+    // interpreter.add_builtin("string-compare", string_compare);
+    // interpreter.add_builtin("string-compare/ci", string_compare_ci);
+    // interpreter.add_builtin("string-upcase", string_upcase);
+    // interpreter.add_builtin("string-downcase", string_downcase);
     interpreter.add_builtin("string-append", string_append);
     interpreter.add_builtin("string-push", string_push);
     interpreter.add_builtin("string-pop", string_pop);
-    interpreter.add_builtin("string-range", string_range);
+    // interpreter.add_builtin("string-range", string_range);
     interpreter.add_builtin("string->u8vector", string_into_u8vector);
     interpreter.add_builtin("u8vector->string", u8vector_into_string);
     interpreter.add_builtin("u8vector-invalid-char-index", u8vector_invalid_char_index);
     interpreter.add_builtin("string-char-boundary?", is_string_char_boundary);
-    interpreter.add_builtin("string-split", string_split);
+    // interpreter.add_builtin("string-split", string_split);
     interpreter.add_builtin("symbol->string", symbol_into_string);
     interpreter.add_builtin("string->symbol", string_into_symbol);
 }
@@ -46,12 +46,12 @@ fn string_length(interpreter: &mut Interpreter) -> exec::Result<()> {
         s.chars().count()
     };
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(len)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
     Ok(())
 }
 
 fn string_get(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let idx = interpreter.stack.pop::<Number>()?.cast::<isize>()?;
+    let idx = interpreter.stack.pop::<isize>()?;
     let ch = {
         let s = interpreter.stack.ref_at::<String>(0)?;
         if idx >= 0 {
@@ -81,25 +81,25 @@ fn string_get(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn string_set(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Err(error::NotImplemented().into())
-}
+// fn string_set(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Err(error::NotImplemented().into())
+// }
 
-fn string_compare(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Err(error::NotImplemented().into())
-}
+// fn string_compare(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Err(error::NotImplemented().into())
+// }
 
-fn string_compare_ci(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Err(error::NotImplemented().into())
-}
+// fn string_compare_ci(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Err(error::NotImplemented().into())
+// }
 
-fn string_upcase(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Err(error::NotImplemented().into())
-}
+// fn string_upcase(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Err(error::NotImplemented().into())
+// }
 
-fn string_downcase(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Err(error::NotImplemented().into())
-}
+// fn string_downcase(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Err(error::NotImplemented().into())
+// }
 
 fn string_append(interpreter: &mut Interpreter) -> exec::Result<()> {
     let app = interpreter.stack.pop::<String>()?;
@@ -125,9 +125,9 @@ fn string_pop(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn string_range(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn string_range(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 
 fn string_into_u8vector(interpreter: &mut Interpreter) -> exec::Result<()> {
     let s = interpreter.stack.pop::<String>()?;
@@ -155,7 +155,7 @@ fn u8vector_invalid_char_index(interpreter: &mut Interpreter) -> exec::Result<()
     };
     let source = interpreter.current_source();
     match idx {
-        Some(i) => interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(i))),
+        Some(i) => interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(i)?)),
         None => interpreter.stack.push(Datum::build().with_source(source).ok(false)),
     }
     Ok(())
@@ -163,7 +163,7 @@ fn u8vector_invalid_char_index(interpreter: &mut Interpreter) -> exec::Result<()
 
 fn is_string_char_boundary(interpreter: &mut Interpreter) -> exec::Result<()> {
     let is_boundary = {
-        let idx = interpreter.stack.ref_at::<Number>(0)?.cast::<usize>()?;
+        let idx = interpreter.stack.ref_at::<isize>(0)?.cast::<usize>()?;
         let s = interpreter.stack.ref_at::<String>(1)?;
         s.as_str().is_char_boundary(idx)
     };
@@ -172,9 +172,9 @@ fn is_string_char_boundary(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn string_split(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn string_split(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 
 fn symbol_into_string(interpreter: &mut Interpreter) -> exec::Result<()> {
     let (sym, source) = interpreter.stack.pop_source::<Symbol>()?;

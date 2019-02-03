@@ -18,7 +18,7 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("standard-error-port", standard_error_port);
     interpreter.add_builtin("port-read", port_read);
     interpreter.add_builtin("port-write", port_write);
-    interpreter.add_builtin("eof-object", eof_object);
+    // interpreter.add_builtin("eof-object", eof_object);
     interpreter.add_builtin("port-unique?", is_port_unique);
     interpreter.add_builtin("port-seekable?", is_port_seekable);
     interpreter.add_builtin("port-seek/start", port_seek_start);
@@ -84,7 +84,7 @@ fn port_read(interpreter: &mut Interpreter) -> exec::Result<()> {
     };
     interpreter.stack.push(bufd);
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(c)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(c)?));
     Ok(())
 }
 
@@ -95,9 +95,9 @@ fn port_write(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn eof_object(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Err(error::NotImplemented().into())
-}
+// fn eof_object(_interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Err(error::NotImplemented().into())
+// }
 
 fn is_port_unique(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = {
@@ -121,34 +121,34 @@ fn is_port_seekable(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn port_seek_start(interpreter: &mut Interpreter) -> exec::Result<()> {
     let seek = {
-        let offs = interpreter.stack.pop::<Number>()?.cast::<u64>()?;
+        let offs = interpreter.stack.pop::<isize>()?.cast::<u64>()?;
         let port = interpreter.stack.top_mut::<Port>()?;
         port.seek(SeekFrom::Start(offs))?
     };
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(seek)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(seek)?));
     Ok(())
 }
 
 fn port_seek_end(interpreter: &mut Interpreter) -> exec::Result<()> {
     let seek = {
-        let offs = interpreter.stack.pop::<Number>()?.cast::<i64>()?;
+        let offs = interpreter.stack.pop::<isize>()?.cast::<i64>()?;
         let port = interpreter.stack.top_mut::<Port>()?;
         port.seek(SeekFrom::End(offs))?
     };
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(seek)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(seek)?));
     Ok(())
 }
 
 fn port_seek_relative(interpreter: &mut Interpreter) -> exec::Result<()> {
     let seek = {
-        let offs = interpreter.stack.pop::<Number>()?.cast::<i64>()?;
+        let offs = interpreter.stack.pop::<isize>()?.cast::<i64>()?;
         let port = interpreter.stack.top_mut::<Port>()?;
         port.seek(SeekFrom::Current(offs))?
     };
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(seek)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(seek)?));
     Ok(())
 }
 

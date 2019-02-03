@@ -55,13 +55,13 @@ fn list_append(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn list_length(interpreter: &mut Interpreter) -> exec::Result<()> {
     let len = { interpreter.stack.ref_at::<List>(0)?.len() };
-    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(Number::exact(len)));
+    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(len as isize));
     Ok(())
 }
 
 fn list_swap(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let j = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
-    let i = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
+    let j = interpreter.stack.pop::<isize>()?.cast::<usize>()?;
+    let i = interpreter.stack.pop::<isize>()?.cast::<usize>()?;
     let lis = interpreter.stack.top_mut::<List>()?;
     let len = lis.len();
     if i > len {

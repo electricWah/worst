@@ -11,6 +11,7 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("type-of", type_of);
     interpreter.add_builtin("has-source?", has_source);
     interpreter.add_builtin("datum-describe->string", datum_describe_into_string);
+    interpreter.add_builtin("describe", describe);
     interpreter.add_builtin("failure-message", failure_message);
     interpreter.add_builtin("equal?", is_equal);
     interpreter.add_builtin("identical?", is_identical);
@@ -40,6 +41,12 @@ fn datum_describe_into_string(interpreter: &mut Interpreter) -> exec::Result<()>
     };
     let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    Ok(())
+}
+
+fn describe(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let d = interpreter.stack.ref_datum(0)?;
+    println!("{}", d.describe());
     Ok(())
 }
 

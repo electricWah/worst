@@ -3,6 +3,7 @@ pub use std::error::Error;
 use std::fmt;
 use std::io;
 use std::rc::Rc;
+use crate::data::Symbol;
 use crate::data::value::*;
 use crate::data::types::*;
 
@@ -16,12 +17,12 @@ impl fmt::Display for Abort {
 }
 
 #[derive(Debug)]
-pub struct NotDefined();
+pub struct NotDefined(pub Symbol);
 impl Error for NotDefined {}
 
 impl fmt::Display for NotDefined {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Not defined")
+        write!(fmt, "Not defined: '{}'", self.0.as_ref())
     }
 }
 
@@ -99,6 +100,17 @@ impl fmt::Display for OutOfRange {
         write!(fmt, "Out of range: expected {} - {}, but got {}", self.0, self.1, self.2)
     }
 }
+
+#[derive(Eq, PartialEq, Debug, Clone, Hash)]
+pub struct ConversionFailure();
+impl Error for ConversionFailure {}
+
+impl fmt::Display for ConversionFailure {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "Conversion failure")
+    }
+}
+
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct ListEmpty();

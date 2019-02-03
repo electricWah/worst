@@ -28,13 +28,13 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("file-info-symlink?", is_file_info_symlink);
     interpreter.add_builtin("file-info-length", file_info_length);
     interpreter.add_builtin("file-info-readonly?", is_file_info_readonly);
-    interpreter.add_builtin("file-info-modified-time", file_info_modified_time);
-    interpreter.add_builtin("file-info-accessed-time", file_info_accessed_time);
-    interpreter.add_builtin("file-info-created-time", file_info_created_time);
+    // interpreter.add_builtin("file-info-modified-time", file_info_modified_time);
+    // interpreter.add_builtin("file-info-accessed-time", file_info_accessed_time);
+    // interpreter.add_builtin("file-info-created-time", file_info_created_time);
 
     // Filesystem stuff
-    interpreter.add_builtin("file-exists?", is_file_exists);
-    interpreter.add_builtin("delete-file", delete_file);
+    // interpreter.add_builtin("file-exists?", is_file_exists);
+    // interpreter.add_builtin("delete-file", delete_file);
 }
 
 fn make_open_file_options(interpreter: &mut Interpreter) -> exec::Result<()> {
@@ -129,7 +129,7 @@ fn is_file_info_symlink(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn file_info_length(interpreter: &mut Interpreter) -> exec::Result<()> {
     let len = interpreter.stack.ref_at::<FileMetadata>(0)?.borrow().len();
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(len)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
     Ok(())
 }
 
@@ -140,23 +140,23 @@ fn is_file_info_readonly(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn file_info_modified_time(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn file_info_modified_time(_interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 
-fn file_info_accessed_time(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn file_info_accessed_time(_interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 
-fn file_info_created_time(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn file_info_created_time(_interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 
-fn is_file_exists(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn is_file_exists(_interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 
-fn delete_file(interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(())
-}
+// fn delete_file(_interpreter: &mut Interpreter) -> exec::Result<()> {
+//     Ok(())
+// }
 

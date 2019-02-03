@@ -47,7 +47,7 @@ fn make_record(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn record_slot_count(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<Record>(0)?.slot_count();
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(r)?));
     Ok(())
 }
 
@@ -59,7 +59,7 @@ fn record_slot_add(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn record_slot_swap(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let idx = interpreter.stack.pop::<Number>()?.cast::<usize>()?;
+    let idx = interpreter.stack.pop::<isize>()?.cast::<usize>()?;
     let d = {
         let d = interpreter.stack.pop_datum()?;
         let rec = interpreter.stack.top_mut::<Record>()?;

@@ -1,5 +1,4 @@
 
-use crate::parser::Source;
 use crate::data::*;
 use crate::interpreter::Interpreter;
 use crate::interpreter::exec;
@@ -28,14 +27,6 @@ impl BuiltinLookup {
     // a BuiltinRef produced by a different BuiltinLookup
     pub fn lookup(&self, r: &BuiltinRef) -> Box<BuiltinFn> {
         objekt::clone_box(&*self.0[r.0].code)
-    }
-}
-
-pub struct WithSource<T>(T, Option<Source>);
-
-impl<T> WithSource<T> {
-    pub fn unwrap(self) -> (T, Option<Source>) {
-        (self.0, self.1)
     }
 }
 

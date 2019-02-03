@@ -39,7 +39,7 @@ fn udp_socket_recv_from(interpreter: &mut Interpreter) -> exec::Result<()> {
     interpreter.stack.push(Datum::build().with_source(bufsrc).ok(buf));
     match lenaddr {
         Ok((len, addr)) => {
-            interpreter.stack.push(Datum::new(Number::exact(len)));
+            interpreter.stack.push(Datum::new(isize::from_num(len)?));
             interpreter.stack.push(Datum::new(addr));
         },
         Err(e) => {

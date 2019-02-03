@@ -1,7 +1,6 @@
 
 use std::mem;
 use crate::data::*;
-use crate::parser::*;
 use crate::interpreter::*;
 use crate::interpreter::exec;
 use crate::interpreter::code::*;
@@ -14,10 +13,8 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("current-interpreter", current_interpreter);
     interpreter.add_builtin("make-interpreter", make_interpreter);
     interpreter.add_builtin("interpreter-clear", interpreter_clear);
-    interpreter.add_builtin("interpreter-push-input", interpreter_push_input);
     interpreter.add_builtin("interpreter-read-next", interpreter_read_next);
     interpreter.add_builtin("interpreter-read-file", interpreter_read_file);
-    interpreter.add_builtin("interpreter-swap-reader", interpreter_swap_reader);
     interpreter.add_builtin("interpreter-swap-stack", interpreter_swap_stack);
     interpreter.add_builtin("interpreter-add-definition", interpreter_add_definition);
     interpreter.add_builtin("interpreter-get-definition", interpreter_get_definition);
@@ -39,8 +36,7 @@ fn current_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn make_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let reader = interpreter.stack.pop::<Reader>()?;
-    let interp = InterpRef::from(Interpreter::new(reader));
+    let interp = InterpRef::from(Interpreter::new());
     let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(interp));
     Ok(())
@@ -49,14 +45,6 @@ fn make_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn interpreter_clear(interpreter: &mut Interpreter) -> exec::Result<()> {
     with_top_mut(interpreter, |i| {
         i.clear();
-    })?;
-    Ok(())
-}
-
-fn interpreter_push_input(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let input = interpreter.stack.pop::<String>()?;
-    with_top_mut(interpreter, |i| {
-        i.push_input(input.as_str());
     })?;
     Ok(())
 }
@@ -85,7 +73,7 @@ fn interpreter_read_next(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn interpreter_read_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     let file = interpreter.stack.pop::<String>()?;
     let r = with_top_mut(interpreter, |i| {
-        i.load_file(&file)
+        i.eval_file(&file)
     })?;
     match r {
         Ok(()) => {
@@ -96,15 +84,6 @@ fn interpreter_read_file(interpreter: &mut Interpreter) -> exec::Result<()> {
             interpreter.stack.push(Datum::new(false));
         },
     }
-    Ok(())
-}
-
-fn interpreter_swap_reader(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (mut reader, src) = interpreter.stack.pop_source::<Reader>()?;
-    with_top_mut(interpreter, |i| {
-        mem::swap(i.reader_mut(), &mut reader);
-    })?;
-    interpreter.stack.push(Datum::build().with_source(src).ok(reader));
     Ok(())
 }
 

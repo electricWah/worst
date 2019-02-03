@@ -3,7 +3,6 @@ use std::str::FromStr;
 use std::fmt;
 use crate::parser::*;
 use crate::data::symbol::*;
-use crate::data::number::*;
 use crate::data::value::*;
 use crate::data::types::*;
 
@@ -35,11 +34,6 @@ impl DatumInfo {
             info: self,
         }
     }
-    pub fn number<N: Into<Number>>(self, value: N) -> Datum {
-        let mut d = Datum::new(value.into());
-        d.info = self;
-        d
-    }
     pub fn parse<T: FromStr + Value>(self, value: &str) -> Option<Datum> {
         T::from_str(value).map(|v| self.ok(v)).ok()
     }
@@ -67,6 +61,10 @@ impl Datum {
 
     pub fn is_type<T: Value>(&self) -> bool {
         self.value.is_type::<T>()
+    }
+
+    pub fn set_source(&mut self, source: Source) {
+        self.info.source = Some(source);
     }
 
     pub fn source(&self) -> Option<&Source> {

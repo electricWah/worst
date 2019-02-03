@@ -17,7 +17,7 @@ fn op_clone(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn op_dig(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let n = interpreter.stack.pop::<Number>()?.cast::<isize>()?;
+    let n = interpreter.stack.pop::<isize>()?;
     if n > 0 {
         let n = n as usize;
         let a = interpreter.stack.remove(n)?;

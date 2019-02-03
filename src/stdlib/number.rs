@@ -4,48 +4,49 @@ use crate::interpreter::Interpreter;
 use crate::interpreter::exec;
 
 pub fn install(interpreter: &mut Interpreter) {
-    interpreter.define_type_predicate::<Number>("number?");
+    interpreter.define_type_predicate::<isize>("int?");
+    interpreter.define_type_predicate::<f64>("float?");
     interpreter.add_builtin("add", num_add);
     interpreter.add_builtin("negate", num_negate);
     interpreter.add_builtin("mul", num_mul);
-    interpreter.add_builtin("recip", num_recip);
+    // interpreter.add_builtin("recip", num_recip);
     interpreter.add_builtin("greater-than", num_gt);
     interpreter.add_builtin("abs", num_abs);
-    interpreter.add_builtin("floor", num_floor);
-    interpreter.add_builtin("numerator", num_numerator);
-    interpreter.add_builtin("denominator", num_denominator);
+    // interpreter.add_builtin("floor", num_floor);
+    // interpreter.add_builtin("numerator", num_numerator);
+    // interpreter.add_builtin("denominator", num_denominator);
 }
 
 fn num_add(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.pop::<Number>()?;
-    let b = interpreter.stack.pop::<Number>()?;
+    let a = interpreter.stack.pop::<isize>()?;
+    let b = interpreter.stack.pop::<isize>()?;
     interpreter.stack.push(Datum::build().ok(a + b));
     Ok(())
 }
 
 fn num_negate(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.pop::<Number>()?;
+    let a = interpreter.stack.pop::<isize>()?;
     interpreter.stack.push(Datum::build().ok(-a));
     Ok(())
 }
 
 fn num_mul(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.pop::<Number>()?;
-    let b = interpreter.stack.pop::<Number>()?;
+    let a = interpreter.stack.pop::<isize>()?;
+    let b = interpreter.stack.pop::<isize>()?;
     interpreter.stack.push(Datum::build().ok(a * b));
     Ok(())
 }
 
-fn num_recip(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.pop::<Number>()?;
-    interpreter.stack.push(Datum::build().ok(a.recip()));
-    Ok(())
-}
+// fn num_recip(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     let a = interpreter.stack.pop::<isize>()?;
+//     interpreter.stack.push(Datum::build().ok(a.recip()));
+//     Ok(())
+// }
 
 fn num_gt(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = {
-        let a = interpreter.stack.ref_at::<Number>(0)?;
-        let b = interpreter.stack.ref_at::<Number>(1)?;
+        let a = interpreter.stack.ref_at::<isize>(0)?;
+        let b = interpreter.stack.ref_at::<isize>(1)?;
         a > b
     };
     interpreter.stack.push(Datum::build().ok(r));
@@ -53,26 +54,26 @@ fn num_gt(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn num_abs(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.pop::<Number>()?;
+    let a = interpreter.stack.pop::<isize>()?;
     interpreter.stack.push(Datum::build().ok(a.abs()));
     Ok(())
 }
 
-fn num_floor(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.pop::<Number>()?;
-    interpreter.stack.push(Datum::build().ok(a.floor()));
-    Ok(())
-}
+// fn num_floor(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     let a = interpreter.stack.pop::<isize>()?;
+//     interpreter.stack.push(Datum::build().ok(a.floor()));
+//     Ok(())
+// }
 
-fn num_numerator(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.ref_at::<Number>(0)?.numerator();
-    interpreter.stack.push(Datum::build().ok(a));
-    Ok(())
-}
+// fn num_numerator(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     let a = interpreter.stack.ref_at::<isize>(0)?.numerator();
+//     interpreter.stack.push(Datum::build().ok(a));
+//     Ok(())
+// }
 
-fn num_denominator(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let a = interpreter.stack.ref_at::<Number>(0)?.denominator();
-    interpreter.stack.push(Datum::build().ok(a));
-    Ok(())
-}
+// fn num_denominator(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     let a = interpreter.stack.ref_at::<isize>(0)?.denominator();
+//     interpreter.stack.push(Datum::build().ok(a));
+//     Ok(())
+// }
 

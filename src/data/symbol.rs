@@ -3,20 +3,18 @@ use std::fmt;
 use crate::data::value::*;
 use crate::data::types::*;
 
-use internship::IStr;
-
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct Symbol(IStr);
+pub struct Symbol(String);
 
 impl Symbol {
     pub fn to_string(&self) -> String {
-        self.0.as_str().to_string()
+        self.0.clone()
     }
 }
 
 impl<'a> From<&'a str> for Symbol {
     fn from(v: &'a str) -> Symbol {
-        Symbol(IStr::new(v))
+        Symbol(v.to_string())
     }
 }
 

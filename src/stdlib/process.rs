@@ -197,7 +197,7 @@ fn process_id(interpreter: &mut Interpreter) -> exec::Result<()> {
         proc.0.borrow().id()
     };
     let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(Number::exact(r)));
+    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(r)?));
     Ok(())
 }
 

@@ -2,93 +2,40 @@
 exec cargo run -- "$0" --worst-args "$0" "$@"
 !#
 
-[1 dig] list->definition quote swap add-definition
+[ 6 ]
+list->definition
+quote flop add-definition
 
-[swap string-append read-eval-file]
-    "./lib"
-    "WORST_LIB" get-environment-variable
-    0 1 equal? 2 negate dig drop drop
-    equal? swap drop
-    quote swap call-when
-    swap drop
-    "/" string-append
-list-push-head
-list->definition quote load-lib add-definition
+flop
 
-current-interpreter quote <root> interpreter-set-context-name drop
+[ ; define
+  quote quote uplevel ; name
+  quote quote uplevel ; [def ...]
+  list->definition
+  1 dig
+  quote add-definition uplevel
+] list->definition quote define add-definition
 
-"base.w" load-lib
+define egg [7] ; ' [quote]
 
-"syntax/base.w" load-lib
+egg
+describe drop
 
-define debug [
-    standard-error-port
-    quote quote uplevel
-    string->u8vector
-    10 u8vector-push
-    port-write
-    drop
-]
+abort
 
-define help [
-    "Loading help..." print-string/n
-    "help/base.w" load-lib
-    "help/stdlib.w" load-lib
-    'help uplevel
-]
+; ok
+[]
+describe drop
+"helo"
+describe drop
+[[5]]
+describe drop
+5 7 add describe drop
 
-define load-run-script [
-    swap [] list-push-head 'command-line %define
-    export-global command-line
-    'interpreter-read-file uplevel
-]
+"wef\n" string->u8vector describe drop
+"wef\n" string->u8vector standard-output-port 1 dig port-write
 
-define ansi-term-demo [
-    "term/ansi.w" load-lib
-    ansi [
-        0 while [
-            clone clone fg bg "  " print-string
-            1 add 256 equal?! not!
-        ] drop
-        reset
-        newline
-    ]
-]
-
-define run-repl [
-    "term/stty.w" load-lib
-    "term/ansi.w" load-lib
-    "term/readline.w" load-lib
-    "worst-repl.w" load-lib
-    worst-repl
-]
-
-do [
-
-    define show-help [
-        "This is help" print-string/n
-        abort
-    ]
-
-    command-line list-pop-head drop
-    define read-command-line [
-        list-empty? [drop] [
-            list-pop-head
-            cond [
-                ["-A" equal?!] [ drop drop ansi-term-demo ]
-                ["-i" equal?!] [ drop drop run-repl ]
-                ["-h" equal?!] [ drop drop show-help abort ] ; eg
-                ["-s" equal?!] [
-                    drop
-                    list-pop-head
-                    'load-run-script uplevel
-                ]
-                [ read-command-line ]
-            ]
-        ] %if
-    ]
-    read-command-line
-]
+egg salad sandwich
 
 ;;; vi: ft=scheme
 

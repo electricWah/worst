@@ -4,6 +4,7 @@ mod context;
 pub mod exec;
 mod stack;
 pub mod builtin;
+pub mod env;
 
 use std::rc::Rc;
 use std::fmt;
@@ -16,12 +17,10 @@ use self::code::*;
 use self::stack::Stack;
 
 pub struct Interpreter {
-    pub reader: Reader,
     pub stack: Stack,
     pub context: Context,
     builtins: builtin::BuiltinLookup,
     evaling_source: Option<Source>, // for builtins
-    gensym: usize,
     quoting: bool,
 }
 
@@ -97,13 +96,10 @@ fn type_predicate<T: IsType + Value>(interpreter: &mut Interpreter) -> exec::Res
 }
 
 impl Interpreter {
-    pub fn new(reader: Reader) -> Self {
-        let parser = Parser::new(Source::new(), &reader);
+    pub fn new() -> Self {
         Interpreter {
-            reader,
             stack: Default::default(),
-            context: Context::default().with_parser(parser),
-            gensym: Default::default(),
+            context: Context::default(),
             builtins: Default::default(),
             evaling_source: None,
             quoting: false,
@@ -118,21 +114,12 @@ impl Interpreter {
         self.quoting = q;
     }
 
-    pub fn gensym(&mut self) -> usize {
-        self.gensym += 1;
-        self.gensym
-    }
-
     pub fn quote_next(&mut self) {
         self.quoting = true;
     }
 
-    pub fn reader_mut(&mut self) -> &mut Reader {
-        &mut self.reader
-    }
-
     pub fn define<S: Into<Symbol>, C: Into<Code>>(&mut self, name: S, code: C) {
-        self.context.define(name, code);
+        self.context.env_mut().define(name, code);
     }
 
     pub fn define_type_predicate<T: IsType + Value>(&mut self, name: &str) {
@@ -142,7 +129,7 @@ impl Interpreter {
     pub fn add_builtin<S: Into<Symbol>, B: 'static + builtin::BuiltinFn>(&mut self, name: S, builtin: B) {
         let name = name.into();
         let builtin_ref = self.builtins.add(name.clone(), builtin);
-        self.context.define(name, builtin_ref);
+        self.context.env_mut().define(name, builtin_ref);
     }
 
     pub fn evaluate<A: builtin::BuiltinFnArgs, R: builtin::BuiltinFnRets, F: FnMut(A) -> exec::Result<R>>(&mut self, mut f: F) -> exec::Result<()> {
@@ -159,18 +146,22 @@ impl Interpreter {
         self.quoting = false;
     }
 
-    pub fn unfinished(&self) -> Vec<&str> {
-        match self.context.parser() {
-            Some(p) => p.unfinished(),
-            None => vec![],
-        }
+    pub fn env_mut(&mut self) -> &mut env::Env {
+        self.context.env_mut()
+    }
+    pub fn env(&self) -> &env::Env {
+        self.context.env()
     }
 }
 
 impl Interpreter {
 
     pub fn read_next(&mut self) -> exec::Result<Option<Datum>> {
-        self.context.next(&self.reader, self.quoting)
+        if self.quoting {
+            Ok(self.context.next_top())
+        } else {
+            self.context.next()
+        }
     }
 
     fn run_available_stackless(&mut self) -> exec::Result<()> {
@@ -178,12 +169,15 @@ impl Interpreter {
             if self.quoting {
                 self.quoting = false;
                 self.stack.push(d);
+            } else if let Ok(r) = d.value_ref::<Symbol>() {
+                self.eval_symbol(&r, d.source().cloned())?;
             } else {
-                self.eval_datum(d)?;
+                self.stack.push(d);
             }
         }
         Ok(())
     }
+
     pub fn eval_run(&mut self) -> exec::Result<()> {
         self.run_available_stackless()
     }
@@ -203,6 +197,7 @@ impl Interpreter {
             },
             Instruction::Definition(ref def) => {
                 self.context.push_def(source, def);
+                // self.run_available_stackless()?;
             },
         }
         Ok(())
@@ -217,8 +212,7 @@ impl Interpreter {
     }
 
     pub fn eval_symbol(&mut self, r: &Symbol, source: Option<Source>) -> exec::Result<()> {
-        debug!("Eval {:?}", r.as_ref());
-        let code = self.resolve_symbol(r).ok_or(error::NotDefined())?;
+        let code = self.resolve_symbol(r).ok_or_else(|| error::NotDefined(r.clone()))?;
         let res = self.eval_code(&code, source.clone());
         if let Err(e) = res {
             // Hack to show where the error occurred
@@ -228,56 +222,35 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn eval_datum(&mut self, d: Datum) -> exec::Result<()> {
-        debug!("Interpret {}", d.dump());
-        trace!("Stack: {}", self.stack.show());
-        if let Ok(r) = d.value_ref::<Symbol>() {
-            return self.eval_symbol(&r, d.source().cloned());
-        }
-        self.stack.push(d);
-        Ok(())
+    fn push_eval(&mut self, d: Datum) -> exec::Result<()> {
+        self.context.add_code(d);
+        self.run_available_stackless()
     }
 
 }
 
 impl Interpreter {
-    fn wrap_failure<T>(&self, e: exec::Result<T>) -> Result<T, Exception> {
-        e.map_err(|err| Exception::new(err, (self.context.stack_sources(), self.context.stack_uplevel_sources())))
-    }
-
-    pub fn push_input(&mut self, input: &str) {
-        let mut parser = {
-            match self.context.take_parser() {
-                Some(p) => p,
-                None => {
-                    let src = self.context.source().cloned().unwrap_or(Source::new());
-                    Parser::new(src, &self.reader)
-                },
-            }
-        };
-
-        parser.push_input(&mut input.chars());
-
-        self.context.set_parser(parser);
+    fn wrap_failure<T, F: Into<exec::Failure>>(&self, e: Result<T, F>) -> Result<T, Exception> {
+        e.map_err(|err| Exception::new(err.into(), (self.context.stack_sources(), self.context.stack_uplevel_sources())))
     }
 
     // Should be AsRef<Path>
     // This is manageable as a completely hosted function
-    pub fn load_file(&mut self, path: &str) -> exec::Result<()> {
+    pub fn eval_file(&mut self, path: &str) -> Result<(), Exception> {
         info!("Loading file {}", path);
         use ::std::fs::File;
         use ::std::io::Read;
-        let mut file = File::open(&path).map_err(error::StdIoError::new)?;
+        let mut file = self.wrap_failure(File::open(&path).map_err(error::StdIoError::new))?;
         let mut contents = String::new();
-        file.read_to_string(&mut contents).map_err(error::StdIoError::new)?;
+        self.wrap_failure(file.read_to_string(&mut contents).map_err(error::StdIoError::new))?;
 
-        let start_pos = Source::new().with_file(path.to_string());
-        let mut parser = Parser::new(start_pos, &self.reader);
-        parser.push_input(&mut contents.chars());
-        parser.set_eof(true);
-        self.context.set_parser(parser);
+        let mut parser = Parser::new(contents.chars().into_iter()).with_file(path);
+
+        while let Some(datum) = self.wrap_failure(parser.next())? {
+            let r = self.push_eval(datum);
+            self.wrap_failure(r)?;
+        }
         Ok(())
     }
-
 }
 

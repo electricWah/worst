@@ -24,7 +24,6 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("read-eval-file", read_eval_file);
     interpreter.add_builtin("uplevel-in-named-context", uplevel_in_named_context);
     interpreter.add_builtin("abort", abort);
-    interpreter.add_builtin("gensym", gensym);
 }
 
 fn uplevel(interpreter: &mut Interpreter) -> exec::Result<()> {
@@ -49,22 +48,22 @@ fn list_into_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn get_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
-    match interpreter.context.get_definition(&name) {
+    match interpreter.env_mut().get_definition(&name) {
         Some(def) => {
             interpreter.stack.push(Datum::new(def));
         },
-        None => Err(error::NotDefined())?,
+        None => Err(error::NotDefined(name))?,
     }
     Ok(())
 }
 
 fn take_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
-    match interpreter.context.undefine(&name) {
+    match interpreter.env_mut().undefine(&name) {
         Some(def) => {
             interpreter.stack.push(Datum::new(def));
         },
-        None => Err(error::NotDefined())?,
+        None => Err(error::NotDefined(name))?,
     }
     Ok(())
 }
@@ -75,7 +74,7 @@ fn resolve_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
         Some(def) => {
             interpreter.stack.push(Datum::new(def.clone()));
         },
-        None => Err(error::NotDefined())?,
+        None => Err(error::NotDefined(name))?,
     }
     Ok(())
 }
@@ -83,7 +82,7 @@ fn resolve_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn add_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     let def = interpreter.stack.pop::<Code>()?;
-    interpreter.context.define(name, def);
+    interpreter.env_mut().define(name, def);
     Ok(())
 }
 
@@ -97,7 +96,7 @@ fn eval_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn is_defined(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = {
         let name = interpreter.stack.ref_at::<Symbol>(0)?;
-        interpreter.context.is_defined(name)
+        interpreter.env().is_defined(name)
     };
     interpreter.stack.push(Datum::new(r));
     Ok(())
@@ -105,7 +104,7 @@ fn is_defined(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn defined_names(interpreter: &mut Interpreter) -> exec::Result<()> {
     // TODO source
-    let names: Vec<Datum> = interpreter.context.current_defines()
+    let names: Vec<Datum> = interpreter.env_mut().current_defines()
         .map(Clone::clone)
         .map(|s| Datum::build().symbol(s))
         .collect();
@@ -131,29 +130,29 @@ fn definition_get_meta(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn definition_set_meta(interpreter: &mut Interpreter) -> exec::Result<()> {
     let meta = interpreter.stack.pop_datum()?;
     let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.context.undefine(&name);
+    let def = interpreter.env_mut().undefine(&name);
     match def {
-        None => Err(error::NotDefined())?,
         Some(mut d) => {
             d.set_meta(meta);
-            interpreter.context.define(name, d);
+            interpreter.env_mut().define(name, d);
         },
+        None => Err(error::NotDefined(name))?,
     }
     Ok(())
 }
 
 fn definition_take_meta(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.context.undefine(&name);
+    let def = interpreter.env_mut().undefine(&name);
     match def {
-        None => Err(error::NotDefined())?,
         Some(mut d) => {
             match d.take_meta() {
                 None => interpreter.stack.push(Datum::new(false)),
                 Some(m) => interpreter.stack.push(m),
             }
-            interpreter.context.define(name, d);
+            interpreter.env_mut().define(name, d);
         },
+        None => Err(error::NotDefined(name))?,
     }
     Ok(())
 }
@@ -175,7 +174,7 @@ fn call_when(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn read_eval_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     let file = interpreter.stack.pop::<String>()?;
-    interpreter.load_file(&file)?;
+    interpreter.eval_file(&file)?;
     Ok(())
 }
 
@@ -192,18 +191,5 @@ fn uplevel_in_named_context(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn abort(_interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(Err(error::Abort())?)
-}
-
-fn gensym(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (name, orig_source) = interpreter.stack.pop_source::<Symbol>()?;
-    let sym = {
-        let id = interpreter.gensym();
-        let mut ss = name.to_string();
-        ss.push_str(format!("-{}", id).as_str());
-        ss
-    };
-    interpreter.stack.push(Datum::build().with_source(orig_source).ok(name));
-    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(sym));
-    Ok(())
 }
 
