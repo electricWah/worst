@@ -57,7 +57,6 @@ impl Context {
 
     // Only for interpreter to push place of current error (hack)
     pub fn push_source<P: Into<Option<Source>>>(&mut self, source: P) {
-        debug!("push_source");
         let mut ctx = Context::default();
         ctx.source = source.into();
         self.into_child_context(ctx);
@@ -65,7 +64,6 @@ impl Context {
 
     pub fn push_def<P: Into<Option<Source>>>(&mut self, source: P, def: &Definition) {
         let source = source.into();
-        trace!("push_def {:?}", source);
         // TCO here
         if self.is_root() || self.code.len() > 0 {
             self.into_child_context(Default::default());
@@ -76,7 +74,6 @@ impl Context {
     
     // Become parent and add old self as child
     pub fn uplevel(&mut self, _source: Option<Source>) -> exec::Result<()> {
-        debug!("uplevel");
         let parent = self.parent.take();
         match parent {
             None => Err(error::UplevelInRootContext().into()),
@@ -109,7 +106,6 @@ impl Context {
     }
 
     pub fn add_code(&mut self, code: Datum) {
-        // debug!("add code {:?}", code);
         self.code.push_back(code);
     }
 
@@ -118,7 +114,6 @@ impl Context {
     }
 
     pub fn resolve(&self, name: &Symbol) -> Option<&Code> {
-        debug!("resolve {:?} in {:?} (env#={})", name, self.name, self.env.0.len());
         if let Some(def) = self.env.0.get(name) {
             return Some(def);
         }
@@ -129,7 +124,6 @@ impl Context {
     }
 
     pub fn stack_sources(&self) -> Vec<Option<Source>> {
-        // trace!("{:#?}", self);
         let mut sources = vec![];
         sources.push(self.source.clone());
         let mut r = self;

@@ -1,6 +1,5 @@
 
 // extern crate env_logger;
-extern crate log;
 // extern crate simple_logger;
 
 extern crate hell;

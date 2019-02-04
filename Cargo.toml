@@ -17,10 +17,10 @@ downcast = "*"
 num-traits = "*"
 # num-rational = "*"
 # rustyline = "*"
-log = "*"
+# log = "*"
 # simple_logger = "*"
 # env_logger = "*"
 # internship = { version = "*", default-features = false, features = [] }
-objekt = "*"
+# objekt = "*"
 # string_cache = "0.7" # alternative to internship
 

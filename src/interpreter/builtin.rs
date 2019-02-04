@@ -26,7 +26,7 @@ impl BuiltinLookup {
     // This will return the wrong thing (or panic) if you use it with
     // a BuiltinRef produced by a different BuiltinLookup
     pub fn lookup(&self, r: &BuiltinRef) -> Box<BuiltinFn> {
-        objekt::clone_box(&*self.0[r.0].code)
+        self.0[r.0].code.builtin_clone()
     }
 }
 
@@ -135,7 +135,17 @@ impl<A: BuiltinFnRet, B: BuiltinFnRet, C: BuiltinFnRet> BuiltinFnRets for (A, B,
     }
 }
 
-pub trait BuiltinFn: objekt::Clone {
+pub trait BuiltinFnClone {
+    fn builtin_clone(&self) -> Box<BuiltinFn>;
+}
+
+impl<T: 'static + BuiltinFn + Clone> BuiltinFnClone for T {
+    fn builtin_clone(&self) -> Box<BuiltinFn> {
+        Box::new(self.clone())
+    }
+}
+
+pub trait BuiltinFn: BuiltinFnClone {
     fn call(&mut self, interpreter: &mut Interpreter) -> exec::Result<()>;
 }
 
@@ -183,7 +193,7 @@ pub trait BuiltinFn: objekt::Clone {
 //     }
 // }
 
-impl<R: BuiltinFnRets, F: Clone + FnMut(&mut Interpreter) -> exec::Result<R>> BuiltinFn for F {
+impl<R: BuiltinFnRets, F: 'static + Clone + FnMut(&mut Interpreter) -> exec::Result<R>> BuiltinFn for F {
     fn call(&mut self, interpreter: &mut Interpreter) -> exec::Result<()> {
         for r in self(interpreter)?.into_datums().into_iter() {
             interpreter.stack.push(r.into_datum());

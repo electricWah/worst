@@ -12,7 +12,6 @@ impl Env {
     }
 
     pub fn undefine(&mut self, name: &Symbol) -> Option<Code> {
-        debug!("undefine");
         self.0.remove(name)
     }
 

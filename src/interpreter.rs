@@ -132,14 +132,14 @@ impl Interpreter {
         self.context.env_mut().define(name, builtin_ref);
     }
 
-    pub fn evaluate<A: builtin::BuiltinFnArgs, R: builtin::BuiltinFnRets, F: FnMut(A) -> exec::Result<R>>(&mut self, mut f: F) -> exec::Result<()> {
-        use self::builtin::BuiltinFnRet;
-        let args = A::extract(self)?;
-        for r in f(args)?.into_datums().into_iter() {
-            self.stack.push(r.into_datum());
-        }
-        Ok(())
-    }
+    // pub fn evaluate<A: builtin::BuiltinFnArgs, R: builtin::BuiltinFnRets, F: FnMut(A) -> exec::Result<R>>(&mut self, mut f: F) -> exec::Result<()> {
+    //     use self::builtin::BuiltinFnRet;
+    //     let args = A::extract(self)?;
+    //     for r in f(args)?.into_datums().into_iter() {
+    //         self.stack.push(r.into_datum());
+    //     }
+    //     Ok(())
+    // }
 
     pub fn clear(&mut self) {
         self.context.reset();
@@ -237,7 +237,6 @@ impl Interpreter {
     // Should be AsRef<Path>
     // This is manageable as a completely hosted function
     pub fn eval_file(&mut self, path: &str) -> Result<(), Exception> {
-        info!("Loading file {}", path);
         use ::std::fs::File;
         use ::std::io::Read;
         let mut file = self.wrap_failure(File::open(&path).map_err(error::StdIoError::new))?;

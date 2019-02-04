@@ -5,12 +5,10 @@ extern crate downcast;
 // extern crate num_rational;
 extern crate num_traits;
 
-#[macro_use]
-extern crate log;
+// #[macro_use]
+// extern crate log;
 
 // extern crate internship;
-
-extern crate objekt;
 
 pub mod combo;
 
