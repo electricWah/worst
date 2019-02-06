@@ -54,14 +54,12 @@ impl Eq for Instruction {}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Code {
-    meta: Option<Datum>,// should this go in definition?
     value: Instruction,
 }
 
 impl Code {
     pub fn new(value: Instruction) -> Self {
         Code {
-            meta: None,
             value,
         }
     }
@@ -69,15 +67,6 @@ impl Code {
         &self.value
     }
 
-    pub fn meta(&self) -> Option<&Datum> {
-        self.meta.as_ref()
-    }
-    pub fn take_meta(&mut self) -> Option<Datum> {
-        self.meta.take()
-    }
-    pub fn set_meta(&mut self, meta: Datum) {
-        self.meta = Some(meta);
-    }
     pub fn source(&self) -> Option<Source> {
         match self.value {
             Instruction::Definition(ref d) => d.source().cloned(),

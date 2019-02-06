@@ -16,12 +16,14 @@ flop
   quote add-definition uplevel
 ] list->definition quote define add-definition
 
+define ' [quote quote uplevel]
+
 define egg [7] ; ' [quote]
 
 egg
 describe drop
 
-abort
+'test describe drop
 
 ; ok
 []
@@ -34,8 +36,6 @@ describe drop
 
 "wef\n" string->u8vector describe drop
 "wef\n" string->u8vector standard-output-port 1 dig port-write
-
-egg salad sandwich
 
 ;;; vi: ft=scheme
 

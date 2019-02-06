@@ -15,7 +15,7 @@ pub mod number;
 // pub mod parsing;
 pub mod place;
 pub mod port;
-// pub mod process;
+pub mod process;
 // pub mod record;
 pub mod stack;
 pub mod string;
@@ -38,7 +38,7 @@ pub fn install(interpreter: &mut Interpreter) {
     // parsing::install(interpreter);
     place::install(interpreter);
     port::install(interpreter);
-    // process::install(interpreter);
+    process::install(interpreter);
     // record::install(interpreter);
     stack::install(interpreter);
     string::install(interpreter);

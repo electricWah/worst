@@ -16,9 +16,6 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("defined?", is_defined);
     interpreter.define_type_predicate::<Code>("definition?");
     interpreter.add_builtin("defined-names", defined_names);
-    interpreter.add_builtin("definition-get-meta", definition_get_meta);
-    interpreter.add_builtin("definition-set-meta", definition_set_meta);
-    interpreter.add_builtin("definition-take-meta", definition_take_meta);
     interpreter.add_builtin("call", call);
     interpreter.add_builtin("call-when", call_when);
     interpreter.add_builtin("read-eval-file", read_eval_file);
@@ -109,51 +106,6 @@ fn defined_names(interpreter: &mut Interpreter) -> exec::Result<()> {
         .map(|s| Datum::build().symbol(s))
         .collect();
     interpreter.stack.push(Datum::new::<List>(names.into()));
-    Ok(())
-}
-
-fn definition_get_meta(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.context.resolve(&name);
-    match def {
-        None => interpreter.stack.push(Datum::new(false)),
-        Some(d) => {
-            match d.meta().cloned() {
-                None => interpreter.stack.push(Datum::new(false)),
-                Some(m) => interpreter.stack.push(m),
-            }
-        },
-    }
-    Ok(())
-}
-
-fn definition_set_meta(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let meta = interpreter.stack.pop_datum()?;
-    let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.env_mut().undefine(&name);
-    match def {
-        Some(mut d) => {
-            d.set_meta(meta);
-            interpreter.env_mut().define(name, d);
-        },
-        None => Err(error::NotDefined(name))?,
-    }
-    Ok(())
-}
-
-fn definition_take_meta(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.env_mut().undefine(&name);
-    match def {
-        Some(mut d) => {
-            match d.take_meta() {
-                None => interpreter.stack.push(Datum::new(false)),
-                Some(m) => interpreter.stack.push(m),
-            }
-            interpreter.env_mut().define(name, d);
-        },
-        None => Err(error::NotDefined(name))?,
-    }
     Ok(())
 }
 

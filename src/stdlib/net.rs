@@ -12,7 +12,7 @@ use crate::stdlib::vector::U8Vector;
 
 pub fn install(interpreter: &mut Interpreter) {
     interpreter.define_type_predicate::<UdpSocket>("udp-socket?");
-    interpreter.define_type_predicate::<SocketAddr>("socket-addr??");
+    interpreter.define_type_predicate::<SocketAddr>("socket-addr?");
     interpreter.add_builtin("udp-socket-bind", udp_socket_bind);
     interpreter.add_builtin("udp-socket-recv-from", udp_socket_recv_from);
     interpreter.add_builtin("udp-socket-send-to", udp_socket_send_to);
