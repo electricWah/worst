@@ -22,7 +22,6 @@ pub fn install(interpreter: &mut Interpreter) {
 }
 
 fn udp_socket_bind(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     let addr = interpreter.stack.pop::<SocketAddr>()?;
     let sock = net::UdpSocket::bind(addr).map(UdpSocket::from);
     interpreter.stack.push_res(sock, source);
@@ -36,7 +35,7 @@ fn udp_socket_recv_from(interpreter: &mut Interpreter) -> exec::Result<()> {
         sock.inner().recv_from(&mut buf.inner_mut())
     };
 
-    interpreter.stack.push(Datum::build().with_source(bufsrc).ok(buf));
+    interpreter.stack.push(Datum::new(buf));
     match lenaddr {
         Ok((len, addr)) => {
             interpreter.stack.push(Datum::new(isize::from_num(len)?));
@@ -62,15 +61,13 @@ fn udp_socket_local_addr(interpreter: &mut Interpreter) -> exec::Result<()> {
         let sock = interpreter.stack.ref_at::<UdpSocket>(0)?;
         sock.inner().local_addr()?
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(addr));
+    interpreter.stack.push(Datum::new(addr));
     Ok(())
 }
 
 fn string_into_socket_addr(interpreter: &mut Interpreter) -> exec::Result<()> {
     use std::str::FromStr;
     let a = SocketAddr::from_str(interpreter.stack.pop::<String>()?.as_str());
-    let source = interpreter.current_source();
     interpreter.stack.push_res(a, source);
     Ok(())
 }

@@ -1,11 +1,8 @@
 
-use std::error::Error;
 use std::fmt;
-use crate::parser::*;
 use crate::data::*;
 use crate::data::error::*;
 use crate::interpreter::exec;
-use crate::interpreter::exec::Failure;
 
 #[derive(Default, Debug)]
 pub struct Stack {
@@ -26,18 +23,6 @@ impl Stack {
 
     pub fn push(&mut self, d: Datum) {
         self.stack.push(d);
-    }
-
-    pub fn push_res<V: Value, E: 'static + Error, S: Into<Option<Source>>>(&mut self, r: Result<V, E>, src: S) {
-        match r {
-            Ok(v) => {
-                self.push(Datum::build().with_source(src).ok(v));
-            },
-            Err(e) => {
-                self.push(Datum::build().with_source(src).ok(Failure::from(e)));
-            },
-        }
-
     }
 
     pub fn pop_datum(&mut self) -> Result<Datum, StackEmpty> {
@@ -81,11 +66,6 @@ impl Stack {
     pub fn pop<T: IsType + Value + Sized>(&mut self) -> exec::Result<T> {
         let datum = self.pop_datum()?;
         datum.into_value::<T>().map_err(|t| WrongType(T::get_type(), t).into())
-    }
-
-    pub fn pop_source<T: IsType + Value + Sized>(&mut self) -> exec::Result<(T, Option<Source>)> {
-        let datum = self.pop_datum()?;
-        datum.into_value_source::<T>().map_err(|t| WrongType(T::get_type(), t).into())
     }
 
     pub fn ref_at<T: IsType + Value>(&self, idx: usize) -> exec::Result<&T> {
@@ -132,6 +112,7 @@ impl<'a> fmt::Display for StackDescribe<'a> {
         for (i, d) in self.0.stack.iter().enumerate() {
             write!(fmt, "#{} ", i)?;
             fmt::Display::fmt(&d.dump(), fmt)?;
+            write!(fmt, "\n")?;
         }
         Ok(())
     }

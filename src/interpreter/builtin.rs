@@ -91,15 +91,9 @@ pub trait BuiltinFnRet {
 
 impl<T: Value> BuiltinFnRet for T {
     fn into_datum(self) -> Datum {
-        Datum::build().ok(self)
+        Datum::new(self)
     }
 }
-
-// impl<T: Value> BuiltinFnRet for (T, Source) {
-//     fn into_datum(self) -> Datum {
-//         Datum::build().with_source(self.1).ok(self.0)
-//     }
-// }
 
 impl BuiltinFnRet for Datum {
     fn into_datum(self) -> Datum {

@@ -21,7 +21,6 @@ pub fn install(interpreter: &mut Interpreter) {
 fn make_record_type(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     let t = RecordType::new(name.to_string());
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(t));
     Ok(())
 }
@@ -31,7 +30,6 @@ fn record_type_name(interpreter: &mut Interpreter) -> exec::Result<()> {
         let ty = interpreter.stack.ref_at::<RecordType>(0)?;
         ty.name().to_string()
     };
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(name));
     Ok(())
 }
@@ -39,14 +37,12 @@ fn record_type_name(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn make_record(interpreter: &mut Interpreter) -> exec::Result<()> {
     let ty = interpreter.stack.pop::<RecordType>()?;
     let rec = Record::new(ty);
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(rec));
     Ok(())
 }
 
 fn record_slot_count(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<Record>(0)?.slot_count();
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(r)?));
     Ok(())
 }
@@ -72,14 +68,12 @@ fn record_slot_swap(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn record_into_list(interpreter: &mut Interpreter) -> exec::Result<()> {
     let slots = interpreter.stack.pop::<Record>()?.deconstruct().1;
     let slots: Vec<Datum> = slots.into_iter().collect();
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(List::from(slots)));
     Ok(())
 }
 
 fn record_type(interpreter: &mut Interpreter) -> exec::Result<()> {
     let t = interpreter.stack.ref_at::<Record>(0)?.type_ref().clone();
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(t));
     Ok(())
 }

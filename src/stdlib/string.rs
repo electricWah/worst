@@ -35,8 +35,7 @@ fn string_into_list(interpreter: &mut Interpreter) -> exec::Result<()> {
     let mut s = interpreter.stack.pop::<String>()?;
     let chars: Vec<char> = s.drain(..).collect();
     let l = List::from(chars);
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(l));
+    interpreter.stack.push(Datum::new(l));
     Ok(())
 }
 
@@ -45,8 +44,7 @@ fn string_length(interpreter: &mut Interpreter) -> exec::Result<()> {
         let s = interpreter.stack.ref_at::<String>(0)?;
         s.chars().count()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
+    interpreter.stack.push(Datum::new(isize::from_num(len)?));
     Ok(())
 }
 
@@ -76,8 +74,7 @@ fn string_get(interpreter: &mut Interpreter) -> exec::Result<()> {
             }
         }
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(ch));
+    interpreter.stack.push(Datum::new(ch));
     Ok(())
 }
 
@@ -120,8 +117,7 @@ fn string_pop(interpreter: &mut Interpreter) -> exec::Result<()> {
         let s = interpreter.stack.top_mut::<String>()?;
         s.pop().ok_or(StringEmpty())?
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(c));
+    interpreter.stack.push(Datum::new(c));
     Ok(())
 }
 
@@ -132,16 +128,14 @@ fn string_pop(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn string_into_u8vector(interpreter: &mut Interpreter) -> exec::Result<()> {
     let s = interpreter.stack.pop::<String>()?;
     let v: U8Vector = s.into_bytes().into();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(v));
+    interpreter.stack.push(Datum::new(v));
     Ok(())
 }
 
 fn u8vector_into_string(interpreter: &mut Interpreter) -> exec::Result<()> {
     let v = interpreter.stack.pop::<U8Vector>()?;
     let s: String = String::from_utf8(v.into()).map_err(|_| InvalidString())?;
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(s));
+    interpreter.stack.push(Datum::new(s));
     Ok(())
 }
 
@@ -153,10 +147,9 @@ fn u8vector_invalid_char_index(interpreter: &mut Interpreter) -> exec::Result<()
             Err(e) => Some(e.valid_up_to()),
         }
     };
-    let source = interpreter.current_source();
     match idx {
-        Some(i) => interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(i)?)),
-        None => interpreter.stack.push(Datum::build().with_source(source).ok(false)),
+        Some(i) => interpreter.stack.push(Datum::new(isize::from_num(i)?)),
+        None => interpreter.stack.push(Datum::new(false)),
     }
     Ok(())
 }
@@ -167,8 +160,7 @@ fn is_string_char_boundary(interpreter: &mut Interpreter) -> exec::Result<()> {
         let s = interpreter.stack.ref_at::<String>(1)?;
         s.as_str().is_char_boundary(idx)
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(is_boundary));
+    interpreter.stack.push(Datum::new(is_boundary));
     Ok(())
 }
 
@@ -177,14 +169,14 @@ fn is_string_char_boundary(interpreter: &mut Interpreter) -> exec::Result<()> {
 // }
 
 fn symbol_into_string(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (sym, source) = interpreter.stack.pop_source::<Symbol>()?;
-    interpreter.stack.push(Datum::build().with_source(source).ok::<String>(sym.to_string()));
+    let sym = interpreter.stack.pop::<Symbol>()?;
+    interpreter.stack.push(Datum::new::<String>(sym.to_string()));
     Ok(())
 }
 
 fn string_into_symbol(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (a, source) = interpreter.stack.pop_source::<String>()?;
-    interpreter.stack.push(Datum::build().with_source(source).ok(a));
+    let a = interpreter.stack.pop::<String>()?;
+    interpreter.stack.push(Datum::new(a));
     Ok(())
 }
 

@@ -10,6 +10,9 @@ impl Symbol {
     pub fn to_string(&self) -> String {
         self.0.clone()
     }
+    pub fn as_str(&self) -> &str {
+        self.as_ref()
+    }
 }
 
 impl<'a> From<&'a str> for Symbol {

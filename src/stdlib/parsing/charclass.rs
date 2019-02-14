@@ -16,37 +16,31 @@ pub fn install(interpreter: &mut Interpreter) {
 
 fn char_class_just(interpreter: &mut Interpreter) -> exec::Result<()> {
     let chr: CharClass = interpreter.stack.pop::<char>()?.into();
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(chr));
     Ok(())
 }
 
 fn char_class_whitespace(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Whitespace));
     Ok(())
 }
 
 fn char_class_alpha(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Alpha));
     Ok(())
 }
 
 fn char_class_numeric(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Numeric));
     Ok(())
 }
 
 fn char_class_symbol(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Symbol));
     Ok(())
 }
 
 fn char_class_eof(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(CharClass::Eof));
     Ok(())
 }

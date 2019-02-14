@@ -43,8 +43,7 @@ pub fn install(interpreter: &mut Interpreter) {
 fn make_command(interpreter: &mut Interpreter) -> exec::Result<()> {
     let s = interpreter.stack.pop::<String>()?;
     let cmd = Command::new(s);
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(cmd));
+    interpreter.stack.push(Datum::new(cmd));
     Ok(())
 }
 
@@ -135,8 +134,7 @@ fn command_spawn(interpreter: &mut Interpreter) -> exec::Result<()> {
         let cmd = interpreter.stack.ref_at::<Command>(0)?;
         Process::new(cmd.compile().spawn()?)
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(proc));
+    interpreter.stack.push(Datum::new(proc));
     Ok(())
 }
 
@@ -145,8 +143,7 @@ fn process_has_stdin(interpreter: &mut Interpreter) -> exec::Result<()> {
         let proc = interpreter.stack.ref_at::<Process>(0)?;
         proc.0.borrow().stdin.is_some()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
@@ -155,8 +152,7 @@ fn process_has_stdout(interpreter: &mut Interpreter) -> exec::Result<()> {
         let proc = interpreter.stack.ref_at::<Process>(0)?;
         proc.0.borrow().stdout.is_some()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
@@ -165,29 +161,25 @@ fn process_has_stderr(interpreter: &mut Interpreter) -> exec::Result<()> {
         let proc = interpreter.stack.ref_at::<Process>(0)?;
         proc.0.borrow().stderr.is_some()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
 fn process_stdin_port(interpreter: &mut Interpreter) -> exec::Result<()> {
     let p = interpreter.stack.ref_at::<Process>(0)?.stdin()?;
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    interpreter.stack.push(Datum::new(p));
     Ok(())
 }
 
 fn process_stdout_port(interpreter: &mut Interpreter) -> exec::Result<()> {
     let p = interpreter.stack.ref_at::<Process>(0)?.stdout()?;
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    interpreter.stack.push(Datum::new(p));
     Ok(())
 }
 
 fn process_stderr_port(interpreter: &mut Interpreter) -> exec::Result<()> {
     let p = interpreter.stack.ref_at::<Process>(0)?.stderr()?;
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    interpreter.stack.push(Datum::new(p));
     Ok(())
 }
 
@@ -196,8 +188,7 @@ fn process_id(interpreter: &mut Interpreter) -> exec::Result<()> {
         let proc = interpreter.stack.ref_at::<Process>(0)?;
         proc.0.borrow().id()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(r)?));
+    interpreter.stack.push(Datum::new(isize::from_num(r)?));
     Ok(())
 }
 
@@ -216,8 +207,7 @@ fn is_process_running(interpreter: &mut Interpreter) -> exec::Result<()> {
         let proc = interpreter.stack.top_mut::<Process>()?;
         proc.0.borrow_mut().try_wait()?.is_none()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 

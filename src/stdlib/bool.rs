@@ -15,8 +15,7 @@ fn bool_and(interpreter: &mut Interpreter) -> exec::Result<()> {
         let b = interpreter.stack.ref_datum(1)?;
         !(a.value_ref::<bool>() == Ok(&false) || b.value_ref::<bool>() == Ok(&false))
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    interpreter.stack.push(Datum::new(res));
     Ok(())
 }
 
@@ -26,8 +25,7 @@ fn bool_or(interpreter: &mut Interpreter) -> exec::Result<()> {
         let b = interpreter.stack.ref_datum(1)?;
         a.value_ref::<bool>() != Ok(&false) || b.value_ref::<bool>() != Ok(&false)
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(res));
+    interpreter.stack.push(Datum::new(res));
     Ok(())
 }
 

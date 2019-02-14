@@ -3,7 +3,6 @@ use std::mem;
 use std::collections::VecDeque;
 use crate::interpreter::code::*;
 use crate::interpreter::exec;
-use crate::parser::Source;
 use crate::data::*;
 use crate::interpreter::env::*;
 
@@ -13,7 +12,6 @@ use crate::interpreter::env::*;
 // Otherwise become the parent
 #[derive(Default, Debug)]
 pub struct Context {
-    source: Option<Source>,
     code: VecDeque<Datum>,
     env: Env,
     parent: Option<Box<Context>>,
@@ -22,10 +20,6 @@ pub struct Context {
 }
 
 impl Context {
-
-    pub fn source(&self) -> Option<&Source> {
-        self.source.as_ref()
-    }
 
     pub fn name(&self) -> Option<&str> {
         self.name.as_ref().map(String::as_str)
@@ -55,25 +49,16 @@ impl Context {
         mem::swap(self, &mut child);
     }
 
-    // Only for interpreter to push place of current error (hack)
-    pub fn push_source<P: Into<Option<Source>>>(&mut self, source: P) {
-        let mut ctx = Context::default();
-        ctx.source = source.into();
-        self.into_child_context(ctx);
-    }
-
-    pub fn push_def<P: Into<Option<Source>>>(&mut self, source: P, def: &Definition) {
-        let source = source.into();
+    pub fn push_def(&mut self, def: &Definition) {
         // TCO here
         if self.is_root() || self.code.len() > 0 {
             self.into_child_context(Default::default());
         }
-        self.source = source;
         self.code = def.program().clone().into_iter().collect();
     }
     
     // Become parent and add old self as child
-    pub fn uplevel(&mut self, _source: Option<Source>) -> exec::Result<()> {
+    pub fn uplevel(&mut self) -> exec::Result<()> {
         let parent = self.parent.take();
         match parent {
             None => Err(error::UplevelInRootContext().into()),
@@ -121,22 +106,6 @@ impl Context {
             return p.resolve(name);
         }
         return None;
-    }
-
-    pub fn stack_sources(&self) -> Vec<Option<Source>> {
-        let mut sources = vec![];
-        sources.push(self.source.clone());
-        let mut r = self;
-        while let Some(ref p) = r.parent {
-            sources.push(p.source.clone());
-            r = &**p;
-        }
-        sources
-    }
-
-    // TODO
-    pub fn stack_uplevel_sources(&self) -> Vec<Vec<Option<Source>>> {
-        vec![]
     }
 
     pub fn env_mut(&mut self) -> &mut Env {

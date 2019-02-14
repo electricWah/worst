@@ -13,7 +13,6 @@ pub fn install(interpreter: &mut Interpreter) {
 fn make_reader(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     let r = Reader::new(name, vec![]);
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(r));
     Ok(())
 }

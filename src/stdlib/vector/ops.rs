@@ -23,15 +23,13 @@ fn make_u8vector(interpreter: &mut Interpreter) -> exec::Result<()> {
     let len = interpreter.stack.pop::<isize>()?.cast::<usize>()?;
     let fill = interpreter.stack.pop::<isize>()?.cast::<u8>()?;
     let vec = U8Vector::fill(len, fill);
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(vec));
+    interpreter.stack.push(Datum::new(vec));
     Ok(())
 }
 
 fn u8vector_length(interpreter: &mut Interpreter) -> exec::Result<()> {
     let len = interpreter.stack.ref_at::<U8Vector>(0)?.len();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
+    interpreter.stack.push(Datum::new(isize::from_num(len)?));
     Ok(())
 }
 
@@ -43,8 +41,7 @@ fn u8vector_get(interpreter: &mut Interpreter) -> exec::Result<()> {
     };
     match got {
         Some(v) => {
-            let source = interpreter.current_source();
-            interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(v)?));
+            interpreter.stack.push(Datum::new(isize::from_num(v)?));
         },
         None => return Err(error::OutOfRange(0, len as isize, idx as isize).into()),
     }

@@ -41,8 +41,10 @@ impl HasType for Place {
 
 impl ValueDescribe for Place {
     fn fmt_describe(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Place: ")?;
-        self.0.borrow().fmt_describe(fmt)
+        write!(fmt, "Place(")?;
+        self.0.borrow().fmt_describe(fmt)?;
+        write!(fmt, ")")?;
+        Ok(())
     }
 }
 
@@ -61,8 +63,7 @@ pub fn install(interpreter: &mut Interpreter) {
 fn make_place(interpreter: &mut Interpreter) -> exec::Result<()> {
     let d = interpreter.stack.pop_datum()?;
     let place = Place::new(d);
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(place));
+    interpreter.stack.push(Datum::new(place));
     Ok(())
 }
 

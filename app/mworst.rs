@@ -19,10 +19,15 @@ fn run<S: fmt::Debug + AsRef<str> + AsRef<Path>>(args: &[S]) {
         let script = &args[1];
 
         if let Err(e) = interpreter.eval_file(script.as_ref()) {
-            eprintln!("Error loading script {:?}", script);
-            eprintln!("{}", e);
-            eprintln!("Stack ({} items)", interpreter.stack.size());
-            eprintln!("{}", interpreter.stack.describe());
+            eprintln!("Error: {}", e);
+            eprintln!("History:");
+            for x in interpreter.history() {
+                eprintln!("  {}", x.as_str());
+            }
+            if interpreter.stack.size() > 0 {
+                eprintln!("Stack ({} items)", interpreter.stack.size());
+                eprintln!("{}", interpreter.stack.describe());
+            }
             interpreter.clear();
         }
     }

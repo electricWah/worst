@@ -38,8 +38,7 @@ pub fn install(interpreter: &mut Interpreter) {
 }
 
 fn make_open_file_options(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(OpenFileOptions::new()));
+    interpreter.stack.push(Datum::new(OpenFileOptions::new()));
     Ok(())
 }
 
@@ -77,8 +76,7 @@ fn open_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     let path = interpreter.stack.pop::<String>()?;
     let opts = interpreter.stack.pop::<OpenFileOptions>()?;
     let f = opts.open(path)?;
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(f));
+    interpreter.stack.push(Datum::new(f));
     Ok(())
 }
 
@@ -87,8 +85,7 @@ fn file_port(interpreter: &mut Interpreter) -> exec::Result<()> {
         let f = interpreter.stack.ref_at::<File>(0)?;
         f.port()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(port));
+    interpreter.stack.push(Datum::new(port));
     Ok(())
 }
 
@@ -100,43 +97,37 @@ fn file_sync(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn file_info(interpreter: &mut Interpreter) -> exec::Result<()> {
     let info = FileMetadata::create(interpreter.stack.ref_at::<File>(0)?)?;
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(info));
+    interpreter.stack.push(Datum::new(info));
     Ok(())
 }
 
 fn is_file_info_directory(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<FileMetadata>(0)?.borrow().is_dir();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
 fn is_file_info_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<FileMetadata>(0)?.borrow().is_file();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
 fn is_file_info_symlink(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<FileMetadata>(0)?.borrow().file_type().is_symlink();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
 fn file_info_length(interpreter: &mut Interpreter) -> exec::Result<()> {
     let len = interpreter.stack.ref_at::<FileMetadata>(0)?.borrow().len();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
+    interpreter.stack.push(Datum::new(isize::from_num(len)?));
     Ok(())
 }
 
 fn is_file_info_readonly(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<FileMetadata>(0)?.borrow().permissions().readonly();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 

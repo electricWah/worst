@@ -199,58 +199,42 @@ fn read_number<I: Iterator<Item=char>>(c: char, pos: &mut SourcePos, reader: &mu
             break;
         }
     }
-    let datum = Datum::build();
     if float {
-        Ok(datum.ok(s.parse::<f64>().map_err(|e| ParseError::BadFloat(pos.clone(), e))?))
+        Ok(Datum::new(s.parse::<f64>().map_err(|e| ParseError::BadFloat(pos.clone(), e))?))
     } else {
-        Ok(datum.ok(s.parse::<isize>().map_err(|e| ParseError::BadInteger(pos.clone(), e))?))
+        Ok(Datum::new(s.parse::<isize>().map_err(|e| ParseError::BadInteger(pos.clone(), e))?))
     }
 }
 
-fn read_punct_symbol<I: Iterator<Item=char>>(c: char, pos: &mut SourcePos, reader: &mut ReadIter<I>) -> Datum {
-    let mut s = String::new();
-    s.push(c);
-    while let Some(c) = reader.next() {
-        if c.is_whitespace() || c.is_alphabetic() || c.is_numeric() {
-            reader.push_back(c);
-            break;
-        } else {
-            match c {
-                '(' | ')' | '[' | ']' | '"' | ';' => {
-                    reader.push_back(c);
-                    break;
-                },
-                c => {
-                    pos.read(c);
-                    s.push(c);
-                },
-            }
+fn atomic_end(c: char) -> bool {
+    if c.is_whitespace() {
+        true
+    } else {
+        match c {
+            '(' | ')' | '[' | ']' | '"' | ';' => true,
+            _ => false,
         }
     }
-    Datum::build().symbol(s)
 }
 
-fn read_alpha_symbol<I: Iterator<Item=char>>(c: char, pos: &mut SourcePos, reader: &mut ReadIter<I>) -> Datum {
+fn read_symbol<I: Iterator<Item=char>>(c: char, pos: &mut SourcePos, reader: &mut ReadIter<I>) -> Datum {
     let mut s = String::new();
     s.push(c);
-    while let Some(c) = reader.next() {
-        if c.is_whitespace() {
-            reader.push_back(c);
-            break;
-        } else {
-            match c {
-                '(' | ')' | '[' | ']' | '"' | ';' => {
+    match c {
+        '\'' | ':' => {},
+        _ => {
+            while let Some(c) = reader.next() {
+                if atomic_end(c) {
                     reader.push_back(c);
                     break;
-                },
-                c => {
+                } else {
                     pos.read(c);
                     s.push(c);
-                },
+                }
             }
-        }
+        },
     }
-    Datum::build().symbol(s)
+    Datum::symbol(s)
 }
 
 // TODO these inner ones don't correctly report the place of error
@@ -258,10 +242,8 @@ fn read_atom<I: Iterator<Item=char>>(pos: &mut SourcePos, reader: &mut ReadIter<
     if let Some(c) = reader.next() {
         if c.is_numeric() {
             Ok(Some(read_number(c, pos, reader)?))
-        } else if c.is_alphabetic() {
-            Ok(Some(read_alpha_symbol(c, pos, reader)))
         } else {
-            Ok(Some(read_punct_symbol(c, pos, reader)))
+            Ok(Some(read_symbol(c, pos, reader)))
         }
     } else { Ok(None) }
 }
@@ -331,22 +313,18 @@ fn read_cmd<I: Iterator<Item=char>>(pos: &mut SourcePos, reader: &mut ReadIter<I
                         pos.read('!');
                         return Ok(Some((p, ReadCmd::StartBlockComment)));
                     },
-                    Some(x) => {
-                        reader.push_back(x);
-                        reader.push_back('#');
-                        if let Some(atom) = read_atom(pos, reader)? {
-                            return Ok(Some((p, ReadCmd::Atom(atom))));
+                    Some(c) => {
+                        if c.is_numeric() || c.is_alphabetic() || atomic_end(c) {
+                            reader.push_back(c);
+                            return Ok(Some((p, ReadCmd::Atom(Datum::symbol("#")))));
                         } else {
-                            return Ok(None);
+                            let mut s = "#".to_string();
+                            s.push(c);
+                            return Ok(Some((p, ReadCmd::Atom(Datum::symbol(s)))));
                         }
-                    },
+                    }
                     None => {
-                        reader.push_back('#');
-                        if let Some(atom) = read_atom(pos, reader)? {
-                            return Ok(Some((p, ReadCmd::Atom(atom))));
-                        } else {
-                            return Ok(None);
-                        }
+                        return Ok(Some((p, ReadCmd::Atom(Datum::symbol("#")))));
                     },
                 }
             },
@@ -379,7 +357,7 @@ fn read_toplevel_datum<I: Iterator<Item=char>>(pos: &mut SourcePos,
                 match nesting.pop() {
                     None => return Err(ParseError::UnbalancedCloseList(start)),
                     Some(ParsingList(data, start)) => {
-                        let datum = Datum::build().ok(List::from(data));
+                        let datum = Datum::new(List::from(data));
                         match nesting.pop() {
                             None => return Ok(Some((start, datum))),
                             Some(ParsingList(mut data, start)) => {
@@ -394,7 +372,7 @@ fn read_toplevel_datum<I: Iterator<Item=char>>(pos: &mut SourcePos,
                 let mut s = String::new();
                 let r = read_string_inner(&mut s, pos, reader);
                 if r {
-                    let datum = Datum::build().ok(s);
+                    let datum = Datum::new(s);
                     match nesting.pop() {
                         None => return Ok(Some((start, datum))),
                         Some(ParsingList(mut data, start)) => {
@@ -446,14 +424,8 @@ impl<I: Iterator<Item=char>> Parser<I> {
         self
     }
     pub fn next(&mut self) -> Result<Option<Datum>, ParseError<Source>> {
-        if let Some((start, mut datum)) = read_toplevel_datum(&mut self.pos, &mut self.reader)
+        if let Some((_start, datum)) = read_toplevel_datum(&mut self.pos, &mut self.reader)
                 .map_err(|e| ParseError::map_source(e, |p| Source::from_pos(p).with_file(self.file.clone())))? {
-            let source = Source {
-                file: self.file.clone(),
-                start,
-                end: self.pos.clone(),
-            };
-            datum.set_source(source);
             Ok(Some(datum))
         } else {
             Ok(None)

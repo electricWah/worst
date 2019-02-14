@@ -24,10 +24,9 @@ pub fn install(interpreter: &mut Interpreter) {
 }
 
 fn uplevel(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
-    interpreter.context.uplevel(source)?;
-    let (name, source) = interpreter.stack.pop_source::<Symbol>()?;
-    interpreter.eval_symbol(&name, source)?;
+    interpreter.context.uplevel()?;
+    let name = interpreter.stack.pop::<Symbol>()?;
+    interpreter.eval_symbol(&name)?;
     Ok(())
 }
 
@@ -37,8 +36,8 @@ fn quote(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn list_into_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let code = interpreter.stack.pop::<List>()?.into();
-    let def = Code::from(Definition::new(code)); //.with_source(source));
+    let code = interpreter.stack.pop::<List>()?;
+    let def = Code::from(Definition::new(code.into()));
     interpreter.stack.push(Datum::new(def));
     Ok(())
 }
@@ -84,8 +83,8 @@ fn add_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn eval_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (code, source) = interpreter.stack.pop_source::<Code>()?;
-    interpreter.eval_code(&code, source)?;
+    let code = interpreter.stack.pop::<Code>()?;
+    interpreter.eval_code(&code)?;
     // interpreter.stack.push(code);
     Ok(())
 }
@@ -103,23 +102,23 @@ fn defined_names(interpreter: &mut Interpreter) -> exec::Result<()> {
     // TODO source
     let names: Vec<Datum> = interpreter.env_mut().current_defines()
         .map(Clone::clone)
-        .map(|s| Datum::build().symbol(s))
+        .map(|s| Datum::symbol(s))
         .collect();
     interpreter.stack.push(Datum::new::<List>(names.into()));
     Ok(())
 }
 
 fn call(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (name, source) = interpreter.stack.pop_source::<Symbol>()?;
-    interpreter.eval_symbol(&name, source)?;
+    let name = interpreter.stack.pop::<Symbol>()?;
+    interpreter.eval_symbol(&name)?;
     Ok(())
 }
 
 fn call_when(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (name, source) = interpreter.stack.pop_source::<Symbol>()?;
+    let name = interpreter.stack.pop::<Symbol>()?;
     let whether = interpreter.stack.pop::<bool>()?;
     if whether {
-        return interpreter.eval_symbol(&name, source);
+        return interpreter.eval_symbol(&name);
     }
     Ok(())
 }
@@ -134,10 +133,9 @@ fn uplevel_in_named_context(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     let sym = interpreter.stack.pop::<Symbol>()?;
     while interpreter.context.name() != Some(name.as_ref()) {
-        interpreter.context.uplevel(None)?;
+        interpreter.context.uplevel()?;
     }
-    let source = interpreter.current_source();
-    interpreter.eval_symbol(&sym, source)?;
+    interpreter.eval_symbol(&sym)?;
     Ok(())
 }
 

@@ -20,26 +20,26 @@ pub fn install(interpreter: &mut Interpreter) {
 fn num_add(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = interpreter.stack.pop::<isize>()?;
     let b = interpreter.stack.pop::<isize>()?;
-    interpreter.stack.push(Datum::build().ok(a + b));
+    interpreter.stack.push(Datum::new(a + b));
     Ok(())
 }
 
 fn num_negate(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = interpreter.stack.pop::<isize>()?;
-    interpreter.stack.push(Datum::build().ok(-a));
+    interpreter.stack.push(Datum::new(-a));
     Ok(())
 }
 
 fn num_mul(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = interpreter.stack.pop::<isize>()?;
     let b = interpreter.stack.pop::<isize>()?;
-    interpreter.stack.push(Datum::build().ok(a * b));
+    interpreter.stack.push(Datum::new(a * b));
     Ok(())
 }
 
 // fn num_recip(interpreter: &mut Interpreter) -> exec::Result<()> {
 //     let a = interpreter.stack.pop::<isize>()?;
-//     interpreter.stack.push(Datum::build().ok(a.recip()));
+//     interpreter.stack.push(Datum::new(a.recip()));
 //     Ok(())
 // }
 
@@ -49,31 +49,31 @@ fn num_gt(interpreter: &mut Interpreter) -> exec::Result<()> {
         let b = interpreter.stack.ref_at::<isize>(1)?;
         a > b
     };
-    interpreter.stack.push(Datum::build().ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
 fn num_abs(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = interpreter.stack.pop::<isize>()?;
-    interpreter.stack.push(Datum::build().ok(a.abs()));
+    interpreter.stack.push(Datum::new(a.abs()));
     Ok(())
 }
 
 // fn num_floor(interpreter: &mut Interpreter) -> exec::Result<()> {
 //     let a = interpreter.stack.pop::<isize>()?;
-//     interpreter.stack.push(Datum::build().ok(a.floor()));
+//     interpreter.stack.push(Datum::new(a.floor()));
 //     Ok(())
 // }
 
 // fn num_numerator(interpreter: &mut Interpreter) -> exec::Result<()> {
 //     let a = interpreter.stack.ref_at::<isize>(0)?.numerator();
-//     interpreter.stack.push(Datum::build().ok(a));
+//     interpreter.stack.push(Datum::new(a));
 //     Ok(())
 // }
 
 // fn num_denominator(interpreter: &mut Interpreter) -> exec::Result<()> {
 //     let a = interpreter.stack.ref_at::<isize>(0)?.denominator();
-//     interpreter.stack.push(Datum::build().ok(a));
+//     interpreter.stack.push(Datum::new(a));
 //     Ok(())
 // }
 

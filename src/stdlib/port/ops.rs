@@ -35,8 +35,7 @@ fn is_input_port(interpreter: &mut Interpreter) -> exec::Result<()> {
             false
         }
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
@@ -48,29 +47,25 @@ fn is_output_port(interpreter: &mut Interpreter) -> exec::Result<()> {
             false
         }
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
 fn standard_input_port(interpreter: &mut Interpreter) -> exec::Result<()> {
     let p = Port::stdin();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    interpreter.stack.push(Datum::new(p));
     Ok(())
 }
 
 fn standard_output_port(interpreter: &mut Interpreter) -> exec::Result<()> {
     let p = Port::stdout();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    interpreter.stack.push(Datum::new(p));
     Ok(())
 }
 
 fn standard_error_port(interpreter: &mut Interpreter) -> exec::Result<()> {
     let p = Port::stderr();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(p));
+    interpreter.stack.push(Datum::new(p));
     Ok(())
 }
 
@@ -83,8 +78,7 @@ fn port_read(interpreter: &mut Interpreter) -> exec::Result<()> {
         port.read_into(buf.inner_mut())?
     };
     interpreter.stack.push(bufd);
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(c)?));
+    interpreter.stack.push(Datum::new(isize::from_num(c)?));
     Ok(())
 }
 
@@ -104,8 +98,7 @@ fn is_port_unique(interpreter: &mut Interpreter) -> exec::Result<()> {
         let p = interpreter.stack.ref_at::<Port>(0)?;
         p.is_unique()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
@@ -114,8 +107,7 @@ fn is_port_seekable(interpreter: &mut Interpreter) -> exec::Result<()> {
         let p = interpreter.stack.ref_at::<Port>(0)?;
         p.can_seek()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(r));
+    interpreter.stack.push(Datum::new(r));
     Ok(())
 }
 
@@ -125,8 +117,7 @@ fn port_seek_start(interpreter: &mut Interpreter) -> exec::Result<()> {
         let port = interpreter.stack.top_mut::<Port>()?;
         port.seek(SeekFrom::Start(offs))?
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(seek)?));
+    interpreter.stack.push(Datum::new(isize::from_num(seek)?));
     Ok(())
 }
 
@@ -136,8 +127,7 @@ fn port_seek_end(interpreter: &mut Interpreter) -> exec::Result<()> {
         let port = interpreter.stack.top_mut::<Port>()?;
         port.seek(SeekFrom::End(offs))?
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(seek)?));
+    interpreter.stack.push(Datum::new(isize::from_num(seek)?));
     Ok(())
 }
 
@@ -147,8 +137,7 @@ fn port_seek_relative(interpreter: &mut Interpreter) -> exec::Result<()> {
         let port = interpreter.stack.top_mut::<Port>()?;
         port.seek(SeekFrom::Current(offs))?
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(seek)?));
+    interpreter.stack.push(Datum::new(isize::from_num(seek)?));
     Ok(())
 }
 

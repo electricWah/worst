@@ -30,14 +30,12 @@ pub fn install(interpreter: &mut Interpreter) {
 }
 
 fn current_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(InterpRef::current()));
     Ok(())
 }
 
 fn make_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
     let interp = InterpRef::from(Interpreter::new());
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(interp));
     Ok(())
 }
@@ -92,7 +90,6 @@ fn interpreter_swap_stack(interpreter: &mut Interpreter) -> exec::Result<()> {
     with_top_mut(interpreter, |i| {
         mem::swap(i.stack.vec_data_mut(), &mut l);
     })?;
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(List::from(l)));
     Ok(())
 }
@@ -188,14 +185,12 @@ fn is_interpreter_quoting(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = with_top_mut(interpreter, |i| {
         i.quoting()
     })?;
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(r));
     Ok(())
 }
 
 fn is_current_interpreter(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = interpreter.stack.ref_at::<InterpRef>(0)? == &InterpRef::Current;
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(r));
     Ok(())
 }

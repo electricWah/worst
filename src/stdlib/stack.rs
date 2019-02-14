@@ -37,8 +37,7 @@ fn op_drop(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn is_stack_empty(interpreter: &mut Interpreter) -> exec::Result<()> {
     let size = interpreter.stack.size();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(size == 0));
+    interpreter.stack.push(Datum::new(size == 0));
     Ok(())
 }
 

@@ -14,18 +14,15 @@ pub fn install(interpreter: &mut Interpreter) {
 }
 
 fn combo_nothing(interpreter: &mut Interpreter) -> exec::Result<()> {
-    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(ComboValue::nothing()));
     Ok(())
 }
 
 fn combo_anything(interpreter: &mut Interpreter) -> exec::Result<()> {
-    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(ComboValue::anything()));
     Ok(())
 }
 
 fn combo_just(interpreter: &mut Interpreter) -> exec::Result<()> {
     let chr = interpreter.stack.pop_datum()?;
-    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(ComboValue::just(chr)));
     Ok(())
 }
 

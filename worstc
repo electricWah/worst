@@ -1,0 +1,190 @@
+#!/usr/bin/env sh
+exec cargo run -- "$0" --worstc "$0" "$@"
+!#
+
+; 'name [program...] define%
+[ list->definition 1 dig quote add-definition uplevel ]
+list->definition quote define% add-definition
+
+[ ; define
+  quote quote uplevel ; name
+  quote quote uplevel ; [def ...]
+  quote define% uplevel
+] list->definition quote define add-definition
+
+define ' [quote quote uplevel]
+define ^' ['quote 'uplevel uplevel]
+define ^: [^' 'uplevel uplevel]
+
+define swap [1 dig]
+
+define prints [string->u8vector standard-output-port 1 dig port-write drop]
+define printe [string->u8vector standard-error-port 1 dig port-write drop]
+
+define eval [list->definition eval-definition]
+
+define local [
+    [quote] swap list-push-tail
+    ^' swap ^: define%
+]
+
+0 1 equal? local false drop drop
+0 0 equal? local true drop drop
+define false? [false equal? swap drop]
+define not [false? swap drop]
+define true? [false? false? swap drop]
+
+define equal?! [equal? swap drop]
+
+define swapvar [
+    ^' swap make-place
+    [swap place-swap swap drop] swap list-push-head
+    'define% uplevel
+]
+
+define with-swapvar [
+    ^' local %%swapvar-name
+    [] %%swapvar-name call
+    ^' eval
+    %%swapvar-name call drop
+]
+
+; swapvar-take name => value
+define swapvar-take [ false ^' call ]
+
+; cond [if-true ...] [if-false ...] if%
+define if% [
+    swap 2 dig      ; cond true-arm false-arm
+    ; either
+    ; true T F -> F T drop -> T
+    ; false T F -> T F drop -> F
+    'swap call-when drop
+    eval
+]
+
+; cond if [if-true ...] [if-false ...]
+define if [ ^' ^' if% ]
+
+; while [-> bool] [body ...]
+define while [
+    '%cond ^' define%
+    '%body ^' define%
+    define %loop [ %cond [%body %loop] [] if% ]
+    %loop
+]
+
+; cond [[if1] [body1] [if2] [body2] ...]
+define cond [
+    ^' swapvar conds%
+    define next-cond% [
+        with-swapvar conds% [list-pop-head swap] ^: eval
+        if [
+            with-swapvar conds% [list-pop-head swap] 'eval 'uplevel uplevel
+            true
+        ] [
+            with-swapvar conds% [list-pop-head drop] false
+        ]
+    ]
+    while [^: next-cond% not] []
+]
+
+define list-empty? [[] equal? swap drop]
+
+[] swapvar program-arguments%
+
+define program-argument [
+    false swapvar shortopt
+    define : [^' symbol->string shortopt drop]
+    false swapvar longopt
+    define long [^' symbol->string longopt drop]
+    'flag swapvar kind
+    define flag ['flag kind drop]
+    define arg ['arg kind drop]
+    false swapvar doc-msg
+    define doc [^' doc-msg drop]
+    ^' eval
+    swapvar-take shortopt local shortopt
+    swapvar-take longopt local longopt
+    swapvar-take doc-msg local doc-msg
+    swapvar-take kind local kind
+    ""
+    shortopt string-append
+    ", " string-append
+    longopt string-append
+    ": " string-append
+    doc-msg string-append
+    "\n" string-append
+    with-swapvar program-arguments% [swap list-push-tail]
+    command-line
+    while [list-pop-head "--worstc" equal?! not] [drop]
+    drop
+    local cmdline
+    define findopt [
+        local opt
+        cmdline while [
+            list-empty? if [false] [
+                list-pop-head opt equal?! not
+            ]
+        ] [drop]
+        list-empty? if [drop false] [true]
+    ]
+    cond [
+        [shortopt findopt true?] []
+        [drop longopt findopt true?] []
+        [drop true] [false]
+    ]
+    cond [
+        [not] [false]
+        [kind 'arg equal?!] [
+            drop swap list-empty? if [
+                drop "No argument given for flag" abort
+            ] [list-pop-head swap drop swap drop]
+        ]
+        ['flag equal?!] [drop drop drop true]
+        [true] [No]
+    ]
+]
+
+define program-usage [
+    swapvar-take program-arguments%
+    while [list-empty? not] [
+        list-pop-head prints
+    ]
+    drop
+]
+
+program-argument [
+    doc "Output format (default lua)"
+    arg :-O long --output-format
+]
+"lua" and if [drop] [swap drop] local output-format
+
+program-argument [ flag :-g long --egg doc "Show egg" ]
+local egg
+
+program-argument [ flag :-h long --help doc "Show help" ]
+if [
+    "worstc: Worst compiler\n" prints
+    program-usage abort
+] []
+
+abort
+
+'test describe drop
+
+[-check --some #:things] describe drop
+
+; ok
+[]
+describe drop
+"helo"
+describe drop
+[[5] [] [7 8 [7]]]
+describe drop
+5 7 add describe drop
+
+"wef\n" string->u8vector describe drop
+"wef\n" string->u8vector standard-output-port 1 dig port-write
+
+;;; vi: ft=scheme
+

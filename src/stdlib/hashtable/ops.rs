@@ -20,8 +20,7 @@ pub fn install(interpreter: &mut Interpreter) {
 
 fn make_hash_table(interpreter: &mut Interpreter) -> exec::Result<()> {
     let tbl = HashTable::default();
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(tbl));
+    interpreter.stack.push(Datum::new(tbl));
     Ok(())
 }
 
@@ -30,8 +29,7 @@ fn hash_table_size(interpreter: &mut Interpreter) -> exec::Result<()> {
         let tbl = interpreter.stack.ref_at::<HashTable>(0)?;
         tbl.size()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(isize::from_num(len)?));
+    interpreter.stack.push(Datum::new(isize::from_num(len)?));
     Ok(())
 }
 
@@ -49,8 +47,7 @@ fn hash_table_exists(interpreter: &mut Interpreter) -> exec::Result<()> {
         let tbl = interpreter.stack.ref_at::<HashTable>(1)?;
         tbl.exists(&k)
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(ok));
+    interpreter.stack.push(Datum::new(ok));
     Ok(())
 }
 
@@ -80,8 +77,7 @@ fn hash_table_keys(interpreter: &mut Interpreter) -> exec::Result<()> {
         let tbl = interpreter.stack.ref_at::<HashTable>(0)?;
         tbl.keys().map(|bv| Datum::from_boxed(bv.clone())).collect()
     };
-    let source = interpreter.current_source();
-    interpreter.stack.push(Datum::build().with_source(source).ok(List::from(r)));
+    interpreter.stack.push(Datum::new(List::from(r)));
     Ok(())
 }
 

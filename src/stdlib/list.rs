@@ -55,7 +55,7 @@ fn list_append(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn list_length(interpreter: &mut Interpreter) -> exec::Result<()> {
     let len = { interpreter.stack.ref_at::<List>(0)?.len() };
-    interpreter.stack.push(Datum::build().with_source(interpreter.current_source()).ok(len as isize));
+    interpreter.stack.push(Datum::new(len as isize));
     Ok(())
 }
 

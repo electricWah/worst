@@ -1,74 +1,34 @@
 
 use std::str::FromStr;
 use std::fmt;
-use crate::parser::*;
 use crate::data::symbol::*;
 use crate::data::value::*;
 use crate::data::types::*;
 
 // XXX replace Eq with StructuralEq and IdentityEq?
 
-#[derive(Debug, Eq, PartialEq, Default, Clone)]
-pub struct DatumInfo {
-    source: Option<Source>,
-}
-
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Datum {
     value: BoxValue,
-    info: DatumInfo,
 }
 
 pub struct DatumDump<'a>(&'a Datum);
 pub struct DatumShow<'a>(&'a Datum);
 pub struct DatumDescribe<'a>(&'a Datum);
 
-impl DatumInfo {
-    pub fn with_source<S: Into<Option<Source>>>(mut self, source: S) -> Self {
-        self.source = source.into();
-        self
-    }
-    pub fn symbol<S: AsRef<str>>(self, value: S) -> Datum {
-        Datum {
-            value: BoxValue::new(Symbol::from(value.as_ref())),
-            info: self,
-        }
-    }
-    pub fn parse<T: FromStr + Value>(self, value: &str) -> Option<Datum> {
-        T::from_str(value).map(|v| self.ok(v)).ok()
-    }
-
-    pub fn ok<V: Value>(self, v: V) -> Datum {
-        Datum {
-            value: BoxValue(Box::new(v)),
-            info: self,
-        }
-    }
-}
-
 impl Datum {
-    pub fn build() -> DatumInfo {
-        DatumInfo::default()
+    pub fn symbol<S: AsRef<str>>(value: S) -> Datum {
+        Datum { value: BoxValue::new(Symbol::from(value.as_ref())), }
+    }
+    pub fn parse<T: FromStr + Value>(value: &str) -> Option<Datum> {
+        T::from_str(value).map(|v| Datum::new(v)).ok()
     }
     pub fn new<V: Value>(v: V) -> Datum {
-        Datum {
-            value: BoxValue(Box::new(v)),
-            info: DatumInfo {
-                source: None,
-            },
-        }
+        Datum { value: BoxValue(Box::new(v)), }
     }
 
     pub fn is_type<T: Value>(&self) -> bool {
         self.value.is_type::<T>()
-    }
-
-    pub fn set_source(&mut self, source: Source) {
-        self.info.source = Some(source);
-    }
-
-    pub fn source(&self) -> Option<&Source> {
-        self.info.source.as_ref()
     }
 
     pub fn value_equal(&self, other: &Datum) -> bool {
@@ -82,19 +42,11 @@ impl Datum {
         &self.value
     }
     pub fn from_boxed(value: BoxValue) -> Self {
-        Datum {
-            value,
-            info: DatumInfo::default(),
-        }
+        Datum { value, }
     }
 
     pub fn into_value<T: Value + Sized>(self) -> Result<T, Type> {
         self.value.try_cast::<T>()
-    }
-    pub fn into_value_source<T: Value + Sized>(self) -> Result<(T, Option<Source>), Type> {
-        let Datum { value, info } = self;
-        let v = value.try_cast::<T>()?;
-        Ok((v, info.source))
     }
 
     pub fn value_ref<T: Value>(&self) -> Result<&T, Type> {
@@ -159,11 +111,8 @@ impl<'a> fmt::Display for DatumDescribe<'a> {
 
 impl<'a> fmt::Display for DatumDump<'a> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        write!(fmt, "{}: ", self.0.type_of())?;
         self.0.fmt_describe(fmt)?;
-        write!(fmt, "\n  Type: {}\n", self.0.type_of())?;
-        if let &Some(ref v) = &self.0.source() {
-            write!(fmt, "  Source: {}\n", v)?;
-        }
         Ok(())
     }
 }

@@ -25,7 +25,6 @@ pub fn install(interpreter: &mut Interpreter) {
 fn parser_new_rule(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<String>()?;
     let arm = ReaderArm::new(name);
-    let source = interpreter.current_source();
     interpreter.stack.push(Datum::build().with_source(source).ok(arm));
     Ok(())
 }
