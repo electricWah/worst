@@ -26,22 +26,22 @@ impl Stack {
     }
 
     pub fn pop_datum(&mut self) -> Result<Datum, StackEmpty> {
-        self.stack.pop().ok_or(StackEmpty())
+        self.stack.pop().ok_or(StackEmpty)
     }
     pub fn pop_datum_source(&mut self) -> Result<Datum, StackEmpty> {
-        self.stack.pop().ok_or(StackEmpty())
+        self.stack.pop().ok_or(StackEmpty)
     }
 
     pub fn insert(&mut self, d: Datum, idx: usize) -> Result<(), StackEmpty> {
         let len = self.stack.len();
-        if idx >= len { Err(StackEmpty())?; }
+        if idx >= len { Err(StackEmpty)?; }
         self.stack.insert(len - idx - 1, d);
         Ok(())
     }
 
     pub fn remove(&mut self, idx: usize) -> Result<Datum, StackEmpty> {
         let len = self.stack.len();
-        if idx >= len { Err(StackEmpty())?; }
+        if idx >= len { Err(StackEmpty)?; }
         let d = self.stack.remove(len - idx - 1);
         Ok(d)
     }
@@ -49,7 +49,7 @@ impl Stack {
     pub fn top_mut_datum(&mut self) -> Result<&mut Datum, StackEmpty> {
         let len = self.stack.len();
         if len == 0 {
-            Err(StackEmpty())
+            Err(StackEmpty)
         } else {
             Ok(&mut self.stack[len - 1])
         }
@@ -59,7 +59,7 @@ impl Stack {
         if idx < len {
             Ok(&self.stack[len - idx - 1])
         } else {
-            Err(StackEmpty())
+            Err(StackEmpty)
         }
     }
 

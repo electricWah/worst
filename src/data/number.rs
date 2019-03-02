@@ -16,13 +16,13 @@ impl Numeric for isize {
     fn cast<T: NumCast>(self) -> Result<T, ConversionFailure> {
         match NumCast::from(self) {
             Some(v) => Ok(v),
-            None => Err(ConversionFailure())
+            None => Err(ConversionFailure)
         }
     }
     fn from_num<T: NumCast>(t: T) -> Result<Self, ConversionFailure> {
         match NumCast::from(t) {
             Some(v) => Ok(v),
-            None => Err(ConversionFailure())
+            None => Err(ConversionFailure)
         }
     }
 }
@@ -76,30 +76,4 @@ impl ValueEq for f64 {
 impl DefaultValueClone for f64 {}
 impl ValueDebugDescribe for f64 {}
 impl Value for f64 {}
-
-#[derive(Debug)]
-pub enum NumberConvertError {
-    // Negative number to unsigned, or negate an unsigned machine int
-    Sign,
-    // Too big to fit
-    Range,
-    // e.g. 0.5 to isize
-    Precision,
-    // Inexact to exact
-    // Exactness,
-}
-
-impl Error for NumberConvertError {}
-impl fmt::Display for NumberConvertError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        // TODO nicer
-        match self {
-            &NumberConvertError::Sign => write!(fmt, "Sign error"),
-            &NumberConvertError::Range => write!(fmt, "Range error"),
-            &NumberConvertError::Precision => write!(fmt, "Precision error"),
-            // &NumberConvertError::Exactness => write!(fmt, "Exactness error"),
-        }
-    }
-}
-
 

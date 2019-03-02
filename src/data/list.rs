@@ -1,5 +1,6 @@
 
 use std::fmt;
+pub use std::iter::FromIterator;
 use std::collections::VecDeque;
 use crate::data::value::*;
 use crate::data::datum::*;
@@ -11,6 +12,24 @@ pub struct List(VecDeque<Datum>);
 impl Into<Vec<Datum>> for List {
     fn into(self) -> Vec<Datum> {
         self.0.into()
+    }
+}
+
+impl Into<VecDeque<Datum>> for List {
+    fn into(self) -> VecDeque<Datum> {
+        self.0
+    }
+}
+
+impl FromIterator<Datum> for List {
+    fn from_iter<I: IntoIterator<Item=Datum>>(iter: I) -> Self {
+        List(iter.into_iter().collect())
+    }
+}
+
+impl<'a> FromIterator<&'a Datum> for List {
+    fn from_iter<I: IntoIterator<Item=&'a Datum>>(iter: I) -> Self {
+        List(iter.into_iter().map(Clone::clone).collect())
     }
 }
 

@@ -96,7 +96,7 @@ fn file_sync(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn file_info(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let info = FileMetadata::create(interpreter.stack.ref_at::<File>(0)?)?;
+    let info = FileMetadata::create(interpreter.stack.ref_at::<File>(0)?).map_err(error::StdIoError::new)?;
     interpreter.stack.push(Datum::new(info));
     Ok(())
 }

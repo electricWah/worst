@@ -14,7 +14,7 @@ use std::error::Error;
 use std::fmt;
 use std::num::{ParseIntError, ParseFloatError};
 
-use crate::data::{Datum, List};
+use crate::data::{Datum, List, error::BuiltinError};
 
 #[derive(Eq, PartialEq, Clone, Debug, Hash)]
 pub struct SourcePos {
@@ -89,7 +89,7 @@ impl fmt::Display for Source {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ParseError<T> {
     UnbalancedOpenList(T),
     UnbalancedCloseList(T),
@@ -97,6 +97,13 @@ pub enum ParseError<T> {
     UnbalancedString(T),
     BadInteger(T, ParseIntError),
     BadFloat(T, ParseFloatError),
+}
+
+impl BuiltinError for ParseError<Source> {
+    fn name(&self) -> &'static str { "parse-error" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::new(format!("{}", self))]
+    }
 }
 
 impl Error for ParseError<Source> {}

@@ -1,7 +1,6 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt;
 use std::io;
 use std::process;
 use std::rc::Rc;
@@ -132,7 +131,7 @@ fn command_stderr_inherit(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn command_spawn(interpreter: &mut Interpreter) -> exec::Result<()> {
     let proc = {
         let cmd = interpreter.stack.ref_at::<Command>(0)?;
-        Process::new(cmd.compile().spawn()?)
+        Process::new(cmd.compile().spawn().map_err(error::StdIoError::new)?)
     };
     interpreter.stack.push(Datum::new(proc));
     Ok(())
@@ -166,20 +165,38 @@ fn process_has_stderr(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn process_stdin_port(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let p = interpreter.stack.ref_at::<Process>(0)?.stdin()?;
-    interpreter.stack.push(Datum::new(p));
+    match interpreter.stack.ref_at::<Process>(0)?.stdin() {
+        Some(p) => {
+            interpreter.stack.push(Datum::new(p));
+        },
+        None => {
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
     Ok(())
 }
 
 fn process_stdout_port(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let p = interpreter.stack.ref_at::<Process>(0)?.stdout()?;
-    interpreter.stack.push(Datum::new(p));
+    match interpreter.stack.ref_at::<Process>(0)?.stdout() {
+        Some(p) => {
+            interpreter.stack.push(Datum::new(p));
+        },
+        None => {
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
     Ok(())
 }
 
 fn process_stderr_port(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let p = interpreter.stack.ref_at::<Process>(0)?.stderr()?;
-    interpreter.stack.push(Datum::new(p));
+    match interpreter.stack.ref_at::<Process>(0)?.stderr() {
+        Some(p) => {
+            interpreter.stack.push(Datum::new(p));
+        },
+        None => {
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
     Ok(())
 }
 
@@ -196,7 +213,7 @@ fn process_kill(interpreter: &mut Interpreter) -> exec::Result<()> {
     let proc = interpreter.stack.top_mut::<Process>()?;
     if let Err(e) = proc.0.borrow_mut().kill() {
         if e.kind() != io::ErrorKind::InvalidInput {
-            Err(e)?;
+            Err(error::StdIoError::new(e))?;
         }
     }
     Ok(())
@@ -205,7 +222,7 @@ fn process_kill(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn is_process_running(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r = {
         let proc = interpreter.stack.top_mut::<Process>()?;
-        proc.0.borrow_mut().try_wait()?.is_none()
+        proc.0.borrow_mut().try_wait().map_err(error::StdIoError::new)?.is_none()
     };
     interpreter.stack.push(Datum::new(r));
     Ok(())
@@ -213,7 +230,7 @@ fn is_process_running(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn process_wait(interpreter: &mut Interpreter) -> exec::Result<()> {
     let proc = interpreter.stack.top_mut::<Process>()?;
-    proc.0.borrow_mut().wait()?;
+    proc.0.borrow_mut().wait().map_err(error::StdIoError::new)?;
     Ok(())
 }
 
@@ -306,37 +323,27 @@ impl ValueDebugDescribe for Process {}
 impl ValueShow for Process {}
 impl Value for Process {}
 
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct NoSuchPort();
-impl error::Error for NoSuchPort {}
-
-impl fmt::Display for NoSuchPort {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Process does not have that port")
-    }
-}
-
 impl Process {
     pub fn new(child: process::Child) -> Self {
         Process(Rc::new(RefCell::new(child)))
     }
-    pub fn stdin(&self) -> exec::Result<Port> {
-        if self.0.borrow().stdin.is_none() {
-            Err(NoSuchPort())?;
+    pub fn stdin(&self) -> Option<Port> {
+        match self.0.borrow().stdin {
+            Some(_) => Some(Port::new(ProcessPortHandle::stdin(self.clone()))),
+            None => None,
         }
-        Ok(Port::new(ProcessPortHandle::stdin(self.clone())))
     }
-    pub fn stdout(&self) -> exec::Result<Port> {
-        if self.0.borrow().stdout.is_none() {
-            Err(NoSuchPort())?;
+    pub fn stdout(&self) -> Option<Port> {
+        match self.0.borrow().stdout {
+            Some(_) => Some(Port::new(ProcessPortHandle::stdout(self.clone()))),
+            None => None,
         }
-        Ok(Port::new(ProcessPortHandle::stdout(self.clone())))
     }
-    pub fn stderr(&self) -> exec::Result<Port> {
-        if self.0.borrow().stderr.is_none() {
-            Err(NoSuchPort())?;
+    pub fn stderr(&self) -> Option<Port> {
+        match self.0.borrow().stderr {
+            Some(_) => Some(Port::new(ProcessPortHandle::stderr(self.clone()))),
+            None => None,
         }
-        Ok(Port::new(ProcessPortHandle::stderr(self.clone())))
     }
 }
 
@@ -365,10 +372,11 @@ impl io::Write for ProcessPortHandle {
     fn write(&mut self, w: &[u8]) -> io::Result<usize> {
         let mut p = self.proc.0.borrow_mut();
         match self.port {
-            ProcessPort::Stdin =>
+            ProcessPort::Stdin => {
                 if let Some(ref mut port) = &mut p.stdin {
                     return port.write(w);
-                },
+                }
+            },
             ProcessPort::Stdout => {},
             ProcessPort::Stderr => {},
         }
@@ -377,10 +385,11 @@ impl io::Write for ProcessPortHandle {
     fn flush(&mut self) -> io::Result<()> {
         let mut p = self.proc.0.borrow_mut();
         match self.port {
-            ProcessPort::Stdin =>
+            ProcessPort::Stdin => {
                 if let Some(ref mut port) = &mut p.stdin {
                     return port.flush();
-                },
+                }
+            },
             ProcessPort::Stdout => {},
             ProcessPort::Stderr => {},
         }
@@ -393,14 +402,16 @@ impl io::Read for ProcessPortHandle {
         let mut p = self.proc.0.borrow_mut();
         match self.port {
             ProcessPort::Stdin => {},
-            ProcessPort::Stdout =>
+            ProcessPort::Stdout => {
                 if let Some(ref mut port) = &mut p.stdout {
                     return port.read(r);
-                },
-            ProcessPort::Stderr =>
+                }
+            },
+            ProcessPort::Stderr => {
                 if let Some(ref mut port) = &mut p.stderr {
                     return port.read(r);
-                },
+                }
+            },
         }
         Err(io::Error::new(io::ErrorKind::InvalidInput, "Not readable"))
     }

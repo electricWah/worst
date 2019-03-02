@@ -95,7 +95,7 @@ impl File {
         Port::new(self.clone())
     }
     pub fn sync_all(&mut self) -> exec::Result<()> {
-        Ok(self.file.borrow_mut().sync_all()?)
+        Ok(self.file.borrow_mut().sync_all().map_err(error::StdIoError::new)?)
     }
 }
 

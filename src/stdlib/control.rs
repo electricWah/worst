@@ -1,28 +1,24 @@
 
 use crate::data::*;
-use crate::interpreter::definition::*;
 use crate::interpreter::exec;
 use crate::interpreter::Interpreter;
 
 pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("uplevel", uplevel);
     interpreter.add_builtin("quote", quote);
-    interpreter.add_builtin("list->definition", list_into_definition);
-    interpreter.add_builtin("get-definition", get_definition);
     interpreter.add_builtin("take-definition", take_definition);
     interpreter.add_builtin("resolve-definition", resolve_definition);
     interpreter.add_builtin("add-definition", add_definition);
-    interpreter.add_builtin("set-definition-name", set_definition_name);
     interpreter.add_builtin("eval-definition", eval_definition);
     interpreter.add_builtin("defined?", is_defined);
-    interpreter.define_type_predicate::<Definition>("definition?");
     interpreter.add_builtin("defined-names", defined_names);
     interpreter.add_builtin("eval-builtin", eval_builtin);
     interpreter.add_builtin("call", call);
     interpreter.add_builtin("call-when", call_when);
-    interpreter.add_builtin("read-eval-file", read_eval_file);
+    interpreter.add_builtin("load-file", load_file);
     interpreter.add_builtin("uplevel-in-named-context", uplevel_in_named_context);
     interpreter.add_builtin("abort", abort);
+    interpreter.add_builtin("interpreter-clear", interreter_clear);
 }
 
 fn uplevel(interpreter: &mut Interpreter) -> exec::Result<()> {
@@ -37,29 +33,11 @@ fn quote(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn list_into_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let code = interpreter.stack.pop::<List>()?;
-    let def = Definition::from(Definition::new(code.into()));
-    interpreter.stack.push(Datum::new(def));
-    Ok(())
-}
-
-fn get_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let name = interpreter.stack.pop::<Symbol>()?;
-    match interpreter.env().get_definition(&name) {
-        Some(def) => {
-            interpreter.stack.push(Datum::new(def.clone()));
-        },
-        None => Err(error::NotDefined(name))?,
-    }
-    Ok(())
-}
-
 fn take_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     match interpreter.env_mut().undefine(&name) {
         Some(def) => {
-            interpreter.stack.push(Datum::new(def));
+            interpreter.stack.push(Datum::new(List::from(def)));
         },
         None => Err(error::NotDefined(name))?,
     }
@@ -70,30 +48,23 @@ fn resolve_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     match interpreter.context.resolve(&name) {
         Some(def) => {
-            interpreter.stack.push(Datum::new(def.clone()));
+            interpreter.stack.push(Datum::new(List::from_iter(def.iter())));
         },
         None => Err(error::NotDefined(name))?,
     }
     Ok(())
 }
 
-fn set_definition_name(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.stack.top_mut::<Definition>()?;
-    def.set_name(name);
-    Ok(())
-}
-
 fn add_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
-    let def = interpreter.stack.pop::<Definition>()?;
+    let def = interpreter.stack.pop::<List>()?;
     interpreter.env_mut().define(name, def);
     Ok(())
 }
 
 fn eval_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let def = interpreter.stack.pop::<Definition>()?;
-    interpreter.eval_definition(&def)?;
+    let def = interpreter.stack.pop::<List>()?;
+    interpreter.eval_definition(def)?;
     // interpreter.stack.push(code);
     Ok(())
 }
@@ -138,9 +109,9 @@ fn call_when(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn read_eval_file(interpreter: &mut Interpreter) -> exec::Result<()> {
+fn load_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     let file = interpreter.stack.pop::<String>()?;
-    interpreter.eval_file(&file)?;
+    interpreter.load_file(&file)?;
     Ok(())
 }
 
@@ -155,6 +126,11 @@ fn uplevel_in_named_context(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn abort(_interpreter: &mut Interpreter) -> exec::Result<()> {
-    Ok(Err(error::Abort())?)
+    Ok(Err(error::Abort)?)
+}
+
+fn interreter_clear(interpreter: &mut Interpreter) -> exec::Result<()> {
+    interpreter.clear();
+    Ok(())
 }
 

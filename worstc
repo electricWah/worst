@@ -2,27 +2,26 @@
 exec cargo run -- "$0" --worstc "$0" "$@"
 !#
 
-; 'name [program...] define%
-[ list->definition 1 dig
-    clone 2 negate dig set-definition-name
-    1 dig quote add-definition uplevel
-]
-list->definition quote define% add-definition
+[] quote wrap-definition add-definition
 
-[ list->definition 1 dig quote add-definition uplevel ]
-list->definition quote define%quiet add-definition
+; 'name [program...] define%
+[ wrap-definition 1 dig quote add-definition uplevel ]
+quote define% add-definition
+
+[ 1 dig quote add-definition uplevel ]
+quote define%quiet add-definition
 
 [ ; define
   quote quote uplevel ; name
   quote quote uplevel ; [def ...]
   quote define% uplevel
-] list->definition quote define add-definition
+] quote define add-definition
 
 [ ; define/q
   quote quote uplevel ; name
   quote quote uplevel ; [def ...]
   quote define%quiet uplevel
-] list->definition quote define/q add-definition
+] quote define/q add-definition
 
 define/q ' [quote quote uplevel]
 define/q ^' ['quote 'uplevel uplevel]
@@ -33,7 +32,27 @@ define swap [1 dig]
 define prints [string->u8vector standard-output-port 1 dig port-write drop]
 define printe [string->u8vector standard-error-port 1 dig port-write drop]
 
-define eval [list->definition eval-definition]
+define wrap-definition [
+    ; TODO push history; maybe stack control
+    ; but make sure it doesn't interfere with TCO
+    "Defining " printe
+    swap datum-describe->string printe
+    "\n" printe
+    swap
+]
+
+; Mildly hacky global variable called on error
+define %%failure [
+    while [stack-empty? not] [
+        datum-describe->string printe "\n" printe
+        drop
+    ]
+    interpreter-clear
+]
+
+define eval [eval-definition]
+define ^eval-file [^: load-file]
+define eval-file [load-file]
 
 define local [
     [quote] swap list-push-tail
@@ -220,9 +239,9 @@ lib-dir
     "/target/" +
     output-format +
     ".w" +
-read-eval-file
+^eval-file
 
-input-file read-eval-file
+input-file ^eval-file
 
 ;;; vi: ft=scheme
 

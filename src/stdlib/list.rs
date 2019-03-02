@@ -31,7 +31,7 @@ fn list_push_tail(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn list_pop_head(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = {
         let l = interpreter.stack.top_mut::<List>()?;
-        l.pop_head().ok_or(error::ListEmpty())?
+        l.pop_head().ok_or(error::ListEmpty)?
     };
     interpreter.stack.push(a);
     Ok(())
@@ -40,7 +40,7 @@ fn list_pop_head(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn list_pop_tail(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = {
         let l = interpreter.stack.top_mut::<List>()?;
-        l.pop_tail().ok_or(error::ListEmpty())?
+        l.pop_tail().ok_or(error::ListEmpty)?
     };
     interpreter.stack.push(a);
     Ok(())

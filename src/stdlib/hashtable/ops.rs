@@ -13,9 +13,9 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("hash-table-set", hash_table_set);
     interpreter.add_builtin("hash-table-exists", hash_table_exists);
     interpreter.add_builtin("hash-table-take", hash_table_take);
-    interpreter.add_builtin("hash-table-get", hash_table_get);
+    // interpreter.add_builtin("hash-table-get", hash_table_get);
     interpreter.add_builtin("hash-table-keys", hash_table_keys);
-    interpreter.add_builtin("hash-table-take-random-pair", hash_table_take_random_pair);
+    // interpreter.add_builtin("hash-table-take-random-pair", hash_table_take_random_pair);
 }
 
 fn make_hash_table(interpreter: &mut Interpreter) -> exec::Result<()> {
@@ -58,19 +58,26 @@ fn hash_table_take(interpreter: &mut Interpreter) -> exec::Result<()> {
         tbl.take(&k)
     };
     interpreter.stack.push(k);
-    interpreter.stack.push(r.ok_or(NoSuchKey())?);
+    match r {
+        Some(r) => {
+            interpreter.stack.push(r);
+        },
+        None => {
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
     Ok(())
 }
 
-fn hash_table_get(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let r = {
-        let k = interpreter.stack.ref_datum(0)?;
-        let tbl = interpreter.stack.ref_at::<HashTable>(1)?;
-        tbl.get(k).cloned()
-    };
-    interpreter.stack.push(r.ok_or(NoSuchKey())?);
-    Ok(())
-}
+// fn hash_table_get(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     let r = {
+//         let k = interpreter.stack.ref_datum(0)?;
+//         let tbl = interpreter.stack.ref_at::<HashTable>(1)?;
+//         tbl.get(k).cloned()
+//     };
+//     interpreter.stack.push(r.ok_or(NoSuchKey())?);
+//     Ok(())
+// }
 
 fn hash_table_keys(interpreter: &mut Interpreter) -> exec::Result<()> {
     let r: Vec<Datum> = {
@@ -81,14 +88,14 @@ fn hash_table_keys(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn hash_table_take_random_pair(interpreter: &mut Interpreter) -> exec::Result<()> {
-    let (k, v) = {
-        let tbl = interpreter.stack.top_mut::<HashTable>()?;
-        tbl.take_random_pair().ok_or(HashTableEmpty())?
-    };
-    interpreter.stack.push(k);
-    interpreter.stack.push(v);
-    Ok(())
-}
+// fn hash_table_take_random_pair(interpreter: &mut Interpreter) -> exec::Result<()> {
+//     let (k, v) = {
+//         let tbl = interpreter.stack.top_mut::<HashTable>()?;
+//         tbl.take_random_pair().ok_or(HashTableEmpty())?
+//     };
+//     interpreter.stack.push(k);
+//     interpreter.stack.push(v);
+//     Ok(())
+// }
 
 

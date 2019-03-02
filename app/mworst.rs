@@ -18,19 +18,12 @@ fn run<S: fmt::Debug + AsRef<str> + AsRef<Path>>(args: &[S]) {
     if args.len() > 1 {
         let script = &args[1];
 
-        if let Err(e) = interpreter.eval_file(script.as_ref()) {
-            eprintln!("Error: {}", e);
-            if interpreter.stack.size() > 0 {
-                eprintln!("Stack ({} items)", interpreter.stack.size());
-                eprintln!("{}", interpreter.stack.describe());
-            }
-            interpreter.clear();
+        if let Err(e) = interpreter.load_file(script.as_ref()) {
+            eprintln!("Error loading file: {:?}", e);
+        } else {
+            interpreter.eval_run();
         }
     }
-
-    // interpreter.parser_mut().set_position(Source::new());
-
-    // run_repl(interpreter);
 }
 
 fn main() {

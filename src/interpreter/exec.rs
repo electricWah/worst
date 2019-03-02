@@ -1,32 +1,20 @@
 
-use std::rc::Rc;
-use std::fmt;
 use std::result;
 use crate::data::*;
-use crate::data::error::Error;
+use crate::data::error::BuiltinError;
 
 #[derive(Debug, Clone)]
 pub struct Failure {
-    pub error: Rc<Box<Error>>,
+    name: String,
+    args: Vec<Datum>,
 }
 
-impl Failure {
-    pub fn message(&self) -> String {
-        format!("{}", self.error)
-    }
-}
-
-impl<T: 'static + Error> From<T> for Failure {
+impl<T: 'static + BuiltinError> From<T> for Failure {
     fn from(error: T) -> Self {
         Failure {
-            error: Rc::new(Box::new(error)),
+            name: error.name().to_string(),
+            args: error.args(),
         }
-    }
-}
-
-impl fmt::Display for Failure {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "{}", self.error)
     }
 }
 
@@ -44,5 +32,4 @@ impl ValueHash for Failure {}
 impl Value for Failure {}
 
 pub type Result<T> = result::Result<T, Failure>;
-
 

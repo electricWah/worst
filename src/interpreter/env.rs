@@ -1,17 +1,17 @@
 
 use std::collections::HashMap;
-use crate::interpreter::definition::*;
+// use crate::interpreter::definition::*;
 use crate::data::*;
 
 #[derive(Default, Debug)]
-pub struct Env(pub HashMap<Symbol, Definition>);
+pub struct Env(HashMap<Symbol, Vec<Datum>>);
 
 impl Env {
-    pub fn define<S: Into<Symbol>>(&mut self, name: S, def: Definition) {
-        self.0.insert(name.into(), def);
+    pub fn define<S: Into<Symbol>, D: Into<Vec<Datum>>>(&mut self, name: S, def: D) {
+        self.0.insert(name.into(), def.into());
     }
 
-    pub fn undefine(&mut self, name: &Symbol) -> Option<Definition> {
+    pub fn undefine(&mut self, name: &Symbol) -> Option<Vec<Datum>> {
         self.0.remove(name)
     }
 
@@ -19,8 +19,8 @@ impl Env {
         self.0.contains_key(name)
     }
 
-    pub fn get_definition(&self, name: &Symbol) -> Option<&Definition> {
-        self.0.get(name)
+    pub fn get_definition(&self, name: &Symbol) -> Option<&[Datum]> {
+        self.0.get(name).map(Vec::as_slice)
     }
 
     pub fn current_defines(&self) -> impl Iterator<Item=&Symbol> {

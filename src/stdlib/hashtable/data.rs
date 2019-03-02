@@ -2,7 +2,6 @@
 use std::collections::HashMap;
 use std::fmt;
 use crate::data::*;
-use crate::data::error::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Default)]
 pub struct HashTable(pub HashMap<BoxValue, Datum>);
@@ -59,23 +58,23 @@ impl HashTable {
     }
 }
 
-#[derive(Debug)]
-pub struct HashTableEmpty();
-impl Error for HashTableEmpty {}
+// #[derive(Debug)]
+// pub struct HashTableEmpty();
+// impl Error for HashTableEmpty {}
 
-impl fmt::Display for HashTableEmpty {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Hashtable empty")
-    }
-}
+// impl fmt::Display for HashTableEmpty {
+//     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+//         write!(fmt, "Hashtable empty")
+//     }
+// }
 
-#[derive(Debug)]
-pub struct NoSuchKey();
-impl Error for NoSuchKey {}
+// #[derive(Debug)]
+// pub struct NoSuchKey();
+// impl Error for NoSuchKey {}
 
-impl fmt::Display for NoSuchKey {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Key does not exist")
-    }
-}
+// impl fmt::Display for NoSuchKey {
+//     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+//         write!(fmt, "Key does not exist")
+//     }
+// }
 

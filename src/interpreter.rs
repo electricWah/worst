@@ -1,16 +1,18 @@
 
-pub mod definition;
+// pub mod definition;
 mod context;
 pub mod exec;
 mod stack;
 pub mod builtin;
 pub mod env;
 
+use std::collections::VecDeque;
+
 use crate::data::*;
 use crate::parser::*;
 use crate::data::error;
 use self::context::*;
-use self::definition::*;
+// use self::definition::*;
 use self::stack::Stack;
 
 pub struct Interpreter {
@@ -48,7 +50,7 @@ impl Interpreter {
         self.quoting = true;
     }
 
-    pub fn define<S: Into<Symbol>>(&mut self, name: S, def: Definition) {
+    pub fn define<S: Into<Symbol>, D: Into<Vec<Datum>>>(&mut self, name: S, def: D) {
         self.context.env_mut().define(name, def);
     }
 
@@ -93,7 +95,7 @@ impl Interpreter {
         }
     }
 
-    fn run_available(&mut self) -> exec::Result<()> {
+    fn eval_result(&mut self) -> exec::Result<()> {
         while let Some(d) = self.read_next()? {
             if self.quoting {
                 self.quoting = false;
@@ -107,16 +109,21 @@ impl Interpreter {
         Ok(())
     }
 
-    pub fn eval_run(&mut self) -> exec::Result<()> {
-        self.run_available()
+    pub fn eval_run(&mut self) {
+        while let Err(e) = self.eval_result() {
+            self.stack.push(Datum::new(e));
+            if let Some(handler) = self.resolve_symbol(&"%%failure".into()) {
+                self.context.push_def(handler);
+            }
+        }
     }
 
-    pub fn resolve_symbol(&self, r: &Symbol) -> Option<Definition> {
-        self.context.resolve(r).cloned()
+    pub fn resolve_symbol(&self, r: &Symbol) -> Option<Vec<Datum>> {
+        self.context.resolve(r).map(|c| c.iter().map(Clone::clone).collect())
     }
 
-    pub fn eval_definition(&mut self, def: &Definition) -> exec::Result<()> {
-        self.context.push_def(&def);
+    pub fn eval_definition<D: Into<VecDeque<Datum>>>(&mut self, def: D) -> exec::Result<()> {
+        self.context.push_def(def);
         Ok(())
         // self.eval_run()
     }
@@ -136,7 +143,7 @@ impl Interpreter {
     pub fn eval_symbol(&mut self, r: &Symbol) -> exec::Result<()> {
         match self.resolve_symbol(r) {
             Some(def) => {
-                self.context.push_def(&def);
+                self.context.push_def(def);
             },
             None => {
                 self.eval_builtin(r)?;
@@ -145,17 +152,12 @@ impl Interpreter {
         Ok(())
     }
 
-    fn push_eval(&mut self, d: Datum) -> exec::Result<()> {
-        self.context.add_code(d);
-        self.run_available()
-    }
-
 }
 
 impl Interpreter {
     // Should be AsRef<Path>
     // This is manageable as a completely hosted function
-    pub fn eval_file(&mut self, path: &str) -> exec::Result<()> {
+    pub fn load_file(&mut self, path: &str) -> exec::Result<()> {
         use ::std::fs::File;
         use ::std::io::Read;
         let mut file = File::open(&path).map_err(error::StdIoError::new)?;
@@ -165,8 +167,10 @@ impl Interpreter {
         let mut parser = Parser::new(contents.chars().into_iter()).with_file(path);
 
         while let Some(datum) = parser.next()? {
-            self.push_eval(datum)?;
+            self.context.add_code(datum);
         }
+
+        // self.eval_run()?;
         Ok(())
     }
 }

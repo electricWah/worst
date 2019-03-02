@@ -1,48 +1,38 @@
 
-pub use std::error::Error;
-use std::fmt;
 use std::io;
 use std::rc::Rc;
-use crate::data::Symbol;
+use crate::data::*;
 use crate::data::value::*;
 use crate::data::types::*;
 
-#[derive(Debug)]
-pub struct Abort();
-impl Error for Abort {}
-impl fmt::Display for Abort {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Execution aborted")
-    }
+pub trait BuiltinError: Clone {
+    fn name(&self) -> &'static str;
+    fn args(&self) -> Vec<Datum> { vec![] }
 }
 
-#[derive(Debug)]
-pub struct NotDefined(pub Symbol);
-impl Error for NotDefined {}
+#[derive(Debug, Clone)]
+pub struct Abort;
+impl BuiltinError for Abort { fn name(&self) -> &'static str { "abort" } }
 
-impl fmt::Display for NotDefined {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Not defined: '{}'", self.0.as_ref())
+#[derive(Debug, Clone)]
+pub struct NotDefined(pub Symbol);
+impl BuiltinError for NotDefined {
+    fn name(&self) -> &'static str { "not-defined" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::new(self.0.clone())]
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct StackEmpty();
-impl Error for StackEmpty {}
-
-impl fmt::Display for StackEmpty {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Stack empty")
-    }
-}
+pub struct StackEmpty;
+impl BuiltinError for StackEmpty { fn name(&self) -> &'static str { "stack-empty" } }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct WrongType(pub Type, pub Type);
-impl Error for WrongType {}
-
-impl fmt::Display for WrongType {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Wrong type: expected {}, but got {}", self.0, self.1)
+impl BuiltinError for WrongType {
+    fn name(&self) -> &'static str { "wrong-type" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::symbol(self.0.as_str()), Datum::symbol(self.1.as_str())]
     }
 }
 
@@ -62,84 +52,46 @@ impl PartialEq for StdIoError {
 }
 impl Eq for StdIoError {}
 
-impl Error for StdIoError {}
 impl ValueHash for StdIoError {}
 
-impl fmt::Display for StdIoError {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "IO error: {}", self.0)
+impl BuiltinError for StdIoError {
+    fn name(&self) -> &'static str { "io-error" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::new(format!("{:?}", self.0.kind()))]
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct UplevelInRootContext();
-impl Error for UplevelInRootContext {}
-
-impl fmt::Display for UplevelInRootContext {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Uplevel in root context")
-    }
-}
+pub struct UplevelInRootContext;
+impl BuiltinError for UplevelInRootContext { fn name(&self) -> &'static str { "root-uplevel" } }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct WrongSize(pub isize, pub isize);
-impl Error for WrongSize {}
-
-impl fmt::Display for WrongSize {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Wrong size: expected {}, but got {}", self.0, self.1)
+impl BuiltinError for WrongSize {
+    fn name(&self) -> &'static str { "wrong-size" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::new(self.0.clone()), Datum::new(self.1.clone())]
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct OutOfRange(pub isize, pub isize, pub isize);
-impl Error for OutOfRange {}
-
-impl fmt::Display for OutOfRange {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Out of range: expected {} - {}, but got {}", self.0, self.1, self.2)
+impl BuiltinError for OutOfRange {
+    fn name(&self) -> &'static str { "out-of-range" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::new(self.0.clone()), Datum::new(self.1.clone()), Datum::new(self.2.clone())]
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct ConversionFailure();
-impl Error for ConversionFailure {}
-
-impl fmt::Display for ConversionFailure {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Conversion failure")
-    }
-}
-
+pub struct ConversionFailure;
+impl BuiltinError for ConversionFailure { fn name(&self) -> &'static str { "conversion-failure" } }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct ListEmpty();
-impl Error for ListEmpty {}
-
-impl fmt::Display for ListEmpty {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "List empty")
-    }
-}
+pub struct ListEmpty;
+impl BuiltinError for ListEmpty { fn name(&self) -> &'static str { "list-empty" } }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct NotUnique();
-impl Error for NotUnique {}
-
-impl fmt::Display for NotUnique {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Value is not unique; another reference to it also exists")
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct NotImplemented();
-impl Error for NotImplemented {}
-
-impl fmt::Display for NotImplemented {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Not implemented")
-    }
-}
-
+pub struct NotUnique;
+impl BuiltinError for NotUnique { fn name(&self) -> &'static str { "not-unique" } }
 

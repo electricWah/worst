@@ -86,10 +86,10 @@ impl Port {
     pub fn write(&mut self, data: Vec<u8>) -> exec::Result<()> {
         let r: exec::Result<RefMut<Box<IsPort>>> =
             self.0.port.try_borrow_mut()
-            .or(Err(error::NotUnique().into()));
+            .or(Err(error::NotUnique.into()));
         let mut r = r?;
         let out: exec::Result<&mut io::Write> =
-            r.as_output().ok_or(WrongPortType().into());
+            r.as_output().ok_or(WrongPortType.into());
         out?.write_all(data.as_slice()).map_err(StdIoError::new)?;
         Ok(())
     }
@@ -97,10 +97,10 @@ impl Port {
     pub fn flush(&mut self) -> exec::Result<()> {
         let r: exec::Result<RefMut<Box<IsPort>>> =
             self.0.port.try_borrow_mut()
-            .or(Err(error::NotUnique().into()));
+            .or(Err(error::NotUnique.into()));
         let mut r = r?;
         let out: exec::Result<&mut io::Write> =
-            r.as_output().ok_or(WrongPortType().into());
+            r.as_output().ok_or(WrongPortType.into());
         out?.flush().map_err(StdIoError::new)?;
         Ok(())
     }
@@ -108,20 +108,20 @@ impl Port {
     pub fn read_into(&mut self, buf: &mut Vec<u8>) -> exec::Result<usize> {
         let r: exec::Result<RefMut<Box<IsPort>>> =
             self.0.port.try_borrow_mut()
-            .or(Err(error::NotUnique().into()));
+            .or(Err(error::NotUnique.into()));
         let mut r = r?;
         let inp: exec::Result<&mut io::Read> =
-            r.as_input().ok_or(WrongPortType().into());
+            r.as_input().ok_or(WrongPortType.into());
         Ok(inp?.read(buf).map_err(StdIoError::new)?)
     }
 
     pub fn read(&mut self, len: usize) -> exec::Result<Vec<u8>> {
         let r: exec::Result<RefMut<Box<IsPort>>> =
             self.0.port.try_borrow_mut()
-            .or(Err(error::NotUnique().into()));
+            .or(Err(error::NotUnique.into()));
         let mut r = r?;
         let inp: exec::Result<&mut io::Read> =
-            r.as_input().ok_or(WrongPortType().into());
+            r.as_input().ok_or(WrongPortType.into());
         let mut v = vec![0; len];
         inp?.read_exact(&mut v).map_err(StdIoError::new)?;
         Ok(v)
@@ -130,10 +130,10 @@ impl Port {
     pub fn seek(&mut self, seek: io::SeekFrom) -> exec::Result<u64> {
         let r: exec::Result<RefMut<Box<IsPort>>> =
             self.0.port.try_borrow_mut()
-            .or(Err(error::NotUnique().into()));
+            .or(Err(error::NotUnique.into()));
         let mut r = r?;
         let inp: exec::Result<&mut io::Seek> =
-            r.as_seekable().ok_or(WrongPortType().into());
+            r.as_seekable().ok_or(WrongPortType.into());
         Ok(inp?.seek(seek).map_err(StdIoError::new)?)
     }
 
@@ -145,14 +145,8 @@ impl Port {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 // TODO expected/actual
-pub struct WrongPortType();
-impl Error for WrongPortType {}
-
-impl fmt::Display for WrongPortType {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Wrong port type")
-    }
-}
+pub struct WrongPortType;
+impl BuiltinError for WrongPortType { fn name(&self) -> &'static str { "wrong-port-type" } }
 

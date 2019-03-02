@@ -2,7 +2,7 @@
 use crate::data::*;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-pub struct Definition {
+struct Definition {
     name: Option<Symbol>,
     body: Vec<Datum>,
 }

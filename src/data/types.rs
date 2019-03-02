@@ -8,6 +8,9 @@ impl Type {
     pub fn new<S: Into<String>>(s: S) -> Type {
         Type(s.into())
     }
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
 }
 
 pub trait IsType {
@@ -39,5 +42,4 @@ impl fmt::Display for Type {
         write!(fmt, "{}", self.0)
     }
 }
-
 

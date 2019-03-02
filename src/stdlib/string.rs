@@ -1,8 +1,7 @@
 
-use std::fmt;
 use std::str;
 use crate::data::*;
-use crate::data::error::*;
+use crate::data::error::BuiltinError;
 use crate::interpreter::Interpreter;
 use crate::interpreter::exec;
 
@@ -115,9 +114,16 @@ fn string_push(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn string_pop(interpreter: &mut Interpreter) -> exec::Result<()> {
     let c = {
         let s = interpreter.stack.top_mut::<String>()?;
-        s.pop().ok_or(StringEmpty())?
+        s.pop()
     };
-    interpreter.stack.push(Datum::new(c));
+    match c {
+        Some(c) => {
+            interpreter.stack.push(Datum::new(c));
+        },
+        None => {
+            interpreter.stack.push(Datum::new(false));
+        },
+    }
     Ok(())
 }
 
@@ -180,33 +186,16 @@ fn string_into_symbol(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BadStringIndex(pub isize);
-impl Error for BadStringIndex {}
-
-impl fmt::Display for BadStringIndex {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Not a valid string index: {}", self.0)
-    }
-}
-
-#[derive(Eq, PartialEq, Debug, Clone, Hash)]
-pub struct StringEmpty();
-impl Error for StringEmpty {}
-
-impl fmt::Display for StringEmpty {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Empty string")
+impl BuiltinError for BadStringIndex {
+    fn name(&self) -> &'static str { "bad-string-index" }
+    fn args(&self) -> Vec<Datum> {
+        vec![Datum::new(self.0.clone())]
     }
 }
 
 #[derive(Eq, PartialEq, Debug, Clone, Hash)]
 pub struct InvalidString();
-impl Error for InvalidString {}
-
-impl fmt::Display for InvalidString {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        write!(fmt, "Not a valid string")
-    }
-}
+impl BuiltinError for InvalidString { fn name(&self) -> &'static str { "invalid-string" } }
 

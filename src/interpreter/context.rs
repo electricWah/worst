@@ -1,7 +1,7 @@
 
 use std::mem;
 use std::collections::VecDeque;
-use crate::interpreter::definition::*;
+// use crate::interpreter::definition::*;
 use crate::interpreter::exec;
 use crate::data::*;
 use crate::interpreter::env::*;
@@ -49,19 +49,19 @@ impl Context {
         mem::swap(self, &mut child);
     }
 
-    pub fn push_def(&mut self, def: &Definition) {
+    pub fn push_def<D: Into<VecDeque<Datum>>>(&mut self, def: D) {
         // TCO here
         if self.is_root() || self.code.len() > 0 {
             self.into_child_context(Default::default());
         }
-        self.code = def.program().clone().into_iter().collect();
+        self.code = def.into();
     }
     
     // Become parent and add old self as child
     pub fn uplevel(&mut self) -> exec::Result<()> {
         let parent = self.parent.take();
         match parent {
-            None => Err(error::UplevelInRootContext().into()),
+            None => Err(error::UplevelInRootContext.into()),
             Some(mut p) => {
                 mem::swap(self, &mut p);
                 self.children.push(*p);
@@ -95,11 +95,11 @@ impl Context {
     }
 
     pub fn current_defines(&self) -> impl Iterator<Item=&Symbol> {
-        self.env.0.keys()
+        self.env.current_defines()
     }
 
-    pub fn resolve(&self, name: &Symbol) -> Option<&Definition> {
-        if let Some(def) = self.env.0.get(name) {
+    pub fn resolve(&self, name: &Symbol) -> Option<&[Datum]> {
+        if let Some(def) = self.env.get_definition(name) {
             return Some(def);
         }
         if let Some(ref p) = self.parent.as_ref() {
