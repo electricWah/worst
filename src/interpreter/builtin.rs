@@ -1,32 +1,23 @@
 
+use std::collections::HashMap;
 use crate::data::*;
 use crate::interpreter::Interpreter;
 use crate::interpreter::exec;
 
 /// A dictionary of BuiltinRef -> actual code
 #[derive(Default)]
-pub struct BuiltinLookup(Vec<BuiltinEntry>);
-
-pub struct BuiltinEntry {
-    name: Symbol,
-    code: Box<BuiltinFn>,
-}
-
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct BuiltinRef(usize);
+pub struct BuiltinLookup(HashMap<Symbol, Box<BuiltinFn>>);
 
 impl BuiltinLookup {
-    pub fn add<B: BuiltinFn + 'static>(&mut self, name: Symbol, builtin: B) -> BuiltinRef {
-        let len = self.0.len();
-        let entry = BuiltinEntry { name, code: Box::new(builtin), };
-        self.0.push(entry);
-        BuiltinRef(len)
+    pub fn add<B: BuiltinFn + 'static>(&mut self, name: Symbol, builtin: B) {
+        self.0.insert(name, Box::new(builtin));
     }
 
-    // This will return the wrong thing (or panic) if you use it with
-    // a BuiltinRef produced by a different BuiltinLookup
-    pub fn lookup(&self, r: &BuiltinRef) -> Box<BuiltinFn> {
-        self.0[r.0].code.builtin_clone()
+    pub fn lookup(&self, s: &Symbol) -> Option<Box<BuiltinFn>> {
+        match self.0.get(s) {
+            Some(b) => Some(b.builtin_clone()),
+            None => None,
+        }
     }
 }
 

@@ -176,7 +176,7 @@ fn symbol_into_string(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn string_into_symbol(interpreter: &mut Interpreter) -> exec::Result<()> {
     let a = interpreter.stack.pop::<String>()?;
-    interpreter.stack.push(Datum::new(a));
+    interpreter.stack.push(Datum::symbol(a));
     Ok(())
 }
 

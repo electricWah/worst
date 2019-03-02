@@ -3,8 +3,14 @@ exec cargo run -- "$0" --worstc "$0" "$@"
 !#
 
 ; 'name [program...] define%
-[ list->definition 1 dig quote add-definition uplevel ]
+[ list->definition 1 dig
+    clone 2 negate dig set-definition-name
+    1 dig quote add-definition uplevel
+]
 list->definition quote define% add-definition
+
+[ list->definition 1 dig quote add-definition uplevel ]
+list->definition quote define%quiet add-definition
 
 [ ; define
   quote quote uplevel ; name
@@ -12,9 +18,15 @@ list->definition quote define% add-definition
   quote define% uplevel
 ] list->definition quote define add-definition
 
-define ' [quote quote uplevel]
-define ^' ['quote 'uplevel uplevel]
-define ^: [^' 'uplevel uplevel]
+[ ; define/q
+  quote quote uplevel ; name
+  quote quote uplevel ; [def ...]
+  quote define%quiet uplevel
+] list->definition quote define/q add-definition
+
+define/q ' [quote quote uplevel]
+define/q ^' ['quote 'uplevel uplevel]
+define/q ^: [^' 'uplevel uplevel]
 
 define swap [1 dig]
 
@@ -28,8 +40,13 @@ define local [
     ^' swap ^: define%
 ]
 
-0 1 equal? local false drop drop
-0 0 equal? local true drop drop
+define local/q [
+    [quote] swap list-push-tail
+    ^' swap ^: define%quiet
+]
+
+0 1 equal? local/q false drop drop
+0 0 equal? local/q true drop drop
 define false? [false equal? swap drop]
 define not [false? swap drop]
 define true? [false? false? swap drop]
@@ -43,7 +60,7 @@ define swapvar [
 ]
 
 define with-swapvar [
-    ^' local %%swapvar-name
+    ^' local/q %%swapvar-name
     [] %%swapvar-name call
     ^' eval
     %%swapvar-name call drop
@@ -53,7 +70,7 @@ define with-swapvar [
 define swapvar-take [ false ^' call ]
 
 ; cond [if-true ...] [if-false ...] if%
-define if% [
+define/q if% [
     swap 2 dig      ; cond true-arm false-arm
     ; either
     ; true T F -> F T drop -> T
@@ -94,27 +111,27 @@ define list-empty? [[] equal? swap drop]
 
 define program-argument [
     false swapvar shortopt
-    define : [^' symbol->string shortopt drop]
     false swapvar longopt
     define long [^' symbol->string longopt drop]
     'flag swapvar kind
-    define flag ['flag kind drop]
-    define arg ['arg kind drop]
+    define flag ['flag kind drop ^' symbol->string shortopt drop]
+    define arg ['arg kind drop ^' symbol->string shortopt drop]
     false swapvar doc-msg
     define doc [^' doc-msg drop]
+    false swapvar isrequired
     ^' eval
     swapvar-take shortopt local shortopt
     swapvar-take longopt local longopt
     swapvar-take doc-msg local doc-msg
     swapvar-take kind local kind
-    ""
-    shortopt string-append
-    ", " string-append
-    longopt string-append
-    ": " string-append
-    doc-msg string-append
-    "\n" string-append
-    with-swapvar program-arguments% [swap list-push-tail]
+    define + [ string-append ]
+    shortopt
+    longopt true? if [swap ", " + swap +] [drop]
+        ": " +
+        doc-msg +
+        "\n" +
+    local description
+    with-swapvar program-arguments% [description list-push-tail]
     command-line
     while [list-pop-head "--worstc" equal?! not] [drop]
     drop
@@ -141,7 +158,7 @@ define program-argument [
             ] [list-pop-head swap drop swap drop]
         ]
         ['flag equal?!] [drop drop drop true]
-        [true] [No]
+        [true] [abort]
     ]
 ]
 
@@ -154,37 +171,58 @@ define program-usage [
 ]
 
 program-argument [
+    doc "libworst directory (default ./lib)"
+    arg -L
+    long --lib-dir
+]
+"./lib" and if [drop] [swap drop] local lib-dir
+
+program-argument [
     doc "Output format (default lua)"
-    arg :-O long --output-format
+    arg -O
+    long --output-format
 ]
 "lua" and if [drop] [swap drop] local output-format
 
-program-argument [ flag :-g long --egg doc "Show egg" ]
-local egg
+program-argument [
+    doc "Output file (required)"
+    arg -o
+]
+local output-file
 
-program-argument [ flag :-h long --help doc "Show help" ]
+program-argument [
+    doc "Input file (required)"
+    arg -i
+]
+local input-file
+
+program-argument [ flag -h long --help doc "Show help" ]
 if [
     "worstc: Worst compiler\n" prints
     program-usage abort
-] []
+] [
+    ; output-file true? swap drop
+    input-file false? swap drop
+    if [program-usage abort] []
+    ; and swap drop swap drop if [] [program-usage abort]
+]
 
-abort
+output-file true? if [
+    make-open-file-options
+    open-file-write open-file-create open-file-truncate
+    output-file open-file
+    file-port
+] [ drop standard-output-port ]
+local %output-port
 
-'test describe drop
+define + [ string-append ]
+lib-dir
+    "/target/" +
+    output-format +
+    ".w" +
+read-eval-file
 
-[-check --some #:things] describe drop
-
-; ok
-[]
-describe drop
-"helo"
-describe drop
-[[5] [] [7 8 [7]]]
-describe drop
-5 7 add describe drop
-
-"wef\n" string->u8vector describe drop
-"wef\n" string->u8vector standard-output-port 1 dig port-write
+input-file read-eval-file
 
 ;;; vi: ft=scheme
 

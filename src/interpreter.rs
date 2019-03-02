@@ -1,25 +1,22 @@
 
-pub mod code;
+pub mod definition;
 mod context;
 pub mod exec;
 mod stack;
 pub mod builtin;
 pub mod env;
 
-use std::collections::VecDeque;
-
 use crate::data::*;
 use crate::parser::*;
 use crate::data::error;
 use self::context::*;
-use self::code::*;
+use self::definition::*;
 use self::stack::Stack;
 
 pub struct Interpreter {
     pub stack: Stack,
     pub context: Context,
     builtins: builtin::BuiltinLookup,
-    history: VecDeque<Symbol>,
     quoting: bool,
 }
 
@@ -35,7 +32,6 @@ impl Interpreter {
             stack: Default::default(),
             context: Context::default(),
             builtins: Default::default(),
-            history: Default::default(),
             quoting: false,
         }
     }
@@ -52,8 +48,8 @@ impl Interpreter {
         self.quoting = true;
     }
 
-    pub fn define<S: Into<Symbol>, C: Into<Code>>(&mut self, name: S, code: C) {
-        self.context.env_mut().define(name, code);
+    pub fn define<S: Into<Symbol>>(&mut self, name: S, def: Definition) {
+        self.context.env_mut().define(name, def);
     }
 
     pub fn define_type_predicate<T: IsType + Value>(&mut self, name: &str) {
@@ -62,8 +58,7 @@ impl Interpreter {
 
     pub fn add_builtin<S: Into<Symbol>, B: 'static + builtin::BuiltinFn>(&mut self, name: S, builtin: B) {
         let name = name.into();
-        let builtin_ref = self.builtins.add(name.clone(), builtin);
-        self.context.env_mut().define(name, builtin_ref);
+        self.builtins.add(name.clone(), builtin);
     }
 
     // pub fn evaluate<A: builtin::BuiltinFnArgs, R: builtin::BuiltinFnRets, F: FnMut(A) -> exec::Result<R>>(&mut self, mut f: F) -> exec::Result<()> {
@@ -116,42 +111,36 @@ impl Interpreter {
         self.run_available()
     }
 
-    pub fn eval_code(&mut self, code: &Code) -> exec::Result<()> {
-        match code.value() {
-            Instruction::Builtin(ref b) => {
-                let mut b = self.builtins.lookup(b);
+    pub fn resolve_symbol(&self, r: &Symbol) -> Option<Definition> {
+        self.context.resolve(r).cloned()
+    }
+
+    pub fn eval_definition(&mut self, def: &Definition) -> exec::Result<()> {
+        self.context.push_def(&def);
+        Ok(())
+        // self.eval_run()
+    }
+
+    pub fn eval_builtin(&mut self, r: &Symbol) -> exec::Result<()> {
+        match self.builtins.lookup(r) { 
+            Some(mut b) => {
                 b.call(self)?;
             },
-            Instruction::Definition(ref def) => {
-                self.context.push_def(def);
-                // self.run_available()?;
+            None => {
+                Err(error::NotDefined(r.clone()))?;
             },
         }
         Ok(())
     }
 
-    pub fn resolve_symbol(&self, r: &Symbol) -> Option<Code> {
-        self.context.resolve(r).cloned()
-    }
-
-    fn push_history(&mut self, h: &Symbol) {
-        self.history.push_back(h.clone());
-        while self.history.len() > 20 {
-            self.history.pop_front();
-        }
-    }
-
-    pub fn history(&self) -> std::collections::vec_deque::Iter<Symbol> {
-        self.history.iter()
-    }
-
     pub fn eval_symbol(&mut self, r: &Symbol) -> exec::Result<()> {
-        let code = self.resolve_symbol(r).ok_or_else(|| error::NotDefined(r.clone()))?;
-        let res = self.eval_code(&code);
-        self.push_history(&r);
-        if let Err(e) = res {
-            // Hack to show where the error occurred
-            Err(e)?;
+        match self.resolve_symbol(r) {
+            Some(def) => {
+                self.context.push_def(&def);
+            },
+            None => {
+                self.eval_builtin(r)?;
+            },
         }
         Ok(())
     }

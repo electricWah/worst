@@ -20,10 +20,6 @@ fn run<S: fmt::Debug + AsRef<str> + AsRef<Path>>(args: &[S]) {
 
         if let Err(e) = interpreter.eval_file(script.as_ref()) {
             eprintln!("Error: {}", e);
-            eprintln!("History:");
-            for x in interpreter.history() {
-                eprintln!("  {}", x.as_str());
-            }
             if interpreter.stack.size() > 0 {
                 eprintln!("Stack ({} items)", interpreter.stack.size());
                 eprintln!("{}", interpreter.stack.describe());

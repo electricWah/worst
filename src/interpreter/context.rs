@@ -1,7 +1,7 @@
 
 use std::mem;
 use std::collections::VecDeque;
-use crate::interpreter::code::*;
+use crate::interpreter::definition::*;
 use crate::interpreter::exec;
 use crate::data::*;
 use crate::interpreter::env::*;
@@ -98,7 +98,7 @@ impl Context {
         self.env.0.keys()
     }
 
-    pub fn resolve(&self, name: &Symbol) -> Option<&Code> {
+    pub fn resolve(&self, name: &Symbol) -> Option<&Definition> {
         if let Some(def) = self.env.0.get(name) {
             return Some(def);
         }
