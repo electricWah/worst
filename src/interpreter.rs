@@ -111,6 +111,7 @@ impl Interpreter {
 
     pub fn eval_run(&mut self) {
         while let Err(e) = self.eval_result() {
+            // eprintln!("{:?}", e);
             self.stack.push(Datum::new(e));
             if let Some(handler) = self.resolve_symbol(&"%%failure".into()) {
                 self.context.push_def(handler);
@@ -155,6 +156,23 @@ impl Interpreter {
 }
 
 impl Interpreter {
+    // These have the same code but shrug
+    pub fn read_file(path: &str) -> exec::Result<Vec<Datum>> {
+        use ::std::fs::File;
+        use ::std::io::Read;
+        let mut file = File::open(&path).map_err(error::StdIoError::new)?;
+        let mut contents = String::new();
+        file.read_to_string(&mut contents).map_err(error::StdIoError::new)?;
+
+        let mut parser = Parser::new(contents.chars().into_iter()).with_file(path);
+
+        let mut r = vec![];
+        while let Some(d) = parser.next()? {
+            r.push(d);
+        }
+        Ok(r)
+    }
+
     // Should be AsRef<Path>
     // This is manageable as a completely hosted function
     pub fn load_file(&mut self, path: &str) -> exec::Result<()> {

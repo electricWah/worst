@@ -15,7 +15,7 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("eval-builtin", eval_builtin);
     interpreter.add_builtin("call", call);
     interpreter.add_builtin("call-when", call_when);
-    interpreter.add_builtin("load-file", load_file);
+    interpreter.add_builtin("read-file", read_file);
     interpreter.add_builtin("uplevel-in-named-context", uplevel_in_named_context);
     interpreter.add_builtin("abort", abort);
     interpreter.add_builtin("interpreter-clear", interreter_clear);
@@ -50,7 +50,9 @@ fn resolve_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
         Some(def) => {
             interpreter.stack.push(Datum::new(List::from_iter(def.iter())));
         },
-        None => Err(error::NotDefined(name))?,
+        None => {
+            interpreter.stack.push(Datum::new(false));
+        },
     }
     Ok(())
 }
@@ -109,9 +111,10 @@ fn call_when(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
-fn load_file(interpreter: &mut Interpreter) -> exec::Result<()> {
+fn read_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     let file = interpreter.stack.pop::<String>()?;
-    interpreter.load_file(&file)?;
+    let l = List::from(Interpreter::read_file(&file)?);
+    interpreter.stack.push(Datum::new(l));
     Ok(())
 }
 

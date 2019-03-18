@@ -29,64 +29,8 @@ define/q ^: [^' 'uplevel uplevel]
 
 define swap [1 dig]
 
-define prints [string->u8vector standard-output-port 1 dig port-write drop]
-define printe [string->u8vector standard-error-port 1 dig port-write drop]
-
-define wrap-definition [
-    ; TODO push history; maybe stack control
-    ; but make sure it doesn't interfere with TCO
-    "Defining " printe
-    swap datum-describe->string printe
-    "\n" printe
-    swap
-]
-
-; Mildly hacky global variable called on error
-define %%failure [
-    while [stack-empty? not] [
-        datum-describe->string printe "\n" printe
-        drop
-    ]
-    interpreter-clear
-]
-
-define eval [eval-definition]
-define ^eval-file [^: load-file]
-define eval-file [load-file]
-
-define local [
-    [quote] swap list-push-tail
-    ^' swap ^: define%
-]
-
-define local/q [
-    [quote] swap list-push-tail
-    ^' swap ^: define%quiet
-]
-
-0 1 equal? local/q false drop drop
-0 0 equal? local/q true drop drop
-define false? [false equal? swap drop]
-define not [false? swap drop]
-define true? [false? false? swap drop]
-
-define equal?! [equal? swap drop]
-
-define swapvar [
-    ^' swap make-place
-    [swap place-swap swap drop] swap list-push-head
-    'define% uplevel
-]
-
-define with-swapvar [
-    ^' local/q %%swapvar-name
-    [] %%swapvar-name call
-    ^' eval
-    %%swapvar-name call drop
-]
-
-; swapvar-take name => value
-define swapvar-take [ false ^' call ]
+define/q prints [string->u8vector standard-output-port 1 dig port-write drop]
+define/q printe [string->u8vector standard-error-port 1 dig port-write drop]
 
 ; cond [if-true ...] [if-false ...] if%
 define/q if% [
@@ -95,25 +39,107 @@ define/q if% [
     ; true T F -> F T drop -> T
     ; false T F -> T F drop -> F
     'swap call-when drop
-    eval
+    eval-definition
+]
+
+define/q swapvar [
+    ^' swap make-place
+    [swap place-swap swap drop] swap list-push-head
+    'define%quiet uplevel
+]
+
+[] swapvar %%history
+
+; Mildly hacky global variable called on error
+define/q %%failure [
+    stack-empty? [
+        "History:\n" printe
+        0 %%history datum-describe->string printe "\n" printe
+        interpreter-clear
+    ] [
+        datum-describe->string printe "\n" printe
+        drop
+        %%failure
+    ] if%
+]
+
+define/q %history-push [
+    [] %%history
+    ^' list-push-tail
+    ; list-length 20 greater-than 2 negate dig drop drop [] [list-pop-head drop] if%
+    %%history drop
+]
+
+define/q wrap-definition [
+    ; TODO push history; maybe stack control
+    ; but make sure it doesn't interfere with TCO
+    ; "Define " printe 1 dig datum-describe->string printe "\n" printe
+    ; def name
+    1 dig clone 2 negate dig
+    ; ; name def name
+    list-push-head
+    '%history-push list-push-head
+]
+
+define/q eval [eval-definition]
+define/q eval-file [ read-file eval ]
+
+define/q local [
+    [quote] swap list-push-tail
+    ^' swap ^: define%quiet
+]
+
+0 1 equal? local false drop drop
+0 0 equal? local true drop drop
+define/q false? [false equal? swap drop]
+define/q not [false? swap drop]
+define/q true? [false? false? swap drop]
+
+define/q equal?! [equal? swap drop]
+
+; define/q not! [not swap drop]
+
+define/q with-swapvar [
+    ^' local %%swapvar-name
+    [] %%swapvar-name call
+    ^' eval
+    %%swapvar-name call drop
+]
+
+; swapvar-take name => value
+define/q swapvar-take [ false ^' call ]
+define/q swapvar-set [ ^' call drop ]
+define/q swapvar-get [
+    ^' local %%swapvar-name
+    [] %%swapvar-name call
+    clone
+    %%swapvar-name call drop
 ]
 
 ; cond if [if-true ...] [if-false ...]
-define if [ ^' ^' if% ]
+define/q if [ ^' ^' if% ]
 
-; while [-> bool] [body ...]
-define while [
-    '%cond ^' define%
-    '%body ^' define%
-    define %loop [ %cond [%body %loop] [] if% ]
+; body cond while%
+define/q while% [
+    '%cond swap define%quiet
+    '%body swap define%quiet
+    define/q %loop [ %cond [%body %loop] [] if% ]
     %loop
+]
+; while [-> bool] [body ...]
+define/q while [
+    ^' ^' swap while%
 ]
 
 ; cond [[if1] [body1] [if2] [body2] ...]
-define cond [
+define/q cond [
     ^' swapvar conds%
-    define next-cond% [
-        with-swapvar conds% [list-pop-head swap] ^: eval
+    define/q next-cond% [
+        with-swapvar conds% [
+            list-empty?
+            if [drop "cond clause exhausted" abort] []
+            list-pop-head swap
+        ] ^: eval
         if [
             with-swapvar conds% [list-pop-head swap] 'eval 'uplevel uplevel
             true
@@ -124,26 +150,26 @@ define cond [
     while [^: next-cond% not] []
 ]
 
-define list-empty? [[] equal? swap drop]
+define/q list-empty? [[] equal? swap drop]
 
 [] swapvar program-arguments%
 
-define program-argument [
+define/q program-argument [
     false swapvar shortopt
     false swapvar longopt
-    define long [^' symbol->string longopt drop]
+    define/q long [^' symbol->string longopt drop]
     'flag swapvar kind
-    define flag ['flag kind drop ^' symbol->string shortopt drop]
-    define arg ['arg kind drop ^' symbol->string shortopt drop]
+    define/q flag ['flag kind drop ^' symbol->string shortopt drop]
+    define/q arg ['arg kind drop ^' symbol->string shortopt drop]
     false swapvar doc-msg
-    define doc [^' doc-msg drop]
+    define/q doc [^' doc-msg drop]
     false swapvar isrequired
     ^' eval
     swapvar-take shortopt local shortopt
     swapvar-take longopt local longopt
     swapvar-take doc-msg local doc-msg
     swapvar-take kind local kind
-    define + [ string-append ]
+    define/q + [ string-append ]
     shortopt
     longopt true? if [swap ", " + swap +] [drop]
         ": " +
@@ -155,7 +181,7 @@ define program-argument [
     while [list-pop-head "--worstc" equal?! not] [drop]
     drop
     local cmdline
-    define findopt [
+    define/q findopt [
         local opt
         cmdline while [
             list-empty? if [false] [
@@ -197,14 +223,7 @@ program-argument [
 "./lib" and if [drop] [swap drop] local lib-dir
 
 program-argument [
-    doc "Output format (default lua)"
-    arg -O
-    long --output-format
-]
-"lua" and if [drop] [swap drop] local output-format
-
-program-argument [
-    doc "Output file (required)"
+    doc "Output file (default to standard output)"
     arg -o
 ]
 local output-file
@@ -234,14 +253,27 @@ output-file true? if [
 ] [ drop standard-output-port ]
 local %output-port
 
-define + [ string-append ]
-lib-dir
-    "/target/" +
-    output-format +
-    ".w" +
-^eval-file
+define/q target [
+    ^' symbol->string local t
+    lib-dir
+        "/target/" string-append
+        t string-append
+        ".w" string-append
+    read-file
+    ^: eval
+]
 
-input-file ^eval-file
+define/q define/export [
+    ^' ^'
+    'define% 'uplevel uplevel
+]
+
+define/q export [
+    ^' clone resolve-definition
+    'define%quiet 'uplevel uplevel
+]
+
+input-file eval-file
 
 ;;; vi: ft=scheme
 

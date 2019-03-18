@@ -1,4 +1,11 @@
 
+.PHONY: doc
+doc: README.html
+	@#
+
+README.html: README.txt doc/theme.css
+	asciidoc -a themedir=${PWD}/doc --theme theme -o $@ $<
+
 perf.svg: perf.perf
 	stackcollapse-perf.pl --all perf.perf | flamegraph.pl > perf.svg
 
