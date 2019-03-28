@@ -19,6 +19,11 @@ impl BuiltinLookup {
             None => None,
         }
     }
+
+    pub fn keys(&self) -> impl Iterator<Item=&Symbol> {
+        self.0.keys()
+    }
+
 }
 
 pub trait BuiltinFnArg: Sized {

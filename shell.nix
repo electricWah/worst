@@ -7,6 +7,7 @@ stdenv.mkDerivation {
     name = "rs-shell";
     buildInputs = [
       # rust
+      asciidoc-full-with-plugins
       rustup
       pkgconfig
       openssl

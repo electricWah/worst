@@ -72,6 +72,7 @@ define/export make-const [
     cond [
         [string?] [ 'string ]
         [int?] [ 'int ]
+        [float?] [ 'float ]
         [bool?] [ 'bool ]
         [true] [ "Can't use this as a constant" abort]
     ]
@@ -186,6 +187,12 @@ define/export invoke% [
             define bool [
                 ensure-expression/type! bool add-arg
             ]
+            define int [
+                ensure-expression/type! int add-arg
+            ]
+            define float [
+                ensure-expression/type! float add-arg
+            ]
 
             argtypes eval
         ] eval
@@ -258,8 +265,6 @@ define indented [
     with-swapvar indentation% [ 1 negate add ]
 ]
 export indented
-
-define/export print [invoke "print" [string] []]
 
 ; lua and worst both spell 'if' the same
 ; so have a magic 'if' that calls the correct one
@@ -356,8 +361,8 @@ define/export luawhile% [
 define/override/when [%luamode?] while [ ^' ^' swap luawhile% ]
 export while
 
-define/export require [
-    ^' symbol->string local lib
+define/export require% [
+    symbol->string local lib
     define/q + [ string-append ]
     lib-dir
         "/lua/lib/" +
@@ -366,7 +371,32 @@ define/export require [
     ^: eval-file
 ]
 
+define/export require [ ^' require% ]
+
+; TODO this is more like a regular "define" but extern things are similar
+define/export extern% [
+    without-luamode% [
+        [
+            define syntax-read [ 'quote 'uplevel '%def uplevel-in-named-context ]
+        ] swap list-append
+        [
+            '%def context-set-name
+            without-luamode%
+        ] swap list-push-tail
+    ]
+    'define% uplevel
+]
+
+define/export extern [
+    ^' ^' 'extern% uplevel
+]
+
+define/export extern/export [
+    ^' ^' 'extern% 'uplevel uplevel
+]
+
 define/export luadefine% [
+    '%def context-set-name
     without-luamode% [
         local def%
         clone local defname%
@@ -379,7 +409,9 @@ define/export luadefine% [
                 ^' typed-var clone with-swapvar args% [ swap list-push-head ]
             ]
             define %output [ with-swapvar defbody% [ swap string-append ] ]
-            ; TODO: this just outputs, but need to output args first
+            define syntax-read [
+                ^' uplevel-in-named-context
+            ]
             indented [ with-luamode% [ def% eval ] ]
         ] eval
         "function " write-string name% write-string "(" write-string
@@ -432,11 +464,7 @@ define/export luadefine% [
 define/override/when [%luamode?] define [ ^' ^' luadefine% ]
 export define
 
-; define define [
-;     ^' ^'
-;     %luamode? if ['luadefine%] ['define%]
-;     uplevel
-; ]
+'stdlib ^: require%
 
 ;;; vi: ft=scheme
 

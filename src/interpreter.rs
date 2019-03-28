@@ -17,7 +17,7 @@ use self::stack::Stack;
 
 pub struct Interpreter {
     pub stack: Stack,
-    pub context: Context,
+    context: Context,
     builtins: builtin::BuiltinLookup,
     quoting: bool,
 }
@@ -36,6 +36,10 @@ impl Interpreter {
             builtins: Default::default(),
             quoting: false,
         }
+    }
+
+    pub fn uplevel(&mut self) -> exec::Result<()> {
+        self.context.uplevel()
     }
 
     pub fn quoting(&self) -> bool {
@@ -83,6 +87,19 @@ impl Interpreter {
     pub fn env(&self) -> &env::Env {
         self.context.env()
     }
+
+    pub fn set_context_name(&mut self, name: Option<String>) {
+        self.context.set_name(name);
+    }
+
+    pub fn context_name(&mut self) -> Option<&str> {
+        self.context.name()
+    }
+
+    pub fn all_builtins(&self) -> impl Iterator<Item=&Symbol> {
+        self.builtins.keys()
+    }
+
 }
 
 impl Interpreter {

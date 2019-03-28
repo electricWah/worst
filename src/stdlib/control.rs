@@ -13,16 +13,19 @@ pub fn install(interpreter: &mut Interpreter) {
     interpreter.add_builtin("defined?", is_defined);
     interpreter.add_builtin("defined-names", defined_names);
     interpreter.add_builtin("eval-builtin", eval_builtin);
+    interpreter.add_builtin("all-builtins", all_builtins);
     interpreter.add_builtin("call", call);
     interpreter.add_builtin("call-when", call_when);
     interpreter.add_builtin("read-file", read_file);
+    interpreter.add_builtin("context-set-name", context_set_name);
+    interpreter.add_builtin("context-name", context_name);
     interpreter.add_builtin("uplevel-in-named-context", uplevel_in_named_context);
     interpreter.add_builtin("abort", abort);
     interpreter.add_builtin("interpreter-clear", interreter_clear);
 }
 
 fn uplevel(interpreter: &mut Interpreter) -> exec::Result<()> {
-    interpreter.context.uplevel()?;
+    interpreter.uplevel()?;
     let name = interpreter.stack.pop::<Symbol>()?;
     interpreter.eval_symbol(&name)?;
     Ok(())
@@ -46,9 +49,9 @@ fn take_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
 
 fn resolve_definition(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
-    match interpreter.context.resolve(&name) {
+    match interpreter.resolve_symbol(&name) {
         Some(def) => {
-            interpreter.stack.push(Datum::new(List::from_iter(def.iter())));
+            interpreter.stack.push(Datum::new(List::from(def)));
         },
         None => {
             interpreter.stack.push(Datum::new(false));
@@ -81,7 +84,6 @@ fn is_defined(interpreter: &mut Interpreter) -> exec::Result<()> {
 }
 
 fn defined_names(interpreter: &mut Interpreter) -> exec::Result<()> {
-    // TODO source
     let names: Vec<Datum> = interpreter.env_mut().current_defines()
         .map(Clone::clone)
         .map(|s| Datum::symbol(s))
@@ -93,6 +95,15 @@ fn defined_names(interpreter: &mut Interpreter) -> exec::Result<()> {
 fn eval_builtin(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     interpreter.eval_builtin(&name)?;
+    Ok(())
+}
+
+fn all_builtins(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let names: Vec<Datum> = interpreter.all_builtins()
+        .map(Clone::clone)
+        .map(|s| Datum::symbol(s))
+        .collect();
+    interpreter.stack.push(Datum::new::<List>(names.into()));
     Ok(())
 }
 
@@ -118,11 +129,27 @@ fn read_file(interpreter: &mut Interpreter) -> exec::Result<()> {
     Ok(())
 }
 
+fn context_set_name(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.stack.pop::<Symbol>()?;
+    interpreter.set_context_name(Some(name.to_string()));
+    Ok(())
+}
+
+fn context_name(interpreter: &mut Interpreter) -> exec::Result<()> {
+    let name = interpreter.context_name().map(Symbol::from);
+    match name {
+        Some(n) => interpreter.stack.push(Datum::new(n)),
+        None => interpreter.stack.push(Datum::new(false)),
+    }
+    Ok(())
+}
+
+
 fn uplevel_in_named_context(interpreter: &mut Interpreter) -> exec::Result<()> {
     let name = interpreter.stack.pop::<Symbol>()?;
     let sym = interpreter.stack.pop::<Symbol>()?;
-    while interpreter.context.name() != Some(name.as_ref()) {
-        interpreter.context.uplevel()?;
+    while interpreter.context_name() != Some(name.as_ref()) {
+        interpreter.uplevel()?;
     }
     interpreter.eval_symbol(&sym)?;
     Ok(())

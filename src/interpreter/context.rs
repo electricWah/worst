@@ -94,9 +94,9 @@ impl Context {
         self.code.push_back(code);
     }
 
-    pub fn current_defines(&self) -> impl Iterator<Item=&Symbol> {
-        self.env.current_defines()
-    }
+    // pub fn current_defines(&self) -> impl Iterator<Item=&Symbol> {
+    //     self.env.current_defines()
+    // }
 
     pub fn resolve(&self, name: &Symbol) -> Option<&[Datum]> {
         if let Some(def) = self.env.get_definition(name) {
