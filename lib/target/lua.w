@@ -1,5 +1,5 @@
 
-define/q %output [string->u8vector %output-port 1 dig port-write drop]
+define/q %output [string->u8vector standard-output-port 1 dig port-write drop]
 export %output
 
 0 swapvar genuid%

@@ -223,12 +223,6 @@ program-argument [
 "./lib" and if [drop] [swap drop] local lib-dir
 
 program-argument [
-    doc "Output file (default to standard output)"
-    arg -o
-]
-local output-file
-
-program-argument [
     doc "Input file (required)"
     arg -i
 ]
@@ -239,19 +233,10 @@ if [
     "worstc: Worst compiler\n" prints
     program-usage abort
 ] [
-    ; output-file true? swap drop
     input-file false? swap drop
     if [program-usage abort] []
     ; and swap drop swap drop if [] [program-usage abort]
 ]
-
-output-file true? if [
-    make-open-file-options
-    open-file-write open-file-create open-file-truncate
-    output-file open-file
-    file-port
-] [ drop standard-output-port ]
-local %output-port
 
 define/q target [
     ^' symbol->string local t

@@ -198,7 +198,7 @@ fn read_number<I: Iterator<Item=char>>(c: char, pos: &mut SourcePos, reader: &mu
             pos.read(c);
             s.push(c);
             float = true;
-        } else if c.is_numeric() {
+        } else if c.is_digit(10) {
             pos.read(c);
             s.push(c);
         } else {
@@ -218,7 +218,7 @@ fn atomic_end(c: char) -> bool {
         true
     } else {
         match c {
-            '(' | ')' | '[' | ']' | '"' | ';' => true,
+            '[' | ']' | '"' | ';' => true,
             _ => false,
         }
     }
@@ -247,7 +247,7 @@ fn read_symbol<I: Iterator<Item=char>>(c: char, pos: &mut SourcePos, reader: &mu
 // TODO these inner ones don't correctly report the place of error
 fn read_atom<I: Iterator<Item=char>>(pos: &mut SourcePos, reader: &mut ReadIter<I>) -> Result<Option<Datum>, ParseError<SourcePos>> {
     if let Some(c) = reader.next() {
-        if c.is_numeric() {
+        if c.is_digit(10) {
             Ok(Some(read_number(c, pos, reader)?))
         } else {
             Ok(Some(read_symbol(c, pos, reader)))
@@ -321,7 +321,7 @@ fn read_cmd<I: Iterator<Item=char>>(pos: &mut SourcePos, reader: &mut ReadIter<I
                         return Ok(Some((p, ReadCmd::StartBlockComment)));
                     },
                     Some(c) => {
-                        if c.is_numeric() || c.is_alphabetic() || atomic_end(c) {
+                        if c.is_digit(10) || c.is_alphabetic() || atomic_end(c) {
                             reader.push_back(c);
                             return Ok(Some((p, ReadCmd::Atom(Datum::symbol("#")))));
                         } else {
