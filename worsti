@@ -1,0 +1,99 @@
+#!/usr/bin/env ./rworst
+
+; shorthand for quote quote uplevel
+[ quote quote quote uplevel uplevel ] quote upquote definition-add
+
+; define name [def...] 
+[
+    upquote upquote ; name [def ...]
+    swap
+    quote definition-add uplevel
+] quote define definition-add
+
+define current-error-handler [
+    interpreter-dump-stack
+    1 interpreter-exit
+]
+
+; value const name
+define const [
+    [quote] swap list-push list-reverse
+    upquote
+    quote definition-add uplevel
+]
+
+; a equals? b => a bool
+define equals? [ upquote equal? swap drop ]
+
+; bool if [if-true] [if-false]
+define if [
+    upquote upquote
+    ; cond true false => false true cond
+    swap rot rot
+    quote swap when drop
+    eval
+]
+
+define resolve-module-path [ ]
+
+define load-eval-file [
+    define run [
+        define %%load-eval-file []
+        read-eval-loop
+        ; leaves <eof> on the stack
+        ; also need something here to inhibit tail-call
+        drop
+    ]
+    define quote-read-syntax? [
+        builtin-quote %%load-eval-file
+        builtin-quote current-context-has-definition? uplevel
+        swap drop
+    ]
+    open-input-file [] swap list-push
+    builtin-quote source-input-port definition-add
+    run
+    ; read-eval-loop drop
+]
+
+define import-file [
+    hash-table-empty make-place const %%export
+    define export [
+        upquote
+        quote definition-get uplevel
+        false? if [ "Export: not defined" abort ] []
+        %%export place-get swap drop
+        rot
+        hash-table-set
+        %%export swap place-set drop
+    ]
+
+    resolve-module-path
+    load-eval-file
+
+    %%export #f place-swap swap drop
+    define export-all [
+        ; this is fragile without a way of upleveling to a specific context
+        tail-call
+        hash-table-first-key false? if [drop drop] [
+            tail-call
+            hash-table-take swap
+            quote definition-add quote uplevel uplevel
+            tail-call
+            export-all
+        ]
+    ]
+    export-all
+]
+
+define import [ upquote quote import-file uplevel ]
+
+"WORST_LIBDIR" env-get swap drop false? if [drop "./lib"] []
+const WORST_LIBDIR
+
+WORST_LIBDIR "/worst/repl.w" string-append import-file
+
+worst-repl
+"\n" print
+
+; vi: ft=scheme
+
