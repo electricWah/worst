@@ -3,16 +3,26 @@
 ; shorthand for quote quote uplevel
 [ quote quote quote uplevel uplevel ] quote upquote definition-add
 
-; define name [def...] 
-[
+[ ; define name [def...]
     upquote upquote ; name [def ...]
-    swap
-    quote definition-add uplevel
+    swap quote definition-add uplevel
 ] quote define definition-add
+
+; updo thing => quote thing uplevel
+define updo [ upquote quote uplevel uplevel ]
 
 define current-error-handler [
     interpreter-dump-stack
     1 interpreter-exit
+]
+
+; define-alias new-name orig-name
+define define-alias [
+    upquote
+    upquote definition-resolve
+    swap drop
+    swap
+    updo definition-add
 ]
 
 ; value const name
@@ -36,7 +46,9 @@ define if [
 
 define resolve-module-path [ ]
 
+define-alias %orig-syntax-read syntax-read
 define load-eval-file [
+    define-alias syntax-read %orig-syntax-read
     define run [
         define %%load-eval-file []
         read-eval-loop
@@ -87,7 +99,8 @@ define import-file [
 
 define import [ upquote quote import-file uplevel ]
 
-"WORST_LIBDIR" env-get swap drop false? if [drop "./lib"] []
+"WORST_LIBDIR" env-get swap drop
+"./lib" swap or rot drop drop
 const WORST_LIBDIR
 
 WORST_LIBDIR "/worst/repl.w" string-append import-file

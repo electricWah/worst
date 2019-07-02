@@ -9,7 +9,8 @@ You are reading an interpreter for
 As you read on, you will encounter documentation and source code for the
 core procedures, built-in library functions, and command-line interface
 of a working Worst implementation, in roughly that order.
-@hyperlink["https://gitlab.com/worst-lang/worst/worst.rkt"]{A single source file}
+@hyperlink["https://gitlab.com/worst-lang/worst/blob/master/worst.rkt"]{A
+single source file}
 holds this text, the interpreter itself, and a handful of tests.
 
 This interpreter is written in
@@ -901,7 +902,18 @@ Predicates for some of the basic data types.
           (cons (context-definitions ctx)
                 stack)))
 
-; defined-names
+(define-builtin
+  (current-context-set-code ctx stack)
+  (let ([v (stack-top stack list?)])
+    (values (struct-copy context ctx [body v])
+            (cdr stack))))
+
+(define-builtin
+  (current-context-get-code ctx stack)
+  (let ([v (stack-top stack list?)])
+    (values (struct-copy context ctx [body v])
+            (cdr stack))))
+
 ; Also get current context and put it on the stack.
 
 ]
@@ -945,6 +957,11 @@ Predicates for some of the basic data types.
                 stack)))
 
 (define-builtin
+  (definition-resolve ctx stack)
+  (let ([name (stack-top stack symbol?)])
+    (values ctx (cons (context-resolve ctx name) stack))))
+
+(define-builtin
   (definition-add ctx stack)
   (let* ([name (stack-top stack symbol?)]
          [def (stack-top (cdr stack) function?)]
@@ -977,6 +994,7 @@ Predicates for some of the basic data types.
 
 @chunk[<builtin-list-ops>
 
+(define-builtin (list-empty? s [a list?]) (cons (empty? a) s))
 (define-builtin (list-length s [a list?]) (cons (length a) s))
 (define-builtin (list-reverse s [a list?]) (cons (reverse a) (cdr s)))
 (define-builtin (list-append s [b list?] [a list?]) (cons (append a b) (cddr s)))
@@ -1360,7 +1378,6 @@ describe
 eval-builtin
 eval-definition
 read-file
-resolve-definition
 set-environment-variable
 stack-empty?
 take-definition

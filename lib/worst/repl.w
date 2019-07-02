@@ -132,6 +132,16 @@ define worst-repl [
         drop
     ]
 
+    define %abort-to-repl [
+        quote %%repl quote current-context-has-definition? uplevel swap drop
+        if [] [
+            [updo %abort-to-repl] quote current-context-set-code
+            quote uplevel
+            quote uplevel
+            uplevel
+        ]
+    ]
+
     define current-error-handler [
         define current-output-port [current-error-port]
         ansi [
@@ -142,6 +152,7 @@ define worst-repl [
             current-output-port swap port-write-value drop
             reset "\n" print
         ]
+        updo %abort-to-repl
     ]
     define quote-read-syntax? [
         builtin-quote %%repl
