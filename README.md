@@ -8,7 +8,7 @@ Its syntax system allows you to redefine the entire language as you go.
 Full documentation is available on
 [the Worst homepage](http://worst.mitten.party).
 
-## Getting Started
+## Setup
 
 First, install [Racket](https://racket-lang.org/) (tested on version 7.2).
 Then run:

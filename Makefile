@@ -9,6 +9,6 @@ deps:
 	raco pkg install hyper-literate
 
 .PHONY: literate
-literate: worst.rkt
-	scribble --htmls --dest literate $<
+literate: worst.rkt literate.css
+	scribble --htmls --dest literate ++style literate.css $<
 

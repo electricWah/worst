@@ -1,36 +1,28 @@
 
 #lang hyper-literate typed/racket
 
-@title[#:style '(toc)]{A Literate Interpreter} @;#| {{{ |#
+@title[#:style '(toc)]{A Worst Interpreter} @;#| {{{ |#
 
 You are reading an interpreter for
 @hyperlink["http://worst.mitten.party"]{The Worst Programming Language}.
 
+It's written in
+@hyperlink["https://docs.racket-lang.org/ts-reference"]{Typed Racket},
+but any language will work if you'd like to follow along.
 As you read on, you will encounter documentation and source code for the
 core procedures, built-in library functions, and command-line interface
-of a working Worst implementation, in roughly that order.
+of a working Worst interpreter, in roughly that order.
 @hyperlink["https://gitlab.com/worst-lang/worst/blob/master/worst.rkt"]{A
 single source file}
 holds this text, the interpreter itself, and a handful of tests.
 
-This interpreter is written in
-@hyperlink["https://docs.racket-lang.org/ts-reference"]{Typed Racket},
-but if you'd like to follow along, any language will work.
-Hopefully, reading this will help and inspire you to make Worst your own,
-or even make your own Worst with its own seasoning.
+Reading this interpreter should hopefully give you a good understanding of how
+it works, and currently serves as the best source of documentation for Worst.
+If you'd rather just run it and have a poke around,
+@hyperlink["https://gitlab.com/worst-lang/worst"]{check it out}.
 
-The program produced by compiling this file is named @racket[rworst].
-The R stands for Racket, or Raw, because
-it implements enough built-in functions to
-run programs, but should be ``cooked'' by a wrapper script
-that adds user-friendly forms and functions
-such as @racket[if] and @racket[define].
-Examples, including the interactive @racket[worsti],
-can be found in the
-@hyperlink["https://gitlab.com/worst-lang/worst"]{code repository}.
-
-Oh, one more thing: this is a work in progress; in particular, it needs
-@seclink["more-builtins"]{more builtins} and more tests. If there are any
+This is a work in progress; in particular, it needs
+more built-in functions and more tests. If there are any
 necessary builtins missing, or you see any other problems, please feel free to
 @hyperlink["https://gitlab.com/worst-lang/worst/issues"]{file an issue}!
 
@@ -38,146 +30,78 @@ necessary builtins missing, or you see any other problems, please feel free to
 
 @;#| }}} |#
 
-@section[#:tag "what-this-program-does"]{What this program does} @;#| {{{ |#
+@section[#:tag "introduction"]{Introduction} @;#| {{{ |#
 
-Before writing any code, we must set the scene:
-how should any interpreter understand Worst,
-and roughly how will this particular interpreter do so?
+I wanted Worst to be a language that was easy to implement,
+yet flexible enough to grow beyond just being an experiment.
+Following a rigorous process of repeatedly deleting everything
+and starting over until new features stopped requiring complete redesigns,
+I discovered the following combination of properties that worked well together:
 
-This section assumes a small amount of familiarity with Worst already,
-plus some prior knowledge of programming in general.
-It's not prerequisite to understanding the rest of the interpreter,
-so if you'd rather just @seclink["data-structures"]{skip to the code}, go nuts.
-
-@subsection{Worst, as understood by @racket[rworst]}
-
-A Worst program is a list of data,
-including symbols, strings, numbers, and other lists of data.
-The interpreter takes these and evaluates them, one at a time, in order.
-Most things (i.e. everything except symbols) are evaluated literally,
-by placing them on top of the @emph{stack} (which is just a list).
-
-To evaluate symbols, we need to keep track of the state of the program,
-since some symbols modify the program itself when evaluated.
-Thus, we have a @emph{context}, which (along with the stack) holds everything
-the interpreter needs to know in order to run properly:
 @itemlist[
-    @item{a table of @emph{definitions} (user-defined and built-in functions),}
-    @item{the program itself (a list again), and}
-    @item{the parent context, for a function call stack.}
+    @item{@bold{Stack-oriented}.
+        With a stack instead of environments of local and global variables,
+        keeping track of data becomes simple list manipulation.}
+    @item{@bold{Concatenative}.
+        Programs and functions compose just by being next to each other
+        (yes, this is just Forth so far, but bear with me).
+        This reduces the core to a basic loop: read a token, evaluate it, repeat.}
+    @item{@bold{Homogeneous}.
+        It's a lot simpler to manipulate functions when
+        it's the same as manipulating lists.
+        It also means that reading code is identical to reading data.}
+    @item{@bold{@racket[quote] and @racket[uplevel]}.
+        Together, these two are core to Worst's identity.
+        @racket[quote] is the ability for any function to read
+        the next token in the program (useful for making macros),
+        and @racket[uplevel] (borrowed from Tcl) is
+        the ability to execute code as if it were in the calling stack frame
+        (implemented with ``reverse'' call stack).}
+    @item{@bold{Lazy parsing}.
+        It should be possible to modify the parser mid-program,
+        so you can do things like importing syntax forms from a library.
+        To this end, source code is parsed just before execution.}
 ]
 
-A definition is either a user-defined program (another list)
-or a @emph{builtin}, which is a function in the host language that
-modifies the stack and context directly.
+Each of these properties work together to support the others.
+Combined with a minimum of internal data structures
+(just two: the call stack and the data stack), they lead to other properties
+like dynamic scope, extensible error handling, and a REPL for free.
 
-Now we know enough to evaluate a symbol:
-First, look it up in the definition table.
-If it's a builtin, just call it directly;
-otherwise it's a user-defined program,
-so use it to enter a new context (i.e. a function call)
-and keep the current context as its parent.
-The interpreter can then start executing this new program,
-and when it's done it can carry on where the parent context left off.
+So, in brief, here's the main interpreter loop:
+@itemlist[
+    @item{@seclink["code-next"]{Get the next thing} from the program.
+        If it's not a symbol, put it on top of the stack and repeat.}
+    @item{If it is a symbol, @seclink["resolving-functions"]{look it up}
+        in the definition set.
+        (If it's not there, check the calling stack frames too.)}
+    @item{If the definition is a normal function, call it
+        and start again from the top.}
+    @item{Otherwise, it's a list, so treat it as a sub-program.
+        @seclink["calling-functions"]{Step into a new stack frame}
+        and interpret it.}
+    @item{@seclink["the-end-ha-ha"]{Repeat} until the program is empty.
+        If there's a calling stack frame, carry on with that.}
+]
 
-Also, if there isn't an entry in the definition table for that symbol,
-then the interpreter can recursively look in the parent contexts
-until it finds one.
-This is dynamic scope, which can be trickier to work with than lexical scope,
-but it's possible to write a library to emulate it.
-
-@subsection{Builtins}
-
-Builtins can do any number of things,
-including stack-modifying operations like @racket[swap]
-(which just swaps the top two items on the stack)
-and context-modifying operations like @racket[definition-add]
-(which adds a new entry to the definition table).
-
-The builtins @racket[quote] and @racket[uplevel]
-take special advantage of the context structure.
-@racket[quote] takes the next item in the program
-and puts it on top of the stack
-(preventing it from being evaluated if it's a symbol);
-@racket[uplevel] evaluates the symbol on top of the stack
-as if in the parent context
-(but then carries on in the current context as normal).
-
-These two are particularly useful in combination.
-As an example, defining a function using @racket[definition-add]
-is fairly cumbersome:
-@codeblock{
-    ; a literal list, which will be the code for the function
-    ["Hello, world!" print]
-    ; here's quote taking hello from the program and placing it on the stack
-    quote hello
-    ; definition-add takes a symbol (the name) and a list (the code)
-    ; off the stack, and adds them as a definition in the current context.
-    definition-add
-
-    ; Usage:
-    hello
-}
-
-This can be shortened
-by using @racket[quote] and @racket[uplevel]
-in a new @racket[define] function.
-@codeblock{
-    [
-        ; quote quote uplevel does two things:
-        ; the first quote puts the second quote on top of the stack as a symbol,
-        ; then uplevel calls it in the parent context,
-        ; so, in this example, it will take hello from the parent program
-        quote quote uplevel
-        ; and then the same with the list ["Hello, world!" print]
-        quote quote uplevel
-        ; definition-add requires the name on top of the stack,
-        ; so swap them so they're in the right order
-        swap
-        ; uplevel the symbol definition-add
-        ; so the definition is added in the parent context's definition table
-        quote definition-add uplevel
-    ]
-    ; finally, use definition-add to define define itself
-    quote define definition-add
-
-    ; Definition (more succinct this time):
-    define hello ["Hello, world!" print]
-
-    ; Usage:
-    hello
-}
-
-@subsection{Syntax}
-
-By default, the interpreter reads Racket values (using @racket[read]) from
-a file specified on the command line, evaluating each before even
-trying to parse the next.
-You can override this by redefining @racket[port-read-value],
-which will take effect at the next character in the source file.
-You can also change the source file it reads
-by redefining @racket[source-input-port].
-These names are chosen by @racket[read-eval-loop],
-defined in @secref{reading-code}.
-
-@subsection{Error handling}
-
-If a builtin ever signals an error, it is placed on the stack
-and the interpreter calls @racket[current-error-handler]
-(preserving the current context).
-See @secref{exceptions} for how it's done.
-By default, it just prints out the stack and exits
-(also defined in @secref{reading-code}),
-but you could define more sophisticated error handlers to print a stack trace
-or actually handle the error with some kind of @racket[try/catch] mechanism.
+That's it, ignoring @racket[uplevel],
+and the @seclink["reading-code"]{read-eval loop}
+that does the actual syntax parsing.
+Most of the rest of the code is dedicated to defining built-in functions.
 
 @;#| }}} |#
 
 @section[#:tag "data-structures"]{Data structures} @;#| {{{ |#
 
-Now we've established roughly what the interpreter is supposed to do,
-it's about time to start writing some code.
-Here's the definition for the context data structure.
+The main elements of any program are code and data,
+so that means two data structures should be enough.
+Unsurprisingly, the data stack will be a regular @racket[list].
+Everything related to the code
+(function definitions, the call stack, the code itself)
+can all go in one structure -- the @racket[context].
+
+Together, the stack and the context contain
+everything necessary to run the program.
 
 @chunk[<context>
 (struct context
@@ -187,13 +111,11 @@ Here's the definition for the context data structure.
    [definitions : (Immutable-HashTable Symbol Function)]
    ; Bookkeeping required by uplevel
    [children    : (Listof Context)]
-   ; The calling context
+   ; The calling context (if it's currently in the middle of a function call)
    [parent      : (Option Context)])
-  ; Required for rackunit tests
-  #:transparent
-  ; Just to make type signatures look nice
-  #:type-name Context)
+  #:transparent #:type-name Context)
 
+; I never remember the right order for fields, so here's a keyword constructor.
 (define (make-context
           #:body [body : Code '()]
           #:definitions [defs : (Immutable-HashTable Symbol Function)
@@ -202,10 +124,6 @@ Here's the definition for the context data structure.
           #:parent [parent : (Option Context) #f])
   (context body defs children parent))
 ]
-
-The @racket[make-context] constructor has defaults for everything.
-We'll rarely have to fill all of the fields in,
-and it's useful to have an empty ``default'' to build on and compare with.
 
 I introduced a couple of types in there, hopefully with semi-obvious meanings.
 Here they are along with some other supporting type definitions:
@@ -230,14 +148,13 @@ Here they are along with some other supporting type definitions:
 (: function? (-> Any Boolean : Function))
 (define (function? v) (or (list? v) (Builtin? v)))
 
-; Optional result.
 ; Can't use (Option A) because its None value is #f,
 ; which is a value we want to use in Worst.
 ; Using Void instead avoids any ambiguity.
 ; (Not a problem if the host language supports proper algebraic data types.)
 (define-type (Maybe A) (U Void A))
 
-; This will be useful later.
+; This will be useful for builtins that need a length or an index.
 (define-predicate Nonnegative-Integer? Nonnegative-Integer)
 ]
 
@@ -245,9 +162,9 @@ Here they are along with some other supporting type definitions:
 
 @section[#:tag "core-operations"]{Core operations} @;#| {{{ |#
 
-Next up: what the interpreter can actually do with a context.
+Now we've got a context, what can we actually do with it?
 
-@subsection{Resolving functions}
+@subsection[#:tag "resolving-functions"]{Resolving functions}
 Looking up a symbol to find its definition
 needs to recursively walk up the parent contexts,
 looking in the definitions table until it finds an entry.
@@ -260,14 +177,13 @@ looking in the definitions table until it finds an entry.
         (context-resolve (context-parent ctx) name))))
 ]
 
-@subsection{Calling functions}
-Once you have a function, it's easy enough to invoke.
-
-If it's @racket[Code], set up a new context and step in to it.
-If it's a @racket[Builtin] then it's a regular function
-and can be called directly.
-This uses some extra functions to deal with errors
-(see @secref{exceptions}).
+@subsection[#:tag "calling-functions"]{Calling functions}
+A function is either
+a @racket[Builtin] (a regular function that modifies the context and stack)
+or @racket[Code] (a list representing the function body).
+Regular functions can just be called, but @racket[Code] requires a new context
+(and the current context becomes its parent).
+This uses some extra functions to @seclink["exceptions"]{deal with errors}.
 
 @chunk[<interp-eval>
 (: interp-eval (Context Stack Function
@@ -288,7 +204,7 @@ This uses some extra functions to deal with errors
       (interp-handle-error ctx stack 'undefined (list sym)))))
 ]
 
-@subsection{Figuring out what's next}
+@subsection[#:tag "code-next"]{Figuring out what's next}
 
 There's an easy way to do this, and a less easy way.
 The easy way is to simply read code from the program.
@@ -330,7 +246,7 @@ then finally it tries to return to the parent context.
     ; Use the parent, discarding the current context as it's now useless
     [(context-parent ctx)
      (context-next (context-parent ctx))]
-    ; There's nothing left. The program is super finished
+    ; There's nothing left. The program is finished.
     [else (values ctx (void))]))
 ]
 
@@ -345,7 +261,7 @@ and push the current one on its list of children, like a reverse function call.
 (define (context-uplevel ctx)
   (let ([parent (context-parent ctx)])
     (and parent
-         ; Unest parent because it'll be stale
+         ; Unset parent because it'll be stale
          (let ([child (struct-copy context ctx [parent #f])])
            (struct-copy
              context parent
@@ -360,7 +276,7 @@ That's it! The core functionality is complete. Nice.
 You can step through any program using the functions defined so far,
 as long as you define all of the builtins it uses.
 
-... Okay, so this isn't @emph{really} the end. There's plenty more to do.
+Okay, so this isn't @emph{really} the end. There's plenty more to do.
 The rest of the interpreter will focus on turning this core into something
 that can run a whole program from source code to completion.
 For that, we'll need a main entry point that sets everything up,
@@ -494,7 +410,7 @@ It should fail if there is nothing to quote:
 
 @racket[context-uplevel]
 moves into the parent context.
-Normal execution would undo this move immediately,
+Normal execution would undo this move immediately, ; TODO why?
 but the builtin @racket[uplevel] can
 take a @racket[symbol] argument off the top of the stack
 and use @racket[interp-eval] to sneak in a function to evaluate next.
@@ -528,7 +444,7 @@ A test of @racket[quote] and @racket[uplevel] in combination:
 @; #| }}} |#
 @subsection{Intermission: Utilities} @;#| {{{ |#
 
-I snuck in a few functions there without explaining them.
+I introduced a few functions there without explaining them.
 It would be laborious to try and
 keep track of all defined builtins in order to use them,
 so let's keep a set of global builtins and use @racket[define-builtin]
@@ -547,7 +463,8 @@ or take some values off the top of the stack using @racket[stack-top].
   (syntax-rules ()
     [(_ (name stack) body ...)
      (define-builtin (name ctx stack) (values ctx (begin body ...)))]
-    ; TODO: there's probably some way of removing this repetition
+    ; TODO: I tried removing this repetition with a macro,
+    ; but it was pretty tough. 3 arguments seems to be enough anyway.
     [(_ (name stack [v1 t1]) body ...)
      (define-builtin
        (name ctx stack)
@@ -641,7 +558,7 @@ depending on the value of a boolean on the stack.
          [c (stack-top (cdr stack) boolean?)]
          [stack (cddr stack)])
     (if c
-      ; TODO: consider: conditional call = when, conditional eval = ???
+      ; TODO: this could use eval as well
       (interp-call ctx stack name)
       (values ctx stack))))
 ]
@@ -649,10 +566,9 @@ depending on the value of a boolean on the stack.
 @;#| }}} |#
 @subsection{Looping} @;#| {{{ |#
 
-Looping could be difficult.
 Constructs that require fairly complex syntax,
 such as @racket[for] or @racket[while],
-are a little bit chunky compared to everything else we've defined so far.
+are a little bit chunky compared to everything else defined so far.
 
 Luckily we have recursion, but following in the footsteps of Scheme
 and automatically squashing tail calls could result in some confusion:
@@ -799,17 +715,17 @@ is already set up to use @racket[interp-try-eval].
 
 @section[#:tag "more-builtins"]{More builtins} @;#| {{{ |#
 
-This library of builtins
+This (incomplete) library of builtins
 unashamedly takes inspiration from the equivalent concepts in Racket and Rust.
-There are a lot here (this section takes up a third of the entire source file),
-but not all of them need to be in every Worst implementation, nor must they have
-the same syntax or semantics.
-What I'm saying is, if you're writing your own Worst,
-feel free to just use this section for inspiration.
-There's no standard to which you must conform.
-There's only this much code here because these are the functions I wanted to include.
+There are a lot here --
+this section takes up a third of the entire source file --
+but not all of them need to be in every Worst implementation,
+nor must they have the same syntax or semantics.
+For instance, at the moment, the builtins listed here are quite inconsistent
+with whether they consume their input arguments or not.
 
-You may like to skim this section.
+So, if you're writing your own Worst, feel free to just
+use these builtins for inspiration. You may like to skim this section.
 
 @chunk[<builtins>
 <builtin-predicates>
@@ -861,6 +777,7 @@ Predicates for some of the basic data types.
 (define-builtin (identical? s [a #t] [b #t]) (cons (eq? a b) s))
 ]
 
+
 @;#| }}} |#
 @subsection{Interpreter} @;#| {{{ |#
 
@@ -871,7 +788,6 @@ Predicates for some of the basic data types.
 (define-builtin
   (interpreter-exit ctx stack)
   (exit (stack-top stack byte?)))
-
 ]
 
 @;#| }}} |#
@@ -883,7 +799,6 @@ Predicates for some of the basic data types.
   (current-context-root? ctx stack)
   (values ctx (cons (not (context-parent ctx)) stack)))
 
-; Like return
 (define-builtin
   (current-context-clear ctx stack)
   (values (make-context #:parent (context-parent ctx)) stack))
@@ -897,7 +812,6 @@ Predicates for some of the basic data types.
 
 (define-builtin
   (current-context-definitions ctx stack)
-  ; (pretty-print ctx)
   (values ctx
           (cons (context-definitions ctx)
                 stack)))
@@ -914,15 +828,13 @@ Predicates for some of the basic data types.
     (values (struct-copy context ctx [body v])
             (cdr stack))))
 
-; Also get current context and put it on the stack.
-
+; getter for current context itself?
 ]
 
 @;#| }}} |#
 @subsection{Debugging utilities} @;#| {{{ |#
 
 @chunk[<builtin-utility-ops>
-
 (define-builtin
   (interpreter-dump-stack ctx stack)
   (eprintf "Stack:\n~S\n" stack)
@@ -934,9 +846,7 @@ Predicates for some of the basic data types.
   (interpreter-dump-context ctx stack)
   (pretty-print ctx)
   (values ctx stack))
-
 ]
-
 @;#| }}} |#
 @subsection{Definitions and builtins} @;#| {{{ |#
 
@@ -970,23 +880,9 @@ Predicates for some of the basic data types.
       (struct-copy context ctx [definitions defs])
       (cddr stack))))
 
-;    definition-resolve
-;    definition-eval
 ;    definition-exists?
-
 ;    defined-names
-;    eval-builtin
 ;    all-builtins
-;    call
-;    call-when
-;    read-file
-;    context-set-name
-;    context-remove-name
-;    context-name
-;    uplevel-in-named-context
-;    abort
-;    interpreter-clear
-
 ]
 
 @;#| }}} |#
@@ -1025,34 +921,24 @@ Predicates for some of the basic data types.
 
 (define-builtin (->string s [a #t]) (cons (~a a) (cdr s)))
 
-; string-char-boundary?
-; string-get
-; string->list
-; string-pop
-; string-push
-; string->symbol
-; symbol?
-; symbol->string
-
+; TODO
+; string-char-boundary? string-get string->list string-pop string-push
+; string->symbol symbol? symbol->string
 ]
 
 @;#| }}} |#
 @subsection{Booleans} @;#| {{{ |#
-
 @chunk[<builtin-bool-ops>
-
 (define-builtin (and s [a #t] [b #t]) (cons (and a b) s))
 (define-builtin (or s [a #t] [b #t]) (cons (or a b) s))
 (define-builtin (false? s [a #t]) (cons (false? a) s))
 (define-builtin (not s [a #t]) (cons (false? a) (cdr s)))
-
 ]
 
 @;#| }}} |#
 @subsection{Numbers} @;#| {{{ |#
 
 @chunk[<builtin-numeric-ops>
-
 (define-builtin (add s [b number?] [a number?]) (cons (a . + . b) (cddr s)))
 (define-builtin (sub s [b number?] [a number?]) (cons (a . - . b) (cddr s)))
 (define-builtin (mul s [b number?] [a number?]) (cons (a . * . b) (cddr s)))
@@ -1061,7 +947,6 @@ Predicates for some of the basic data types.
 (define-builtin (negate s [a number?]) (cons (- a) (cdr s)))
 
 ; TODO comparison: gt?, lt?, gte?, lte?
-
 ]
 
 @;#| }}} |#
@@ -1345,7 +1230,7 @@ If you want a mutable hash-table, put it in a @racket[place].
 @;#| }}} |#
 @subsection{Vectors} @;#| {{{ |#
 
-TODO? Vectors are like lists but double-ended or constant-sized or something.
+TODO? Vectors are like lists, but mutable/double-ended/constant-sized?
 
 @;#| }}} |#
 @subsection{Byte vectors} @;#| {{{ |#
@@ -1368,30 +1253,22 @@ u8vector-truncate
 
 @;#| }}} |#
 
-TODO
-all-builtins
-builtin-ref -> gives actual builtin procedure;
-definition-add should take procs too
-
-datum-describe->string
-describe
-eval-builtin
-eval-definition
-read-file
-set-environment-variable
-stack-empty?
-take-definition
-uplevel-in-named-context
-
 @;#| }}} |#
 
 @section[#:tag "reading-code"]{Reading code} @;#| {{{ |#
 
-So far, all programs have been fed pre-parsed code in a list. This is fine,
-as we can lean on Racket's parser to turn source code into a parsed program
-using the @racket[port-read-value] builtin, defined in @secref{Ports}.
-So instead of expecting a whole program, this function recognises when it needs
-to read more source code with @racket[quote-read-syntax?].
+So far, all test programs have been fed pre-parsed code in a list.
+To read code (or data, it's all the same) from a file,
+we can use @racket[port-read-value] (defined in @secref{Ports}).
+However, the interpreter doesn't know how to do that,
+so we need a way of using it when the program expects to read more code.
+
+So here it is. This read-eval loop checks @racket[quote-read-syntax?]
+to read code from @racket[source-input-port],
+and basically reimplements the core interpreter loop.
+If you wanted, you could redefine
+@racket[source-input-port] to read from a different file
+or @racket[syntax-read] to change the character-level syntax.
 
 @chunk[<read-eval-loop>
 
@@ -1434,7 +1311,6 @@ to read more source code with @racket[quote-read-syntax?].
                       call
                       ; Loop!
                       read-eval-loop)))
-
 ]
 
 @;#| }}} |#
@@ -1472,14 +1348,15 @@ This file is executable: @verbatim{racket worst.rkt}
 You can compile it into a binary if you want:
 @verbatim{raco exe -o rworst worst.rkt}
 
-You can also write executable scripts using @verbatim{#!/path/to/rworst}
-because the default reader treats a shebang line as a comment.
+You can also write executable scripts:
+@verbatim{#!/path/to/rworst}
+This works because the default reader treats a shebang line as a comment.
 
-The code repository also contains setup instructions and a Makefile.
+@hyperlink["https://gitlab.com/worst-lang/worst"]{file an issue}!
 
 @;#| }}} |#
 
-@section[#:tag "appendix-program-overview"]{Appendix: Program overview} @;#| {{{ |#
+@section[#:tag "program-overview"]{Program overview} @;#| {{{ |#
 
 @chunk[<*>
 
@@ -1527,6 +1404,23 @@ The code repository also contains setup instructions and a Makefile.
 <entry-point>
 
 ]@;#| }}} |#
+
+@section[#:tag "license"]{License} @;#| {{{ |#
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+@;#| }}} |#
 
 @; vim:commentstring=@\;#|\ %s\ |#
 

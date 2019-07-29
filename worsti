@@ -99,6 +99,9 @@ define import-file [
 
 define import [ upquote quote import-file uplevel ]
 
+; evaluate = quote; call if symbol
+define evaluate [ symbol? if [quote call] [[] quote eval] uplevel ]
+
 "WORST_LIBDIR" env-get swap drop
 "./lib" swap or rot drop drop
 const WORST_LIBDIR
