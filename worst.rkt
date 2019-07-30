@@ -408,9 +408,8 @@ It should fail if there is nothing to quote:
 @; #| }}} |#
 @subsection{Uplevel} @;#| {{{ |#
 
-@racket[context-uplevel]
-moves into the parent context.
-Normal execution would undo this move immediately, ; TODO why?
+@racket[context-uplevel] moves into the parent context.
+Normal execution would @seclink["code-next"]{undo this move immediately},
 but the builtin @racket[uplevel] can
 take a @racket[symbol] argument off the top of the stack
 and use @racket[interp-eval] to sneak in a function to evaluate next.

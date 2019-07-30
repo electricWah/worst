@@ -17,8 +17,12 @@ body {
 }
 
 .maincolumn {
-    width: 72em;
+    width: initial;
+    max-width: 72em;
+    min-width: 18em;
+    margin-right: 1em;
 }
+
 a, .toclink, .toptoclink, .tocviewselflink, .tocviewlink, .tocviewtoggle,
     .plainlink {
     color: #004B6B;
