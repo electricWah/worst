@@ -640,7 +640,7 @@ This small library of builtins provides enough functionality
 to implement @seclink["reading-code"]{this top-level loop}
 and add more builtins from within a Worst program.
 
-You may like to skim this section.
+You may like to skim this section as it's mostly boilerplate.
 
 @chunk[<builtins> @;#| {{{ |#
 (define-builtin (symbol? s [a #t]) (cons (symbol? a) s))
@@ -746,7 +746,7 @@ You may like to skim this section.
 
 So far, all test programs have been fed pre-parsed code in a list.
 To read code (or data, it's all the same) from a file,
-we can use @racket[port-read-value] (defined in @secref{Ports}).
+we can use @racket[port-read-value] (defined in @secref["more-builtins"]).
 However, the interpreter doesn't know how to do that,
 so we need a way of using it when the program expects to read more code.
 
