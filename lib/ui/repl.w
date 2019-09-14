@@ -1,46 +1,5 @@
 
-define print [ current-output-port swap port-write-string drop ]
-
-define ansi [
-
-    0 const black
-    1 const red
-    2 const green
-    3 const yellow
-    4 const blue
-    5 const magenta
-    6 const cyan
-    7 const white
-    define bright [ upquote call 8 add ]
-
-    define reset        [ "\e[0m" print ]
-    define bold         [ "\e[1m" print ]
-    define faint        [ "\e[2m" print ]
-    define italic       [ "\e[3m" print ]
-    define underline    [ "\e[4m" print ]
-    define slow-blink   [ "\e[5m" print ]
-    define fast-blink   [ "\e[6m" print ]
-    define reverse      [ "\e[7m" print ]
-
-    define cursor-save    [ "\e[s" print ]
-    define cursor-restore [ "\e[u" print ]
-
-    define fg [
-        ->string
-        "\e[38;5;" swap string-append
-        "m" string-append
-        print
-    ]
-
-    define bg [
-        ->string
-        "\e[48;5;" swap string-append
-        "m" string-append
-        print
-    ]
-
-    upquote eval
-]
+define clear-stack [ [] interpreter-stack-set ]
 
 define with-stty [
     upquote const %stty-opts
@@ -94,7 +53,7 @@ define input-line-editor [
         interpreter-dump-stack
         ->string
         read-a place-get swap
-        rot
+        bury
         swap string-append
         place-set drop
     ]
@@ -126,18 +85,23 @@ define worst-repl [
         port-read-value swap drop
     ]
 
-    define run [
+    define %run [
         define %%repl []
         read-eval-loop
         drop
     ]
 
+    ; use builtin-quote: quote depends on %%repl via quote-read-syntax?
+    ; Unwinds stack to toplevel (wherever %%repl is defined)
     define %abort-to-repl [
-        quote %%repl quote current-context-has-definition? uplevel swap drop
+        ; interpreter-dump-stack
+        builtin-quote %%repl
+        builtin-quote definition-exists uplevel swap drop
         if [] [
-            [updo %abort-to-repl] quote current-context-set-code
-            quote uplevel
-            quote uplevel
+            [current-context-remove-children builtin-quote %abort-to-repl uplevel]
+            builtin-quote current-context-set-code
+            builtin-quote uplevel
+            builtin-quote uplevel
             uplevel
         ]
     ]
@@ -156,18 +120,22 @@ define worst-repl [
     ]
     define quote-read-syntax? [
         builtin-quote %%repl
-        builtin-quote current-context-has-definition? uplevel
+        builtin-quote definition-exists uplevel
         swap drop
     ]
     current-input-port [] swap list-push
     builtin-quote source-input-port definition-add
-    run
+    ansi [
+        "Welcome to the Worst interactive environment. Type " print
+        bright yellow fg "help" print
+        reset " for assistance.\n" print
+    ]
+    %run
 ]
 
-export print
+export clear-stack
 export input-line-editor
 ; export with-stty
-export ansi
 export worst-repl-prompt
 export worst-repl
 

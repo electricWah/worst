@@ -8,17 +8,16 @@ define function [
 
     ; args body next-arg => + arg | #f
     define next-arg [
-        swap list-empty? if [ swap #f ] [ list-pop rot swap rot rot #t ]
+        swap list-empty? if [ swap #f ] [ list-pop bury swap dig #t ]
     ]
 
-    ; [arg ...] [body...] push-next-arg => [...] [const arg body...]
+    ; [arg ...] [body...] push-args => [...] [const arg body...]
     define push-args [
-        tail-call
-        next-arg if [
+        while [next-arg] [
             list-push
             quote const list-push
-            tail-call push-args
-        ] [ swap drop ]
+        ]
+        swap drop
     ]
 
     upquote ; args

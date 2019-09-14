@@ -119,7 +119,7 @@ everything necessary to run the program.
 (define (make-context
           #:body [body : Code '()]
           #:definitions [defs : (Immutable-HashTable Symbol Function)
-                              (make-immutable-hash)]
+                              (make-immutable-hash '())]
           #:children [children : (Listof Context) '()]
           #:parent [parent : (Option Context) #f])
   (context body defs children parent))
@@ -417,9 +417,10 @@ and use @racket[interp-eval] to sneak in a function to evaluate next.
 @chunk[<builtin-uplevel>
 (define-builtin
   (uplevel ctx stack)
-  (let* ([ctx (context-uplevel ctx)])
+  (let* ([ctx (context-uplevel ctx)]
+         [name (stack-top stack symbol?)])
     (if ctx
-      (interp-call ctx (cdr stack) (stack-top stack symbol?))
+      (interp-call ctx (cdr stack) name)
       (interp-error 'root-uplevel))))
 ]
 
@@ -514,7 +515,7 @@ the stack has a value on top, optionally with the right type.
        [(null? stack) (interp-error 'stack-empty pred)]
        [(eq? pred #t) (car stack)]
        [(not (pred (car stack)))
-        (interp-error 'wrong-type pred)]
+        (interp-error 'wrong-type pred (car stack))]
        [else (car stack)])]))
 
 ]
@@ -523,7 +524,8 @@ the stack has a value on top, optionally with the right type.
 @subsection{Execution} @;#| {{{ |#
 
 The builtins @racket[call] and @racket[eval] are just wrappers for
-@racket[interp-call] and @racket[interp-eval] respectively.
+@racket[interp-call] and @racket[interp-eval] respectively,
+except that non-@racket[Function] values evaluate to themselves.
 
 @chunk[<builtin-call-eval>
 (define-builtin
@@ -534,9 +536,11 @@ The builtins @racket[call] and @racket[eval] are just wrappers for
 
 (define-builtin
   (eval ctx stack)
-  (let ([v (stack-top stack function?)]
+  (let ([v (stack-top stack)]
         [stack (cdr stack)])
-    (interp-eval ctx stack v)))
+    (if (function? v)
+        (interp-eval ctx stack v)
+        (values ctx (cons v stack)))))
 ]
 
 @;#| }}} |#
@@ -562,88 +566,6 @@ depending on the value of a boolean on the stack.
       (values ctx stack))))
 ]
 
-@;#| }}} |#
-@subsection{Looping} @;#| {{{ |#
-
-Constructs that require fairly complex syntax,
-such as @racket[for] or @racket[while],
-are a little bit chunky compared to everything else defined so far.
-
-Luckily we have recursion, but following in the footsteps of Scheme
-and automatically squashing tail calls could result in some confusion:
-@racket[uplevel] would see a different parent context
-depending on whether the current function call was in tail position or not.
-
-So, here's a solution: a builtin that consolidates the current context
-with the parent, keeping definitions intact.
-Unlike other ``deliberate'' tail call systems,
-this mechanism is used from within the tail call itself.
-It can serve as a warning that @racket[uplevel] may require special care,
-and can be introduced automatically by other looping constructs.
-
-@chunk[<builtin-tail-call>
-(define-builtin
-  (tail-call ctx stack)
-  (values
-    ; Only merge if it's safe
-    (if
-      (and (context-parent ctx)
-           (context-parent (context-parent ctx))
-           (null? (context-body (context-parent ctx)))
-           (null? (context-children (context-parent ctx))))
-      (context-merge ctx (context-parent ctx))
-      ctx)
-    stack))
-]
-
-And @racket[context-merge]:
-
-@chunk[<context-merge>
-(: context-merge (Context Context . -> . Context))
-(define (context-merge src dest)
-  (make-context
-    #:body (context-body src)
-    #:children (context-children src)
-    #:parent (context-parent dest)
-    #:definitions
-    (let ([src-defs (context-definitions src)]
-          [dest-defs (context-definitions dest)])
-      (if (hash-empty? dest-defs) src-defs
-        (for/fold
-          ([acc : (Immutable-HashTable Symbol Function) dest-defs])
-          ([(k v) (in-hash src-defs)])
-          (hash-set acc k v))))))
-]
-
-And a test. This test defines @racket[done] to return from the interpreter
-loop early, so it can check the size of the call stack before it has a chance
-to clean up after itself at the end.
-
-@chunk[<test-tail-call>
-(test-case
-  "Tail calling loop"
-  (let ([res
-          (call/cc
-            (lambda ([k : ((Option Context) . -> . Nothing)])
-              (let* ([defines 
-                       (hash-set*
-                         (choose-global-builtins
-                           'quote 'when 'not 'clone 'tail-call)
-                         'done (Builtin
-                                 (lambda ([ctx : Context] [_ : Stack])
-                                   (k ctx)))
-                         'test-tco '(tail-call
-                                      clone not quote done when
-                                      quote test-tco when))]
-                     [ctx (make-context
-                            #:definitions defines
-                            #:body '(#f #t #t #t #t #t #t #t #t #t #t
-                                     test-tco))])
-                (let-values ([(ctx stack) (interp-run ctx '())])
-                  (k #f)))))])
-    (check-not-false res)
-    (check-false (context-parent (assert res)))))
-]
 @;#| }}} |#
 
 @;#| }}} |#
@@ -686,7 +608,7 @@ is already set up to use @racket[interp-try-eval].
                  (list* name irritants stack)
                  'current-error-handler)
     ; Kill the interpreter if current-error-handler isn't defined
-    (apply error "Unhandled error" name irritants)))
+    (error "Unhandled error" name irritants stack)))
 
 (: interp-try-eval (Context Stack Symbol Function
                             . -> . (Values Context Stack)))
@@ -714,157 +636,67 @@ is already set up to use @racket[interp-try-eval].
 
 @section[#:tag "more-builtins"]{More builtins} @;#| {{{ |#
 
-This (incomplete) library of builtins
-unashamedly takes inspiration from the equivalent concepts in Racket and Rust.
-There are a lot here --
-this section takes up a third of the entire source file --
-but not all of them need to be in every Worst implementation,
-nor must they have the same syntax or semantics.
-For instance, at the moment, the builtins listed here are quite inconsistent
-with whether they consume their input arguments or not.
+This small library of builtins provides enough functionality
+to implement @seclink["reading-code"]{this top-level loop}
+and add more builtins from within a Worst program.
 
-So, if you're writing your own Worst, feel free to just
-use these builtins for inspiration. You may like to skim this section.
+You may like to skim this section.
 
-@chunk[<builtins>
-<builtin-predicates>
-<builtin-datum-ops>
-<builtin-interpreter-ops>
-<builtin-context-ops>
-<builtin-utility-ops>
-<builtin-definition-ops>
-<builtin-list-ops>
-<builtin-string-ops>
-<builtin-bool-ops>
-<builtin-numeric-ops>
-<builtin-env-ops>
-<builtin-port-ops>
-<builtin-subprocess-ops>
-<builtin-place-ops>
-<builtin-filesystem-ops>
-<builtin-hash-table-ops>
-]
+@chunk[<builtins> @;#| {{{ |#
+(define-builtin (symbol? s [a #t]) (cons (symbol? a) s))
+(define-builtin (eof-object? s [a #t]) (cons (eof-object? a) s))
 
-@subsection{Type predicates} @;#| {{{ |#
+(define-builtin (equal? s [a #t] [b #t]) (cons (equal? a b) s))
 
-Predicates for some of the basic data types.
-
-@chunk[<builtin-predicates>
-(define-builtin (char?          s [a #t]) (cons (char? a) s))
-(define-builtin (string?        s [a #t]) (cons (string? a) s))
-(define-builtin (symbol?        s [a #t]) (cons (symbol? a) s))
-(define-builtin (list?          s [a #t]) (cons (list? a) s))
-(define-builtin (bool?          s [a #t]) (cons (boolean? a) s))
-(define-builtin (number?        s [a #t]) (cons (number? a) s))
-(define-builtin (integer?       s [a #t]) (cons (integer? a) s))
-(define-builtin (exact?         s [a #t]) (cons (exact? a) s))
-(define-builtin (rational?      s [a #t]) (cons (rational? a) s))
-(define-builtin (float?         s [a #t]) (cons (double-flonum? a) s))
-(define-builtin (eof-object?    s [a #t]) (cons (eof-object? a) s))
-]
-
-@;#| }}} |#
-@subsection{General operations} @;#| {{{ |#
-
-@chunk[<builtin-datum-ops>
 (define-builtin (clone s [a #t]) (cons a s))
 (define-builtin (drop s [a #t]) (cdr s))
 (define-builtin (swap s [a #t] [b #t]) (list* b a (cddr s)))
-(define-builtin (rot s [a #t] [b #t] [c #t]) (list* b c a (cdddr s)))
+(define-builtin (dig s [a #t] [b #t] [c #t]) (list* c a b (cdddr s)))
+(define-builtin (bury s [a #t] [b #t] [c #t]) (list* b c a (cdddr s)))
 
-(define-builtin (equal? s [a #t] [b #t]) (cons (equal? a b) s))
-(define-builtin (identical? s [a #t] [b #t]) (cons (eq? a b) s))
+(define-builtin (and s [a #t] [b #t]) (cons (and a b) s))
+(define-builtin (or s [a #t] [b #t]) (cons (or a b) s))
+(define-builtin (false? s [a #t]) (cons (false? a) s))
+(define-builtin (not s [a #t]) (cons (false? a) (cdr s)))
+
+(define-builtin (list-empty? s [a list?]) (cons (empty? a) s))
+(define-builtin (list-length s [a list?]) (cons (length a) s))
+(define-builtin (list-reverse s [a list?]) (cons (reverse a) (cdr s)))
+(define-builtin (list-append s [b list?] [a list?]) (cons (append a b) (cddr s)))
+(define-builtin (list-push s [v #t] [a list?]) (cons (cons v a) (cddr s)))
+(define-builtin (list-pop s [a list?]) (list* (car a) (cdr a) (cdr s)))
+(define-builtin (list-head s [a list?]) (cons (car a) s))
+
+(define-builtin (port-read-value s [a input-port?]) (cons (read a) s))
+(define-builtin (current-input-port s) (cons (current-input-port) s))
+(define-builtin (current-output-port s) (cons (current-output-port) s))
+(define-builtin (current-error-port s) (cons (current-error-port) s))
+
+(define-builtin (open-input-file s [f string?])
+                (cons (open-input-file f) (cdr s)))
+
+<builtin-context>
+<builtin-definition>
+<builtin-racket-eval>
 ]
-
-
-@;#| }}} |#
-@subsection{Interpreter} @;#| {{{ |#
-
-@chunk[<builtin-interpreter-ops>
-
-(define-builtin (interpreter-stack s) (cons s s))
-
-(define-builtin
-  (interpreter-exit ctx stack)
-  (exit (stack-top stack byte?)))
-]
-
 @;#| }}} |#
 @subsection{Context} @;#| {{{ |#
-
-@chunk[<builtin-context-ops>
-
+@chunk[<builtin-context>
 (define-builtin
   (current-context-root? ctx stack)
   (values ctx (cons (not (context-parent ctx)) stack)))
-
 (define-builtin
   (current-context-clear ctx stack)
   (values (make-context #:parent (context-parent ctx)) stack))
-
-(define-builtin
-  (current-context-has-definition? ctx stack)
-  (values ctx
-          (cons (hash-has-key? (context-definitions ctx)
-                               (stack-top stack symbol?))
-                stack)))
-
-(define-builtin
-  (current-context-definitions ctx stack)
-  (values ctx
-          (cons (context-definitions ctx)
-                stack)))
-
 (define-builtin
   (current-context-set-code ctx stack)
   (let ([v (stack-top stack list?)])
     (values (struct-copy context ctx [body v])
             (cdr stack))))
-
-(define-builtin
-  (current-context-get-code ctx stack)
-  (let ([v (stack-top stack list?)])
-    (values (struct-copy context ctx [body v])
-            (cdr stack))))
-
-; getter for current context itself?
-]
-
-@;#| }}} |#
-@subsection{Debugging utilities} @;#| {{{ |#
-
-@chunk[<builtin-utility-ops>
-(define-builtin
-  (interpreter-dump-stack ctx stack)
-  (eprintf "Stack:\n~S\n" stack)
-  (values ctx stack))
-
-(require racket/pretty)
-
-(define-builtin
-  (interpreter-dump-context ctx stack)
-  (pretty-print ctx)
-  (values ctx stack))
 ]
 @;#| }}} |#
 @subsection{Definitions and builtins} @;#| {{{ |#
-
-@chunk[<builtin-definition-ops>
-
-(define-builtin
-  (builtin-get ctx stack)
-  (values ctx
-          (cons (hash-ref (*builtins*) (stack-top stack symbol?) #f)
-                (cdr stack))))
-
-(define-builtin
-  (definition-get ctx stack)
-  (values ctx
-          (cons (hash-ref 
-                  (context-definitions ctx)
-                  (stack-top stack symbol?) #f)
-                stack)))
-
+@chunk[<builtin-definition>
 (define-builtin
   (definition-resolve ctx stack)
   (let ([name (stack-top stack symbol?)])
@@ -875,383 +707,39 @@ Predicates for some of the basic data types.
   (let* ([name (stack-top stack symbol?)]
          [def (stack-top (cdr stack) function?)]
          [defs (hash-set (context-definitions ctx) name def)])
-    (values
-      (struct-copy context ctx [definitions defs])
-      (cddr stack))))
-
-;    definition-exists?
-;    defined-names
-;    all-builtins
-]
-
-@;#| }}} |#
-@subsection{Lists} @;#| {{{ |#
-
-@chunk[<builtin-list-ops>
-
-(define-builtin (list-empty? s [a list?]) (cons (empty? a) s))
-(define-builtin (list-length s [a list?]) (cons (length a) s))
-(define-builtin (list-reverse s [a list?]) (cons (reverse a) (cdr s)))
-(define-builtin (list-append s [b list?] [a list?]) (cons (append a b) (cddr s)))
-(define-builtin (list-push s [v #t] [a list?]) (cons (cons v a) (cddr s)))
-(define-builtin (list-pop s [a list?]) (list* (car a) (cdr a) (cdr s)))
-
-(define-builtin (list-split s [v Nonnegative-Integer?] [l list?])
-                (let-values ([(a b) (split-at l v)])
-                  (list* a b s)))
-
-(define-builtin (list-get s [n Nonnegative-Integer?] [a list?])
-                (cons (list-ref a n) s))
-(define-builtin (list-set s [v #t] [n Nonnegative-Integer?] [a list?])
-                (cons (list-set a n v) (cdddr s)))
-]
-
-@;#| }}} |#
-@subsection{Strings and symbols} @;#| {{{ |#
-
-@chunk[<builtin-string-ops>
-
-(define-builtin
-  (string-append s [a string?] [b string?])
-  (cons (string-append b a)
-        (cddr s)))
-
-(define-builtin (string-length s [a string?]) (cons (string-length a) s))
-
-(define-builtin (->string s [a #t]) (cons (~a a) (cdr s)))
-
-; TODO
-; string-char-boundary? string-get string->list string-pop string-push
-; string->symbol symbol? symbol->string
-]
-
-@;#| }}} |#
-@subsection{Booleans} @;#| {{{ |#
-@chunk[<builtin-bool-ops>
-(define-builtin (and s [a #t] [b #t]) (cons (and a b) s))
-(define-builtin (or s [a #t] [b #t]) (cons (or a b) s))
-(define-builtin (false? s [a #t]) (cons (false? a) s))
-(define-builtin (not s [a #t]) (cons (false? a) (cdr s)))
-]
-
-@;#| }}} |#
-@subsection{Numbers} @;#| {{{ |#
-
-@chunk[<builtin-numeric-ops>
-(define-builtin (add s [b number?] [a number?]) (cons (a . + . b) (cddr s)))
-(define-builtin (sub s [b number?] [a number?]) (cons (a . - . b) (cddr s)))
-(define-builtin (mul s [b number?] [a number?]) (cons (a . * . b) (cddr s)))
-(define-builtin (div s [b number?] [a number?]) (cons (a . / . b) (cddr s)))
-(define-builtin (abs s [a real?]) (cons (abs a) (cdr s)))
-(define-builtin (negate s [a number?]) (cons (- a) (cdr s)))
-
-; TODO comparison: gt?, lt?, gte?, lte?
-]
-
-@;#| }}} |#
-@subsection{Environment} @;#| {{{ |#
-
-@chunk[<builtin-env-ops>
-
-(define-builtin
-  (command-line ctx stack)
-  (values ctx (cons (vector->list (current-command-line-arguments)) stack)))
-
-(define-builtin
-  (env-get ctx stack)
-  (values ctx
-          (cons
-            (getenv (stack-top stack string?))
-            stack)))
-
-; env-list : -> listof string (environment variable names)
-
-(define-builtin
-  (env-set ctx stack)
-  (let* ([v (stack-top stack string?)]
-         [k (stack-top (cdr stack) string?)]
-         [stack (cddr stack)])
-    (putenv k v)
-    (values ctx stack)))
-
-(define-builtin
-  (system-resolve-path s [a string?])
-  (cons (find-executable-path a) (cdr s)))
-
-]
-
-@;#| }}} |#
-@subsection{Ports} @;#| {{{ |#
-
-@chunk[<builtin-port-ops>
-
-(define-builtin (port? s [a #t]) (cons (port? a) s))
-(define-builtin (input-port? s [a #t]) (cons (input-port? a) s))
-(define-builtin (output-port? s [a #t]) (cons (output-port? a) s))
-
-(define-builtin (current-input-port s) (cons (current-input-port) s))
-(define-builtin (current-output-port s) (cons (current-output-port) s))
-(define-builtin (current-error-port s) (cons (current-error-port) s))
-
-(define-builtin (port-read-value s [a input-port?]) (cons (read a) s))
-(define-builtin (port-read-char s [a input-port?]) (cons (read-char a) s))
-(define-builtin (port-peek-char s [a input-port?]) (cons (peek-char a) s))
-(define-builtin (port-has-char? s [a input-port?]) (cons (char-ready? a) s))
-
-(define-builtin (port-read-line s [a input-port?]) (cons (read-line a) s))
-
-(define-builtin (port-write-value s [v #t] [p output-port?])
-                (write v p)
-                (cdr s))
-(define-builtin (port-write-string s [v string?] [p output-port?])
-                (display v p)
-                (cdr s))
-
-(define-builtin (port-copy-all s [o output-port?] [i input-port?])
-                (copy-port i o)
-                s)
-
-(define-builtin (make-pipe-ports s)
-                (let-values ([(i o) (make-pipe)])
-                  (list* i o s)))
-
-; TODO
-; port-read
-; port-seekable?
-; port-seek/end
-; port-seek/relative
-; port-seek/start
-; port-unique?
-; port-write
-; output-port-flush
-
-]
-
-@;#| }}} |#
-@subsection{Places} @;#| {{{ |#
-
-A @emph{place} is a mutable storage location
-capable of storing exactly one item.
-Multiple copies of a place all reference the same object.
-
-@chunk[<builtin-place-ops>
-
-; the name 'place' is taken
-(struct mplace ([v : Any])
-  #:mutable
-  #:transparent)
-
-(define-builtin (place? s [a #t]) (cons (mplace? a) s))
-(define-builtin (make-place s [a #t]) (cons (mplace a) (cdr s)))
-
-(define-builtin (place-get s [p mplace?]) (cons (mplace-v p) s))
-
-(define-builtin (place-swap s [v #t] [p mplace?])
-                (let ([o (mplace-v p)])
-                  (set-mplace-v! p v)
-                  (cons o (cdr s))))
-
-(define-builtin (place-set s [v #t] [p mplace?])
-                (set-mplace-v! p v)
-                (cdr s))
-
+    (values (struct-copy context ctx [definitions defs])
+            (cddr stack))))
 ]
 @;#| }}} |#
-@subsection{Subprocesses} @;#| {{{ |#
-
-Subprocess invocation happens in two parts:
-first, configure the @emph{command} to run,
-including the program, its arguments,
-environment variables, and input, output, and error pipes.
-Then spawn the command as a @emph{process} to run it.
-
-TODO replace command with 
-https://docs.racket-lang.org/reference/subprocess.html
-
-@chunk[<builtin-subprocess-ops>
-
-; untested
-
-(struct command
-  ([program : Path-String]
-   [arguments : (Listof (U Bytes Path-String))]
-   ; TODO cd?
-   [stdin-port : (Option Input-Port)]
-   [stdout-port : (Option Output-Port)]
-   [stderr-port : (Option Output-Port)]
-   [environment : (HashTable String String)])
-  #:type-name Command
-  #:transparent)
-
-(define-builtin (command? s [a #t]) (cons (command? a) s))
-
-(define-builtin (make-command s [program (make-predicate (U Path String))])
-                (cons (command program '() #f #f #f (hash)) (cdr s)))
+@subsection{Using Racket code} @;#| {{{ |#
+@chunk[<builtin-racket-eval>
+(define-namespace-anchor *namespace-anchor*)
+(parameterize
+  ([current-namespace (namespace-anchor->namespace *namespace-anchor*)])
+  (namespace-set-variable-value! 'make-context make-context)
+  (namespace-set-variable-value! 'context-body context-body)
+  (namespace-set-variable-value! 'context-definitions context-definitions)
+  (namespace-set-variable-value! 'context-children context-children)
+  (namespace-set-variable-value! 'context-parent context-parent)
+  (namespace-set-variable-value! 'stack-top stack-top)
+  (namespace-set-variable-value! 'interp-error interp-error))
 
 (define-builtin
-  (command-set-arguments s
-                         [args (make-predicate (Listof (U Bytes Path-String)))]
-                         [cmd command?])
-  (cons (struct-copy command cmd [arguments args]) (cddr s)))
+  (racket-builtin s [code list?])
+  (call-with-values
+    (lambda () (eval code (namespace-anchor->namespace *namespace-anchor*)))
+    (case-lambda
+      [([r : (Context Stack . -> . (Values Context Stack))])
+       ((inst cons Builtin Stack) (Builtin r) (cdr s))]
+      [_ ((inst interp-error Stack)
+          'wrong-type '(lambda (stack) ... stack) code)])))
 
 (define-builtin
-  (command-set-env s [env hash?] [cmd command?])
-  (let ([env (cast env (HashTable String String))])
-    (cons (struct-copy command cmd [environment env]) (cddr s))))
-
-(define-builtin
-  (command-set-stdin s [p input-port?] [cmd command?])
-  (cons (struct-copy command cmd [stdin-port p]) (cddr s)))
-
-(define-builtin
-  (command-set-stdout s [p output-port?] [cmd command?])
-  (cons (struct-copy command cmd [stdout-port p]) (cddr s)))
-
-(define-builtin
-  (command-set-stderr s [p output-port?] [cmd command?])
-  (cons (struct-copy command cmd [stderr-port p]) (cddr s)))
-
-(struct
-  ; process is taken
-  proc
-  ([subprocess : Subprocess]
-   [stdin : (Option Output-Port)]
-   [stdout : (Option Input-Port)]
-   [stderr : (Option Input-Port)])
-  #:type-name Process)
-
-(define-builtin (process? s [a #t]) (cons (proc? a) s))
-
-(define-builtin (process-stdin-port s [p proc?])
-                (cons (proc-stdin p) s))
-(define-builtin (process-stdout-port s [p proc?])
-                (cons (proc-stdout p) s))
-(define-builtin (process-stdout-port s [p proc?])
-                (cons (proc-stdout p) s))
-
-(define-builtin (process-pid s [p proc?])
-                (cons (subprocess-pid (proc-subprocess p)) s))
-
-(define-builtin (process-running? s [p proc?])
-                (cons (eq? (subprocess-status (proc-subprocess p))
-                           'running) s))
-
-(define-builtin (process-kill s [p proc?])
-                (subprocess-kill (proc-subprocess p) #t)
-                (cdr s))
-
-(define-builtin (process-wait s [p proc?])
-                (subprocess-wait (proc-subprocess p))
-                (cons (subprocess-status (proc-subprocess p)) s))
-
-(define-builtin
-  (command-spawn s [cmd command?])
-  (let-values ([(subp stdout stdin stderr)
-                (apply subprocess
-                       (command-stdout-port cmd)
-                       (command-stdin-port cmd)
-                       (command-stderr-port cmd)
-                       (command-program cmd)
-                       (command-arguments cmd))])
-    (cons
-      (proc subp stdin stdout stderr)
-      (cdr s))))
-
+  (racket-eval s [code list?])
+  (eval code (namespace-anchor->namespace *namespace-anchor*))
+  (cdr s))
 ]
-
 @;#| }}} |#
-@subsection{Filesystem} @;#| {{{ |#
-
-@chunk[<builtin-filesystem-ops>
-
-; name tbc
-(define-builtin (open-input-file s [f string?])
-                (cons (open-input-file f) (cdr s)))
-
-]
-
-TODO. Doesn't have to be as complicated as the Rust version.
-file?
-file-info
-file-info?
-file-info-directory?
-file-info-file?
-file-info-length
-file-info-readonly?
-file-info-symlink?
-file-port
-file-sync
-make-open-file-options
-open-file
-open-file-append
-open-file-create
-open-file-create-new
-open-file-read
-open-file-truncate
-open-file-write
-
-@;#| }}} |#
-@subsection{Hash tables} @;#| {{{ |#
-
-Immutable dictionaries based on Racket's @racket[hashtable].
-If you want a mutable hash-table, put it in a @racket[place].
-
-@chunk[<builtin-hash-table-ops>
-
-(define-builtin (hash-table? s [h #t]) (cons (hash? h) s))
-(define-builtin (hash-table-empty s) (cons (hash) s))
-(define-builtin (hash-table-keys s [h hash?]) (cons (hash-keys h) s))
-
-(define-builtin
-  (hash-table-first-key s [h hash?])
-  (let* ([it (hash-iterate-first h)]
-         [key (and it (hash-iterate-key h it))])
-    (cons key s)))
-
-(define-builtin (hash-table-exists s [k #t] [h hash?])
-                (cons (hash-has-key? h k) s))
-
-(define-builtin (hash-table-get s [k #t] [h hash?])
-                (cons (hash-ref h k #f) s))
-
-(define-builtin (hash-table-set s [v #t] [k #t] [h hash?])
-                (let ([h (cast h (HashTable Any Any))])
-                  (cons (hash-set h k v) (cdddr s))))
-
-(define-builtin (hash-table-take s [k #t] [h hash?])
-                (let ([v (hash-ref h k #f)]
-                      [tbl (hash-remove h k)]
-                      [s (cddr s)])
-                  (list* v k tbl s)))
-
-]
-
-@;#| }}} |#
-@subsection{Vectors} @;#| {{{ |#
-
-TODO? Vectors are like lists, but mutable/double-ended/constant-sized?
-
-@;#| }}} |#
-@subsection{Byte vectors} @;#| {{{ |#
-
-Bytes is a vector of... bytes.
-TODO rename from u8vector.
-
-string->u8vector
-make-u8vector ; or bytes-empty
-u8vector?
-u8vector-append
-u8vector-extend
-u8vector-get
-u8vector-invalid-char-index
-u8vector-length
-u8vector-push
-u8vector-set
-u8vector->string
-u8vector-truncate
-
-@;#| }}} |#
-
 @;#| }}} |#
 
 @section[#:tag "reading-code"]{Reading code} @;#| {{{ |#
@@ -1290,9 +778,7 @@ or @racket[syntax-read] to change the character-level syntax.
                            builtin-quote syntax-read
                            builtin-quote quote-read-syntax? uplevel
                            builtin-quote swap when drop uplevel)
-    'read-eval-loop '(; Loop
-                      tail-call
-                      ; Read next value
+    'read-eval-loop '(; Read next value
                       quote quote uplevel
                       ; Leave <eof> here (this is a little wonky)
                       eof-object? quote current-context-clear when
@@ -1308,10 +794,10 @@ or @racket[syntax-read] to change the character-level syntax.
                       ; => 'eval 'drop
                       quote swap when drop
                       call
-                      ; Loop!
-                      read-eval-loop)))
+                      ; Loop (reusing the current stack frame)
+                      quote read-eval-loop definition-resolve swap drop
+                      current-context-set-code)))
 ]
-
 @;#| }}} |#
 
 @section[#:tag "the-entry-point"]{The entry point} @;#| {{{ |#
@@ -1366,7 +852,6 @@ This works because the default reader treats a shebang line as a comment.
 <context-uplevel>
 <context-next-code>
 <context-next>
-<context-merge>
 
 <error-handling>
 
@@ -1380,7 +865,6 @@ This works because the default reader treats a shebang line as a comment.
 <builtin-uplevel>
 <builtin-call-eval>
 <builtin-when>
-<builtin-tail-call>
 
 <builtins>
 
@@ -1394,7 +878,6 @@ This works because the default reader treats a shebang line as a comment.
   <test-quote>
   <test-quote-nothing>
   <test-uplevel-quote>
-  <test-tail-call>
 
   (void))
 

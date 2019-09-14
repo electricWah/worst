@@ -1,29 +1,39 @@
 #!/usr/bin/env ./rworst
 
+; (lambda (s) (eprintf "~a\n" s) s)
+; racket-builtin quote interpreter-dump-stack definition-add
+
 ; shorthand for quote quote uplevel
 [ quote quote quote uplevel uplevel ] quote upquote definition-add
 
+; a little cheat for some more options with define
+[] quote %before-define definition-add
 [ ; define name [def...]
     upquote upquote ; name [def ...]
+    %before-define
     swap quote definition-add uplevel
 ] quote define definition-add
 
-; updo thing => quote thing uplevel
-define updo [ upquote quote uplevel uplevel ]
-
-define current-error-handler [
-    interpreter-dump-stack
-    1 interpreter-exit
+; Racket builtin definer
+; racket-builtin name (lambda (c s) ... (values c s))
+define define-racket-builtin [
+    upquote upquote racket-builtin
+    swap quote definition-add uplevel
 ]
 
-; define-alias new-name orig-name
-define define-alias [
-    upquote
-    upquote definition-resolve
-    swap drop
-    swap
-    updo definition-add
-]
+define-racket-builtin string-append
+    (lambda (c s)
+      (let ([a (stack-top s string?)]
+            [b (stack-top (cdr s) string?)])
+      (values c (cons (string-append b a) (cddr s)))))
+
+define-racket-builtin ->string
+    (lambda (c s) (values c (cons (~a (stack-top s)) (cdr s))))
+
+define-racket-builtin env-get
+    (lambda (c s) (values c (cons (getenv (stack-top s string?)) s)))
+
+; define current-error-handler [ 1 interpreter-exit ]
 
 ; value const name
 define const [
@@ -32,81 +42,69 @@ define const [
     quote definition-add uplevel
 ]
 
-; a equals? b => a bool
-define equals? [ upquote equal? swap drop ]
-
 ; bool if [if-true] [if-false]
 define if [
     upquote upquote
     ; cond true false => false true cond
-    swap rot rot
+    swap dig
     quote swap when drop
     eval
 ]
 
-define resolve-module-path [ ]
-
-define-alias %orig-syntax-read syntax-read
-define load-eval-file [
-    define-alias syntax-read %orig-syntax-read
-    define run [
-        define %%load-eval-file []
-        read-eval-loop
-        ; leaves <eof> on the stack
-        ; also need something here to inhibit tail-call
-        drop
-    ]
-    define quote-read-syntax? [
-        builtin-quote %%load-eval-file
-        builtin-quote current-context-has-definition? uplevel
-        swap drop
-    ]
-    open-input-file [] swap list-push
-    builtin-quote source-input-port definition-add
-    run
-    ; read-eval-loop drop
-]
-
-define import-file [
-    hash-table-empty make-place const %%export
-    define export [
-        upquote
-        quote definition-get uplevel
-        false? if [ "Export: not defined" abort ] []
-        %%export place-get swap drop
-        rot
-        hash-table-set
-        %%export swap place-set drop
-    ]
-
-    resolve-module-path
-    load-eval-file
-
-    %%export #f place-swap swap drop
-    define export-all [
-        ; this is fragile without a way of upleveling to a specific context
-        tail-call
-        hash-table-first-key false? if [drop drop] [
-            tail-call
-            hash-table-take swap
-            quote definition-add quote uplevel uplevel
-            tail-call
-            export-all
+; path read-file -> list
+define read-file [
+    open-input-file
+    define read-all [
+        ; tail-call
+        swap
+        port-read-value eof-object? if [
+            drop drop list-reverse
+        ] [
+            dig swap list-push
+            read-all
         ]
     ]
-    export-all
+    [] read-all
 ]
 
-define import [ upquote quote import-file uplevel ]
-
-; evaluate = quote; call if symbol
-define evaluate [ symbol? if [quote call] [[] quote eval] uplevel ]
-
 "WORST_LIBDIR" env-get swap drop
-"./lib" swap or rot drop drop
+"./lib" swap or bury drop drop
 const WORST_LIBDIR
 
-WORST_LIBDIR "/worst/repl.w" string-append import-file
+; module-name resolve-import-path
+; uses WORST_LIBDIR
+define resolve-import-path [
+    symbol? if [
+        ->string
+        WORST_LIBDIR "/" string-append
+        swap string-append
+        ".w" string-append
+    ] [ ]
+]
+
+; Very basic import/export
+define import [
+    upquote resolve-import-path
+    read-file quote eval uplevel
+]
+define export [
+    upquote
+    definition-resolve
+    swap
+    quote definition-add quote uplevel uplevel
+]
+
+; rworst-specific stuff
+import rworst
+; Generally useful utilities
+import worst/base
+; Real import/export
+import worst/module
+
+quote export definition-remove
+
+; Interactive
+import ui
 
 worst-repl
 "\n" print

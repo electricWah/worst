@@ -12,69 +12,110 @@
 ;   description "why you would use this function"
 ;   example "an example (may be specified more than once)"
 ;   warn "gotchas"
+;   section section-name-for-categorising
+;   tags [tags for searching or something]
 ;   ... any more...
 ; ]
 
-hash-table-empty make-place const %documentation
-export %documentation
+import syntax/attributes
+import syntax/variable
+import syntax/assign
+import dict
+import list
 
-define doc-for [
-    %documentation #f place-swap
-    upquote
-    upquote
-    hash-table-set
-    place-swap drop drop
-]
+dict %docs
+dict %tag-docs
 
-define help [
-    "Help topic? (try: help)" upquote const topic
-    drop
-    %documentation place-get swap drop
-    topic hash-table-exists if [
-        hash-table-get
-        rot rot drop
-        swap const name
-        define title [
-            bold topic ->string print
-            reset " - " print
-            upquote print
-            "\n" print
+define documentation-set [
+    @[lexical %docs
+      lexical %tag-docs
+      lexical list-iterate
+    ]
+    const body
+    const name
+    name body %docs set
+    name doc-eval [
+        define tags [
+            upquote list-iterate [
+                const tag
+                tag %tag-docs has if [
+                    %tag-docs get
+                    name list-push
+                    %tag-docs set
+                ] [
+                    [] name list-push
+                    %tag-docs set
+                ]
+            ]
         ]
-        define usage [
-            "Usage: " print
-            yellow fg upquote print
-            reset "\n" print
-        ]
-        define description [
-            "  " print
-            upquote print
-            "\n\n" print
-        ]
-        define example [
-            "Example: " print
-            bright yellow fg upquote print
-            reset "\n" print
-        ]
-        ansi [ "\n" print eval "\n" print ]
-    ] [
-        ansi [
-            red fg "No such topic " print
-            reset topic ->string print
-            reset "\n" print
-        ]
-        drop drop
     ]
 ]
-doc-for help [
-    title "Show information on a topic"
-    description "It's help."
-    usage "help topic-name"
-    example "help help"
-    example "help topics"
+
+define doc-for [
+    @[lexical %docs
+      lexical documentation-set
+    ]
+    upquote upquote documentation-set
+]
+
+define doc-eval [
+    @[lexical %docs]
+    const name
+    upquote const defs
+    name %docs has if [
+        %docs get!
+        defs swap list-append
+        define title [upquote drop]
+        define description [upquote drop]
+        define usage [upquote drop]
+        define example [upquote drop]
+        define section [upquote drop]
+        define tags [upquote drop]
+        define see-also [upquote drop]
+        define internal []
+        define undocumented []
+        eval
+    ] [ drop drop ]
+]
+
+define documentation [
+    @[lexical documentation-set]
+    define-attribute? if [] ["documentation must be used as an attribute" abort]
+    const body const name
+    name upquote documentation-set
+    name body
+]
+
+
+define has-documentation? [
+    @[lexical %docs]
+    %docs has
+]
+
+define documented-names [
+    @[lexical %docs]
+    %docs keys
+]
+
+define doc-tags [
+    @[lexical %tag-docs]
+    %tag-docs ->hash-table
+]
+
+define doc-tag? [
+    @[lexical %tag-docs]
+    %tag-docs has
 ]
 
 export doc-for
-export help
+export doc-eval
+export documentation
+export documentation-set
+export has-documentation?
+export documented-names
+
+export doc-tags
+export doc-tag?
 
 ; vi: ft=scheme
 
