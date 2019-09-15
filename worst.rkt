@@ -21,9 +21,8 @@ it works, and currently serves as the best source of documentation for Worst.
 If you'd rather just run it and have a poke around,
 @hyperlink["https://gitlab.com/worst-lang/worst"]{check it out}.
 
-This is a work in progress; in particular, it needs
-more built-in functions and more tests. If there are any
-necessary builtins missing, or you see any other problems, please feel free to
+This is a work in progress; in particular, it could do with more tests.
+If there's anything missing, or you see any other problems, please feel free to
 @hyperlink["https://gitlab.com/worst-lang/worst/issues"]{file an issue}!
 
 @(table-of-contents)
@@ -51,12 +50,11 @@ I discovered the following combination of properties that worked well together:
         it's the same as manipulating lists.
         It also means that reading code is identical to reading data.}
     @item{@bold{@racket[quote] and @racket[uplevel]}.
-        Together, these two are core to Worst's identity.
+        Together, these are core to Worst's identity.
         @racket[quote] is the ability for any function to read
         the next token in the program (useful for making macros),
         and @racket[uplevel] (borrowed from Tcl) is
-        the ability to execute code as if it were in the calling stack frame
-        (implemented with ``reverse'' call stack).}
+        the ability to execute code as if it were in the calling stack frame.}
     @item{@bold{Lazy parsing}.
         It should be possible to modify the parser mid-program,
         so you can do things like importing syntax forms from a library.
@@ -66,9 +64,9 @@ I discovered the following combination of properties that worked well together:
 Each of these properties work together to support the others.
 Combined with a minimum of internal data structures
 (just two: the call stack and the data stack), they lead to other properties
-like dynamic scope, extensible error handling, and a REPL for free.
+like dynamic scope and extensible error handling.
 
-So, in brief, here's the main interpreter loop:
+To combine all of this, here's the main interpreter loop in brief:
 @itemlist[
     @item{@seclink["code-next"]{Get the next thing} from the program.
         If it's not a symbol, put it on top of the stack and repeat.}
@@ -153,16 +151,12 @@ Here they are along with some other supporting type definitions:
 ; Using Void instead avoids any ambiguity.
 ; (Not a problem if the host language supports proper algebraic data types.)
 (define-type (Maybe A) (U Void A))
-
-; This will be useful for builtins that need a length or an index.
-(define-predicate Nonnegative-Integer? Nonnegative-Integer)
 ]
-
 @;#| }}} |#
 
 @section[#:tag "core-operations"]{Core operations} @;#| {{{ |#
 
-Now we've got a context, what can we actually do with it?
+Now we've got a context, what can we do with it?
 
 @subsection[#:tag "resolving-functions"]{Resolving functions}
 Looking up a symbol to find its definition
@@ -204,8 +198,7 @@ This uses some extra functions to @seclink["exceptions"]{deal with errors}.
       (interp-handle-error ctx stack 'undefined (list sym)))))
 ]
 
-@subsection[#:tag "code-next"]{Figuring out what's next}
-
+@subsection[#:tag "code-next"]{Figuring out what to run next}
 There's an easy way to do this, and a less easy way.
 The easy way is to simply read code from the program.
 This is what @racket[quote] will use,
@@ -250,11 +243,10 @@ then finally it tries to return to the parent context.
     [else (values ctx (void))]))
 ]
 
-@subsection{Traversing the context stack}
-
-Here's @racket[uplevel] itself.
-All this does is move up to the parent context
+@subsection[#:tag "context-uplevel"]{Uplevel}
+Finally, @racket[uplevel]. All this does is move up to the parent context
 and push the current one on its list of children, like a reverse function call.
+@racket[context-next] takes care of the rest.
 
 @chunk[<context-uplevel>
 (: context-uplevel (Context . -> . (Option Context)))
@@ -267,7 +259,6 @@ and push the current one on its list of children, like a reverse function call.
              context parent
              [children (cons child (context-children parent))])))))
 ]
-
 @; #| }}} |#
 
 @section[#:tag "the-end-ha-ha"]{The End} @;#| {{{ |#
@@ -280,7 +271,7 @@ Okay, so this isn't @emph{really} the end. There's plenty more to do.
 The rest of the interpreter will focus on turning this core into something
 that can run a whole program from source code to completion.
 For that, we'll need a main entry point that sets everything up,
-some sort of loop to step through the program, and builtins. Lots of builtins.
+some sort of loop to step through the program, and a bunch of builtins.
 
 The driving loop @racket[interp-run] can use @racket[context-next]
 to figure out what to run next,
@@ -325,10 +316,10 @@ should just result in a stack full of those things
 (test-case "Non-symbol literals go on the stack"
   (let-values ([(ctx stack)
                 (interp-run
-                  (make-context #:body '(1 2 (list #\A) "string" #t))
+                  (make-context #:body '(1 2 (#\a list) "string" #t))
                   '())])
     (check-equal? ctx (make-context #:body '()))
-    (check-equal? stack '(#t "string" (list #\A) 2 1))))
+    (check-equal? stack '(#t "string" (#\a list) 2 1))))
 ]
 
 Since the stack is a list,
@@ -406,13 +397,12 @@ It should fail if there is nothing to quote:
           #t)))))
 ]
 @; #| }}} |#
-@subsection{Uplevel} @;#| {{{ |#
-
+@subsection[#:tag "builtin-uplevel"]{Uplevel} @;#| {{{ |#
 @racket[context-uplevel] moves into the parent context.
 Normal execution would @seclink["code-next"]{undo this move immediately},
 but the builtin @racket[uplevel] can
 take a @racket[symbol] argument off the top of the stack
-and use @racket[interp-eval] to sneak in a function to evaluate next.
+and use @racket[interp-eval] to call it while still in the parent context.
 
 @chunk[<builtin-uplevel>
 (define-builtin
@@ -550,9 +540,8 @@ Many languages have at least one conditional, usually named @racket[if],
 and often a handful more for specific situations.
 
 Worst only needs one.
-Every other conditional can be implemented in terms of
-@racket[when], which conditionally performs a @racket[call]
-depending on the value of a boolean on the stack.
+Every other conditional can be implemented in terms of @racket[when],
+which conditionally performs a @racket[call] based on the value of a boolean.
 
 @chunk[<builtin-when>
 (define-builtin
@@ -567,17 +556,19 @@ depending on the value of a boolean on the stack.
 ]
 
 @;#| }}} |#
-
 @;#| }}} |#
 
 @section[#:tag "exceptions"]{Exceptions} @;#| {{{ |#
 
 There are as many error handling strategies as programming languages,
 ranging from ``drop everything and quit'' to ``don't have errors.''
-
 Here's a simple one: if an error occurs, put it on the stack
 and call the function @racket[current-error-handler].
 If that's not defined, the interpreter has no choice but to quit altogether.
+
+Overriding @racket[current-error-handler] and invoking it in the right place
+(as soon as the error happens, before touching the stack) should give it
+as much information as it needs to do whatever error handling is necessary.
 
 All the pieces are already in place:
 @racket[interp-call], defined in @secref{core-operations},
@@ -629,9 +620,7 @@ is already set up to use @racket[interp-try-eval].
     (interp-eval ctx stack f)))
 
 ; TODO tests for this.
-
 ]
-
 @;#| }}} |#
 
 @section[#:tag "more-builtins"]{More builtins} @;#| {{{ |#
@@ -640,7 +629,7 @@ This small library of builtins provides enough functionality
 to implement @seclink["reading-code"]{this top-level loop}
 and add more builtins from within a Worst program.
 
-You may like to skim this section as it's mostly boilerplate.
+You may like to skim this section. It's mostly boilerplate.
 
 @chunk[<builtins> @;#| {{{ |#
 (define-builtin (symbol? s [a #t]) (cons (symbol? a) s))
@@ -745,8 +734,8 @@ You may like to skim this section as it's mostly boilerplate.
 @section[#:tag "reading-code"]{Reading code} @;#| {{{ |#
 
 So far, all test programs have been fed pre-parsed code in a list.
-To read code (or data, it's all the same) from a file,
-we can use @racket[port-read-value] (defined in @secref["more-builtins"]).
+To read code (or data, it's all the same) from a file, we can use
+@racket[port-read-value] (see @secref["more-builtins"]).
 However, the interpreter doesn't know how to do that,
 so we need a way of using it when the program expects to read more code.
 
@@ -836,9 +825,6 @@ You can compile it into a binary if you want:
 You can also write executable scripts:
 @verbatim{#!/path/to/rworst}
 This works because the default reader treats a shebang line as a comment.
-
-@hyperlink["https://gitlab.com/worst-lang/worst"]{file an issue}!
-
 @;#| }}} |#
 
 @section[#:tag "program-overview"]{Program overview} @;#| {{{ |#
