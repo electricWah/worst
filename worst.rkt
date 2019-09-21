@@ -628,6 +628,8 @@ is already set up to use @racket[interp-try-eval].
 This small library of builtins provides enough functionality
 to implement @seclink["reading-code"]{this top-level loop}
 and add more builtins from within a Worst program.
+If you're using this as a guide to implement Worst yourself,
+feel free to add as many builtins as you see fit.
 
 You may like to skim this section. It's mostly boilerplate.
 
