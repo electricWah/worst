@@ -1,6 +1,4 @@
 
-import syntax/attributes
-
 ; [l...] list-iterate [ body ... ]
 define list-iterate [
     import syntax/variable
@@ -12,7 +10,11 @@ define list-iterate [
     ]
     drop
 ]
-export list-iterate
+export-name list-iterate
+
+; ; [l...] list-map [ body : l -> l' ] -> [l' ...]
+; define list-map [
+; ]
 
 ; list-quasiquote( ^[literal-list] *[list-expr] ~[single-value-expr] ... )
 define list-quasiquote [
@@ -25,7 +27,7 @@ define list-quasiquote [
     upquote eval
     %acc get
 ]
-export list-quasiquote
+export-name list-quasiquote
 
 ; vi: ft=scheme
 

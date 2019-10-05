@@ -9,9 +9,9 @@ define-racket-builtin interpreter-stack
     (lambda (c s) (values c (cons s s)))
 define-racket-builtin interpreter-stack-set
     (lambda (c s) (values c (stack-top s list?)))
-export interpreter-dump-stack
-export interpreter-stack
-export interpreter-stack-set
+export-name interpreter-dump-stack
+export-name interpreter-stack
+export-name interpreter-stack-set
 
 define-racket-builtin add
     (lambda (c s) (values c
@@ -19,7 +19,7 @@ define-racket-builtin add
                                    (stack-top (cdr s) number?))
                                 (cddr s))))
 
-export add
+export-name add
 
 define-racket-builtin port-has-char?
     (lambda (c s) (values c (cons (char-ready? (stack-top s input-port?)) s)))
@@ -37,11 +37,11 @@ define-racket-builtin port-write-value
       (write (stack-top s) (stack-top (cdr s) output-port?))
       (values c (cdr s)))
 
-export port-has-char?
-export port-peek-char
-export port-read-char
-export port-write-string
-export port-write-value
+export-name port-has-char?
+export-name port-peek-char
+export-name port-read-char
+export-name port-write-string
+export-name port-write-value
 
 define-racket-builtin definition-exists
     (lambda (c s)
@@ -81,10 +81,10 @@ define-racket-builtin defined-names
                     (hash-keys a))))])
       (values c (cons names s))))
 
-export definition-exists
-export definition-get
-export definition-remove
-export defined-names
+export-name definition-exists
+export-name definition-get
+export-name definition-remove
+export-name defined-names
 
 define-racket-builtin current-context-remove-children
     (lambda (c s)
@@ -96,7 +96,7 @@ define-racket-builtin current-context-remove-children
           #:parent (context-parent c))
         s))
 
-export current-context-remove-children
+export-name current-context-remove-children
 
 define-racket-builtin hash-table?
     (lambda (c s) (values c (cons (hash? (stack-top s)) s)))
@@ -126,13 +126,13 @@ define-racket-builtin hash-table-remove
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-remove h k) (cddr s)))))
 
-export hash-table?
-export hash-table-empty
-export hash-table-exists
-export hash-table-get
-export hash-table-set
-export hash-table-keys
-export hash-table-remove
+export-name hash-table?
+export-name hash-table-empty
+export-name hash-table-exists
+export-name hash-table-get
+export-name hash-table-set
+export-name hash-table-keys
+export-name hash-table-remove
 
 ; Places - A place is a mutable storage location
 ; capable of storing exactly one item.
@@ -153,10 +153,14 @@ define-racket-builtin place-set
         (set-mplace-v! p v)
         (values c (cdr s))))
 
-export place?
-export make-place
-export place-get
-export place-set
+export-name place?
+export-name make-place
+export-name place-get
+export-name place-set
+
+; define-racket-builtin list-join
+;     (lambda (c s) (values c (cons (apply append (stack-top s list?)) (cdr s))))
+; export-name list-join
 
 ; vi: ft=scheme
 

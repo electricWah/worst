@@ -1,18 +1,18 @@
 
 define abort [ quote abort current-error-handler ]
-export abort
+export-name abort
 
 ; evaluate = quote; call if symbol
 define evaluate [ upquote symbol? if [quote call] [[] quote eval] uplevel ]
-export evaluate
+export-name evaluate
 
 ; a equals? b => a bool
 define equals? [ upquote equal? swap drop ]
-export equals?
+export-name equals?
 
 ; updo thing => quote thing uplevel
 define updo [ upquote quote uplevel uplevel ]
-export updo
+export-name updo
 
 define tailcall [
     upquote
@@ -28,10 +28,10 @@ define while [
     ] const %%loop
     %%loop current-context-set-code
 ]
-export while
+export-name while
 
 define print [ current-output-port swap port-write-string drop ]
-export print
+export-name print
 
 ; vi: ft=scheme
 

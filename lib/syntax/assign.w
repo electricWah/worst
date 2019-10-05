@@ -9,7 +9,7 @@
 ; are like
 ; expr const a
 
-import syntax/attributes
+import syntax/attribute
 
 ; [add-args ...] [named-arg ...] %make-assign-consts
 ; => [quote named-arg updo adddef add-args ...]
@@ -32,10 +32,11 @@ define %make-assign-consts [
 ; Put values from the stack into names
 ; e.g. 1 2 3 => [a b c]
 ; now a = 1, b = 2, c = 3
-define => [@[lexical %make-assign-consts] [] upquote %make-assign-consts eval ]
+lexical (%make-assign-consts)
+define => [ [] upquote %make-assign-consts eval ]
 
+lexical (%make-assign-consts)
 define := [
-    @[lexical %make-assign-consts]
     const args
     updo evaluate
 
@@ -43,8 +44,8 @@ define := [
     eval
 ]
 
-export :=
-export =>
+export-name :=
+export-name =>
 
 ; vi: ft=scheme
 

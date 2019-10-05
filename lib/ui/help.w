@@ -1,18 +1,17 @@
 
-import syntax/attributes
 import doc
 
+documentation [
+    title "Show information on a topic"
+    ; description "It's help."
+    usage "help topic-name"
+    example "help help"
+    example "help tags"
+    ; see-also help-tags
+    section docs
+    tags [help repl]
+]
 define help [
-    @[documentation [
-        title "Show information on a topic"
-        ; description "It's help."
-        usage "help topic-name"
-        example "help help"
-        example "help tags"
-        ; see-also help-tags
-        section docs
-        tags [help repl]
-    ]]
     import list
     import doc
     import syntax/cond
@@ -104,7 +103,7 @@ define help [
     ]
 ]
 
-export help
+export-name help
 
 ; vi: ft=scheme
 

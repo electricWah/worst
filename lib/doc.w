@@ -17,20 +17,17 @@
 ;   ... any more...
 ; ]
 
-import syntax/attributes
+import syntax/attribute
 import syntax/variable
 import syntax/assign
 import dict
-import list
 
 dict %docs
 dict %tag-docs
 
+lexical (%docs %tag-docs)
 define documentation-set [
-    @[lexical %docs
-      lexical %tag-docs
-      lexical list-iterate
-    ]
+    import list
     const body
     const name
     name body %docs set
@@ -51,15 +48,10 @@ define documentation-set [
     ]
 ]
 
-define doc-for [
-    @[lexical %docs
-      lexical documentation-set
-    ]
-    upquote upquote documentation-set
-]
+define doc-for [ upquote upquote documentation-set ]
 
+lexical (%docs)
 define doc-eval [
-    @[lexical %docs]
     const name
     upquote const defs
     name %docs has if [
@@ -78,44 +70,37 @@ define doc-eval [
     ] [ drop drop ]
 ]
 
-define documentation [
-    @[lexical documentation-set]
-    define-attribute? if [] ["documentation must be used as an attribute" abort]
-    const body const name
-    name upquote documentation-set
-    name body
+define-attribute documentation [
+    args (doc-body)
+    before [
+        const body const name
+        name doc-body documentation-set
+        name body
+    ]
 ]
 
 
-define has-documentation? [
-    @[lexical %docs]
-    %docs has
-]
+lexical (%docs)
+define has-documentation? [ %docs has ]
 
-define documented-names [
-    @[lexical %docs]
-    %docs keys
-]
+lexical (%docs)
+define documented-names [ %docs keys ]
 
-define doc-tags [
-    @[lexical %tag-docs]
-    %tag-docs ->hash-table
-]
+lexical (%tag-docs)
+define doc-tags [ %tag-docs ->hash-table ]
 
-define doc-tag? [
-    @[lexical %tag-docs]
-    %tag-docs has
-]
+lexical (%tag-docs)
+define doc-tag? [ %tag-docs has ]
 
-export doc-for
-export doc-eval
-export documentation
-export documentation-set
-export has-documentation?
-export documented-names
+export-name doc-for
+export-name doc-eval
+export-name documentation
+export-name documentation-set
+export-name has-documentation?
+export-name documented-names
 
-export doc-tags
-export doc-tag?
+export-name doc-tags
+export-name doc-tag?
 
 ; vi: ft=scheme
 

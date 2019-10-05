@@ -2,11 +2,11 @@
 ; Import and export. Loaded automatically by worsti
 
 import syntax/variable
-import syntax/attributes
+import syntax/attribute
 import syntax/assign
 
+lexical (syntax-read)
 define load-eval-file [
-    @[lexical syntax-read]
     define run [
         define %%load-eval-file []
         read-eval-loop
@@ -27,12 +27,8 @@ define load-eval-file [
 hash-table-empty variable %import-files
 
 ; Less basic import
+lexical (variable updo %import-files)
 define import-file [
-    @[lexical variable
-      lexical updo
-      lexical %import-files
-    ]
-
     resolve-import-path const %import-path
 
     %import-files get
@@ -44,7 +40,7 @@ define import-file [
         [] variable %on-import-file-finished
 
         ; TODO allow export before definition
-        define %export [
+        define export-as [
             const newname const defname
             %on-import-file-finished get
             [ quote definition-add quote uplevel uplevel ] list-append
@@ -55,7 +51,8 @@ define import-file [
             %on-import-file-finished set
         ]
 
-        define export [ upquote clone %export ]
+        ; TODO make this an attribute
+        define export-name [ upquote clone export-as ]
 
         %import-path load-eval-file
 
@@ -72,22 +69,22 @@ define import-file [
 
 define import [ upquote quote import-file uplevel ]
 
+lexical (%import-files)
 define import-forget [
-    @[lexical %import-files]
     %import-files get upquote resolve-import-path hash-table-remove
     %import-files set
 ]
 
+lexical (%import-files)
 define import-forget-all [
-    @[lexical %import-files]
     hash-table-empty %import-files set
 ]
 
-export load-eval-file
-export import-file
-export import
-export import-forget
-export import-forget-all
+export-name load-eval-file
+export-name import-file
+export-name import
+export-name import-forget
+export-name import-forget-all
 
 ; vi: ft=scheme
 

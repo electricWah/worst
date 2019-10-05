@@ -133,11 +133,11 @@ define worst-repl [
     %run
 ]
 
-export clear-stack
-export input-line-editor
-; export with-stty
-export worst-repl-prompt
-export worst-repl
+export-name clear-stack
+export-name input-line-editor
+; export-name with-stty
+export-name worst-repl-prompt
+export-name worst-repl
 
 ; vi: ft=scheme
 

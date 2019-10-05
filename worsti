@@ -6,11 +6,8 @@
 ; shorthand for quote quote uplevel
 [ quote quote quote uplevel uplevel ] quote upquote definition-add
 
-; a little cheat for some more options with define
-[] quote %before-define definition-add
 [ ; define name [def...]
     upquote upquote ; name [def ...]
-    %before-define
     swap quote definition-add uplevel
 ] quote define definition-add
 
@@ -87,7 +84,7 @@ define import [
     upquote resolve-import-path
     read-file quote eval uplevel
 ]
-define export [
+define export-name [
     upquote
     definition-resolve
     swap
@@ -100,8 +97,7 @@ import rworst
 import worst/base
 ; Real import/export
 import worst/module
-
-quote export definition-remove
+import syntax/attribute
 
 ; Interactive
 import ui

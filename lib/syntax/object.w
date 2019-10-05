@@ -1,21 +1,13 @@
 
-; import doc ; oops, doc requires this!
-import syntax/attributes
-import syntax/variable
-import list
-
-define object-constructor [
-    @[lexical list-quasiquote]
+lexical (list-quasiquote)
+define define-object-constructor [
       ; documentation [
       ;   title "Create a named value with accessor and mutator methods"
       ;   description "Turns the enclosing define form into a constructor"
-      ;   usage "define ctor [@[object-constructor [define method [...] ...]]]"
       ;   example "
-    ; define variable [
-      ;   @[object-constructor [
+    ; define-object-constructor variable [
       ;       method get [%get]
       ;       method set [%set]
-      ;   ]]
     ; ]
 
     ; 6 variable n
@@ -25,13 +17,7 @@ define object-constructor [
     import syntax/variable
     import list
 
-    define-attribute?
-    if [] ["object-constructor must be used as an attribute" abort]
-
-    list-empty? if [drop] [
-        "object-constructor: define body must be empty" abort
-    ]
-    const dname
+    upquote const dname
 
     [] variable methods
     [] variable init-expr
@@ -76,9 +62,10 @@ define object-constructor [
             name updo definition-add
         ]
     ]
-    dname swap
+    dname
+    updo definition-add+attributes
 ]
-export object-constructor
+export-name define-object-constructor
 
 ; vi: ft=scheme
 

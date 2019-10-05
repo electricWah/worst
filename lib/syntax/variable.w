@@ -26,7 +26,7 @@ define variable [
     P list-push
     name updo definition-add
 ]
-export variable
+export-name variable
 
 ; vi: ft=scheme
 

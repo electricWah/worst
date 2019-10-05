@@ -75,7 +75,7 @@ define check-docs [
     define next [ names get list-empty? if [#f] [list-pop swap names set] ]
     while [next equals? #f not] [check-doc] drop drop
 ]
-export check-docs
+export-name check-docs
 
 ; vi: ft=scheme
 

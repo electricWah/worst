@@ -105,8 +105,8 @@ everything necessary to run the program.
 (struct context
   ; Program code
   ([body        : Code]
-   ; Symbols looked up in here
-   [definitions : (Immutable-HashTable Symbol Function)]
+   ; Definition names looked up in here
+   [definitions : Definition-Table]
    ; Bookkeeping required by uplevel
    [children    : (Listof Context)]
    ; The calling context (if it's currently in the middle of a function call)
@@ -116,8 +116,7 @@ everything necessary to run the program.
 ; I never remember the right order for fields, so here's a keyword constructor.
 (define (make-context
           #:body [body : Code '()]
-          #:definitions [defs : (Immutable-HashTable Symbol Function)
-                              (make-immutable-hash '())]
+          #:definitions [defs : Definition-Table (make-immutable-hash '())]
           #:children [children : (Listof Context) '()]
           #:parent [parent : (Option Context) #f])
   (context body defs children parent))
@@ -131,6 +130,7 @@ Here they are along with some other supporting type definitions:
 (define-type Stack (Listof Any))
 ; A program is also just a list
 (define-type Code (Listof Any))
+(define-type Definition-Table (Immutable-HashTable Symbol Function))
 
 ; Builtin is a Racket procedure that updates a context and stack.
 ; It needs to be a procedural structure type in order to have a type predicate.
@@ -143,7 +143,7 @@ Here they are along with some other supporting type definitions:
 ; A Function is either code or a builtin.
 ; TODO this should be Definition to be consistent with the document.
 (define-type Function (U Code Builtin))
-(: function? (-> Any Boolean : Function))
+(: function? (Any . -> . Boolean : Function))
 (define (function? v) (or (list? v) (Builtin? v)))
 
 ; Can't use (Option A) because its None value is #f,
@@ -180,8 +180,7 @@ Regular functions can just be called, but @racket[Code] requires a new context
 This uses some extra functions to @seclink["exceptions"]{deal with errors}.
 
 @chunk[<interp-eval>
-(: interp-eval (Context Stack Function
-                        . -> . (Values Context Stack)))
+(: interp-eval (Context Stack Function . -> . (Values Context Stack)))
 (define (interp-eval ctx stack f)
   (cond
     [(Builtin? f) (f ctx stack)]
@@ -189,8 +188,7 @@ This uses some extra functions to @seclink["exceptions"]{deal with errors}.
 
 ; Resolve the symbol, set up an error handler blaming it,
 ; and eval its definition
-(: interp-call (Context Stack Symbol
-                        . -> . (Values Context Stack)))
+(: interp-call (Context Stack Symbol . -> . (Values Context Stack)))
 (define (interp-call ctx stack sym)
   (let ([v (context-resolve ctx sym)])
     (if v
@@ -442,7 +440,7 @@ to add to it. @racket[define-builtin] can use the context and stack,
 or take some values off the top of the stack using @racket[stack-top].
 
 @chunk[<global-builtins>
-(: *builtins* (Parameterof (Immutable-HashTable Symbol Function)))
+(: *builtins* (Parameterof Definition-Table))
 (define *builtins* (make-parameter (make-immutable-hash '())))
 
 (: add-global-builtin (Symbol Function . -> . Void))
@@ -479,8 +477,7 @@ or take some values off the top of the stack using @racket[stack-top].
        (Builtin (lambda ([ctx : Context] [stack : Stack]) body ...)))]))
 
 ; Pick a subset of builtins, for tests
-(: choose-global-builtins (->* () #:rest Symbol
-                               (Immutable-HashTable Symbol Function)))
+(: choose-global-builtins (() #:rest Symbol . ->* . Definition-Table))
 (define (choose-global-builtins . names)
   (make-immutable-hash
     (map (lambda ([n : Symbol]) (cons n (hash-ref (*builtins*) n))) names)))
@@ -493,7 +490,7 @@ the stack has a value on top, optionally with the right type.
 @chunk[<stack-top>
 (: stack-top (All (T) (case-> (Stack . -> . Any)
                               (Stack #t . -> . Any)
-                              (Stack (-> Any Boolean : T) . -> . T))))
+                              (Stack (Any . -> . Boolean : T) . -> . T))))
 (define stack-top
   (case-lambda
     [(stack)
@@ -645,8 +642,8 @@ You may like to skim this section. It's mostly boilerplate.
 (define-builtin (dig s [a #t] [b #t] [c #t]) (list* c a b (cdddr s)))
 (define-builtin (bury s [a #t] [b #t] [c #t]) (list* b c a (cdddr s)))
 
-(define-builtin (and s [a #t] [b #t]) (cons (and a b) s))
-(define-builtin (or s [a #t] [b #t]) (cons (or a b) s))
+(define-builtin (and s [a #t] [b #t]) (cons (and b a) s))
+(define-builtin (or s [a #t] [b #t]) (cons (or b a) s))
 (define-builtin (false? s [a #t]) (cons (false? a) s))
 (define-builtin (not s [a #t]) (cons (false? a) (cdr s)))
 
@@ -752,8 +749,7 @@ or @racket[syntax-read] to change the character-level syntax.
 
 ; Add definitions to support a read-eval-loop from the given input port.
 (: read-eval-loop-definitions
-   (-> (Immutable-HashTable Symbol Function) Input-Port
-       (Immutable-HashTable Symbol Function)))
+   (Definition-Table Input-Port . -> .  Definition-Table))
 (define (read-eval-loop-definitions builtins source-input-port)
   (hash-set*
     builtins

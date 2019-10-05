@@ -46,15 +46,6 @@ doc-for ansi [
     tags [ui output]
 ]
 
-doc-for %before-define [
-    title "Handler for adding definitions"
-    description "define calls this function before adding a definition.
-    Used by syntax/attributes. This is a hack."
-    internal
-    section syntax
-    tags [internal definition]
-]
-
 doc-for bury [
     title "Stack rotation: a b c -> b c a"
     description "Moves the top item on the stack to position 3"

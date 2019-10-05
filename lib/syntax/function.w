@@ -27,7 +27,7 @@ define function [
 
     func-name updo definition-add
 ]
-export function
+export-name function
 
 ; vi: ft=scheme
 

@@ -1,17 +1,16 @@
 
-import syntax/attributes
 import doc
 
+documentation [
+    title "Choose a block of code to run based on the matching condition"
+    description "It's basically an if/elseif/else block."
+    usage "cond [ [-> bool] { if-true ... } ... ]"
+    example "cond [[#f] [0] [#t] [1]]"
+    example "6 cond [[equals? 2] [200] [equals? 6] [600] [#t] [-1]]"
+    ; section eval
+    ; tags []
+]
 define cond [
-    @[documentation [
-        title "Choose a block of code to run based on the matching condition"
-        description "It's basically an if/elseif/else block."
-        usage "cond [ [-> bool] { if-true ... } ... ]"
-        example "cond [[#f] [0] [#t] [1]]"
-        example "6 cond [[equals? 2] [200] [equals? 6] [600] [#t] [-1]]"
-        ; section eval
-        ; tags []
-    ]]
 
     import syntax/variable
 
@@ -30,7 +29,7 @@ define cond [
     eval
 ]
 
-export cond
+export-name cond
 
 ; vi: ft=scheme
 

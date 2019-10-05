@@ -1,16 +1,16 @@
 
 import ui/ansi
-export ansi
+export-name ansi
 
 import ui/repl
-export worst-repl
-export worst-repl-prompt
-export clear-stack
+export-name worst-repl
+export-name worst-repl-prompt
+export-name clear-stack
 
 import ui/help
 ; help docs for builtins
 import doc/builtins
-export help
+export-name help
 
 ; vi: ft=scheme
 
