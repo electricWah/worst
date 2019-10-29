@@ -25,7 +25,7 @@ define-racket-builtin string-append
       (values c (cons (string-append b a) (cddr s)))))
 
 define-racket-builtin ->string
-    (lambda (c s) (values c (cons (~a (stack-top s)) (cdr s))))
+    (lambda (c s) (values c (cons (~s (stack-top s)) (cdr s))))
 
 define-racket-builtin env-get
     (lambda (c s) (values c (cons (getenv (stack-top s string?)) s)))

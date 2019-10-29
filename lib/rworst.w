@@ -3,6 +3,23 @@
 ; I'll be honest, not sure whether to put as much as possible here
 ; or make bare rworst more useful
 
+define-racket-builtin list?
+    (lambda (c s) (values c (cons (list? (stack-top s)) s)))
+define-racket-builtin string?
+    (lambda (c s) (values c (cons (string? (stack-top s)) s)))
+define-racket-builtin number?
+    (lambda (c s) (values c (cons (number? (stack-top s)) s)))
+define-racket-builtin boolean?
+    (lambda (c s) (values c (cons (boolean? (stack-top s)) s)))
+define-racket-builtin vector?
+    (lambda (c s) (values c (cons (vector? (stack-top s)) s)))
+
+export-name list?
+export-name string?
+export-name number?
+export-name boolean?
+export-name vector?
+
 define-racket-builtin interpreter-dump-stack
     (lambda (c s) (eprintf "Stack:\n~S\n" s) (values c s))
 define-racket-builtin interpreter-stack
@@ -13,6 +30,14 @@ export-name interpreter-dump-stack
 export-name interpreter-stack
 export-name interpreter-stack-set
 
+; define-racket-builtin greater
+;     (lambda (c s) (values c
+;                           (cons (> (stack-top s number?)
+;                                    (stack-top (cdr s) number?))
+;                                 s)))
+
+; export-name greater
+
 define-racket-builtin add
     (lambda (c s) (values c
                           (cons (+ (stack-top s number?)
@@ -20,6 +45,11 @@ define-racket-builtin add
                                 (cddr s))))
 
 export-name add
+
+define-racket-builtin string->symbol
+    (lambda (c s) (values c (cons (string->symbol (stack-top s string?)) (cdr s))))
+
+export-name string->symbol
 
 define-racket-builtin port-has-char?
     (lambda (c s) (values c (cons (char-ready? (stack-top s input-port?)) s)))
@@ -157,6 +187,46 @@ export-name place?
 export-name make-place
 export-name place-get
 export-name place-set
+
+define-racket-builtin list-ref
+    (lambda (c s)
+      (let ([k (stack-top s exact-nonnegative-integer?)]
+            [l (stack-top (cdr s) list?)])
+        (values c (cons (list-ref l k) s))))
+define-racket-builtin list-set
+    (lambda (c s)
+      (let ([val (stack-top s)]
+            [k (stack-top (cdr s) exact-nonnegative-integer?)]
+            [l (stack-top (cddr s) list?)])
+        (values c (cons (list-set l k val) (cdddr s)))))
+
+export-name list-ref
+export-name list-set
+
+define-racket-builtin list->vector
+    (lambda (c s) (values c (cons (list->vector (stack-top s list?)) (cdr s))))
+define-racket-builtin vector->list
+    (lambda (c s) (values c (cons (vector->list (stack-top s vector?)) (cdr s))))
+define-racket-builtin vector-length
+    (lambda (c s) (values c (cons (vector-length (stack-top s vector?)) s)))
+define-racket-builtin vector-ref
+    (lambda (c s)
+      (let ([k (stack-top s exact-nonnegative-integer?)]
+            [v (stack-top (cdr s) vector?)])
+        (values c (cons (vector-ref v k) s))))
+define-racket-builtin vector-set!
+    (lambda (c s)
+      (let ([val (stack-top s)]
+            [k (stack-top (cdr s) exact-nonnegative-integer?)]
+            [v (stack-top (cddr s) vector?)])
+        (vector-set! v k val)
+        (values c (cddr s))))
+
+export-name list->vector
+export-name vector->list
+export-name vector-length
+export-name vector-ref
+export-name vector-set!
 
 ; define-racket-builtin list-join
 ;     (lambda (c s) (values c (cons (apply append (stack-top s list?)) (cdr s))))

@@ -11,7 +11,7 @@ define define-attribute [
     upquote const name
     upquote const def-body
 
-    [] variable %args
+    [[]] variable %args
 
     define args [
         [[]]
@@ -61,8 +61,7 @@ define-attribute lexical [
     before [
         import list
         swap
-        names
-        list-iterate [
+        names list-iterate [
             const name
             quote definition-add list-push
             name list-push
@@ -75,6 +74,24 @@ define-attribute lexical [
     ]
 ]
 export-name lexical
+
+; lexical-alias oldname newname
+define-attribute lexical-alias [
+    args (old new)
+    before [
+        swap
+        quote definition-add list-push
+        new list-push
+        quote quote list-push
+        old definition-resolve
+        false? if ["lexical-alias: not defined: "
+                   dig ->string string-append
+                   abort] []
+        swap drop list-push
+        swap
+    ]
+]
+export-name lexical-alias
 
 ; vi: ft=scheme
 
