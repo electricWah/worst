@@ -30,21 +30,22 @@ export-name interpreter-dump-stack
 export-name interpreter-stack
 export-name interpreter-stack-set
 
-; define-racket-builtin greater
-;     (lambda (c s) (values c
-;                           (cons (> (stack-top s number?)
-;                                    (stack-top (cdr s) number?))
-;                                 s)))
-
-; export-name greater
+define-racket-builtin greater-than
+    (lambda (c s) (values c
+                          (cons (> (stack-top s number?)
+                                   (stack-top (cdr s) number?))
+                                s)))
+export-name greater-than
 
 define-racket-builtin add
     (lambda (c s) (values c
                           (cons (+ (stack-top s number?)
                                    (stack-top (cdr s) number?))
                                 (cddr s))))
-
+define-racket-builtin neg
+    (lambda (c s) (values c (cons (- (stack-top s number?)) (cdr s))))
 export-name add
+export-name neg
 
 define-racket-builtin string->symbol
     (lambda (c s) (values c (cons (string->symbol (stack-top s string?)) (cdr s))))
@@ -231,6 +232,13 @@ export-name vector-set!
 ; define-racket-builtin list-join
 ;     (lambda (c s) (values c (cons (apply append (stack-top s list?)) (cdr s))))
 ; export-name list-join
+
+define-racket-builtin gensym
+    (lambda (c s)
+      (let ([name (stack-top s symbol?)])
+        (values c (cons (gensym name) (cdr s)))))
+
+export-name gensym
 
 ; vi: ft=scheme
 

@@ -10,6 +10,11 @@ export-name evaluate
 define equals? [ upquote equal? swap drop ]
 export-name equals?
 
+define max [ greater-than if [swap] [] drop ]
+define min [ greater-than if [] [] drop ]
+export-name max
+export-name min
+
 ; updo thing => quote thing uplevel
 define updo [ upquote quote uplevel uplevel ]
 export-name updo
@@ -22,13 +27,26 @@ define tailcall [
 
 define while [
     upquote quote %%cond definition-add
-    upquote quote %%body definition-add
+    upquote quote %%while-body definition-add
     [
-        %%cond if [%%body %%loop] [[]] current-context-set-code
+        %%cond if [%%while-body %%loop] [[]] current-context-set-code
     ] const %%loop
     %%loop current-context-set-code
 ]
 export-name while
+
+; n do-times [body...]
+define do-times [
+    upquote quote %%do-times-body definition-add
+
+    while [0 swap greater-than bury swap drop swap] [
+        -1 add const %%do-n
+        %%do-times-body
+        %%do-n
+    ]
+    drop
+]
+export-name do-times
 
 define print [ current-output-port swap port-write-string drop ]
 export-name print

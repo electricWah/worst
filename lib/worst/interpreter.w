@@ -1,9 +1,26 @@
 
-; An interpreter
+; An interpreter context.
+; Doesn't have its own stack or driving loop.
+; You could keep the stack in the stack itself, underneath the context,
+; or perhaps in a variable.
+; Try this for a loop:
+; while [ ; ctx -> ctx
+;   ctx-code-read
+;   if [
+;     symbol? if [
+;       ctx-resolve if [
+;         ; eval (builtin) or ctx-def-enter (definition)
+;       ] [
+;         ; undefined
+;       ]
+;     ] [
+;       ; push to a stack somewhere
+;     ]
+;     #t
+;   ] [ #f ]
+; ] []
+; 
 
-; TODO remove all #t/#f and just throw errors around instead
-
-; Doesn't need to be a mutable vector with list-ref and list-set
 define ctx-empty [
     import list
     list-quasiquote [
@@ -41,7 +58,9 @@ define ctx-resolve [
         #t
     ] [
         drop drop
-        ctx-parent false? if [ ] [
+        ctx-parent false? if [
+            drop drop name #f
+        ] [
             name ctx-resolve dig drop
         ]
     ]
@@ -58,25 +77,14 @@ define ctx-def-add [
 ]
 export-name ctx-def-add
 
-; stack ctx val -> stack ctx
-; abort undefined if can't resolve it
-define interp-eval [
-    symbol? if [
-        ctx-resolve if [
-            define def [
-                ctx-empty swap ctx-parent-set
-                upquote ctx-body-set
-            ]
-            eval
-        ] [ quote undefined abort ]
-    ] [
-        ; stack ctx val -> (val . stack) ctx
-        bury swap dig list-push swap
-    ]
+; ctx [body ...] -> ctx
+define ctx-def-enter [
+    swap
+    ctx-empty swap ctx-parent-set
+    swap ctx-body-set
 ]
-export-name interp-eval
+export-name ctx-def-enter
 
-; context-next-code
 ; ctx -> ctx val #t
 ;     -> ctx #f
 define ctx-body-read [
@@ -88,31 +96,30 @@ define ctx-body-read [
 ]
 export-name ctx-body-read
 
-; ctx -> ctx
-define ctx->child-innermost [
-    while [
-        ; ctx -> ctx child #t
-        ;     -> ctx #f
-        ctx-childs list-empty? if [ drop #f ] [
-            ; ctx childs
-            list-pop
-            ; ctx childs child
-            bury
-            ; child ctx childs
-            ctx-childs-set
-            ; child ctx
-            ctx-parent-set
-            ; child
-            #t
-        ]
-    ] [ ]
-]
-export-name ctx->child-innermost
-
 ; context-next
 ; ctx -> ctx val #t
 ;     -> ctx #f
 define ctx-code-read [
+    ; ctx -> ctx
+    define ctx->child-innermost [
+        while [
+            ; ctx -> ctx child #t
+            ;     -> ctx #f
+            ctx-childs list-empty? if [ drop #f ] [
+                ; ctx childs
+                list-pop
+                ; ctx childs child
+                bury
+                ; child ctx childs
+                ctx-childs-set
+                ; child ctx
+                ctx-parent-set
+                ; child
+                #t
+            ]
+        ] [ ]
+    ]
+
     while [
         ctx->child-innermost
         ctx-body-read if [ #t #f ] [
@@ -124,110 +131,40 @@ define ctx-code-read [
 ]
 export-name ctx-code-read
 
-; ctx new-child -> ctx
-define ctx-child-push [
-    swap ctx-childs
-    dig list-push
-    ctx-childs-set
-]
-export-name ctx-child-push
-
 ; context-uplevel
 ; ctx -> ctx ok? ; should it error?
 define ctx-into-parent [
     ctx-parent false? if [ ] [
         swap #f ctx-parent-set swap
-        swap ctx-child-push
+
+        ; ctx-child-push : new-child ctx -> ctx
+        ctx-childs
+        dig list-push
+        ctx-childs-set
+
         #t
     ]
 ]
 export-name ctx-into-parent
 
-; stack ctx -> stack ctx
-; will raise errors
-define interp-run [
-    while [ ctx-code-read if [ interp-eval #t ] [ #f ] ] [ ]
-]
-export-name interp-run
+import syntax/object
+define-object-constructor make-interpreter [
+    init [ctx-empty]
+    method resolve [ %get swap ctx-resolve if [ swap drop #t ] [ drop #f ] ]
+    method def [ %get bury ctx-def-add %set ]
+    method enter [ %get swap ctx-def-enter %set ]
+    method read [ %get ctx-body-read if [ swap %set #t ] [ #f ] ]
+    method next [ %get ctx-code-read if [ swap %set #t ] [ drop #f ] ]
+    method parent [ %get ctx-into-parent if [ %set #t ] [ #f ] ]
 
-define interpreter [
-    import syntax/variable
-    import list
-    import dict
-
-    ; TODO set ctx and stack from config block
-
-    dict %builtins
-
-    define-attribute builtin [
-        args (options)
-        before [
-            const name
-            variable %body
-
-            #f variable %simple
-            define simple [ #t %simple set ]
-            options eval
-
-            %simple get if [
-                [eval-simple-builtin]
-                %body get
-                list-push
-                %body set
-            ] [ ]
-
-            name %body get
-            %builtins set
-
-            %body get
-            name
-        ]
-    ]
-
-    [] variable %body
-
-    upquote
-    [
-        define body [ upquote eval %body set ]
-        eval
-    ] eval
-
-    [] ; stack
-    ctx-empty
-    %body get ctx-body-set
-
-    %builtins keys list-iterate [
+    method defined? [
         const name
-
-        [] name list-push
-        quote builtin list-push
-        name
-        ctx-def-add
+        %get ctx-defs swap drop
+        name hash-table-exists
+        bury drop drop
     ]
-
-    define eval-simple-builtin [
-        const %body
-        variable %context
-        variable %stack
-        define stack-pop [
-            %stack get list-pop swap %stack set
-            updo evaluate
-            if [ ] [ quote wrong-type abort ]
-        ]
-        define stack-push [
-            %stack get swap list-push %stack set
-        ]
-        %body eval
-        %stack get
-        %context get
-    ]
-
-    define builtin [ upquote %builtins get! eval ]
-
-    interp-run
-    drop
 ]
-export-name interpreter
+export-name make-interpreter
 
 ; vi: ft=scheme
 

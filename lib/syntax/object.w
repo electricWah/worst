@@ -1,5 +1,4 @@
 
-lexical (list-quasiquote)
 define define-object-constructor [
       ; documentation [
       ;   title "Create a named value with accessor and mutator methods"
@@ -39,11 +38,8 @@ define define-object-constructor [
     ] eval
 
     list-quasiquote [
-        *[init-expr get]
-        ^[
-            make-place const P
-            upquote const name
-        ]
+        ^[upquote const %name]
+        *[init-expr get] ^[make-place const P]
         ~[list-quasiquote [
             ^[const P]
             *[methods get]
@@ -59,7 +55,7 @@ define define-object-constructor [
         ]]
         ^[
             P list-push
-            name updo definition-add
+            %name updo definition-add
         ]
     ]
     dname
