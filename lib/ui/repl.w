@@ -1,4 +1,6 @@
 
+import syntax/attribute
+
 define clear-stack [ [] interpreter-stack-set ]
 
 define with-stty [
@@ -35,7 +37,7 @@ define input-line-editor [
     define peek-char [ current-input-port port-peek-char swap drop ]
     define has-char? [ current-input-port port-has-char? swap drop ]
     define read-escape-sequence [
-        peek-char equals? #\[ if [
+        peek-char equals? #\133 if [
             drop read-char drop
             read-char
         ] [
@@ -73,7 +75,72 @@ define worst-repl-prompt [
     ]
 ]
 
+; TODO quote is a definition here so definition-add needs to handle functions
+lexical-alias quote %%quote
+define read-eval-loop [
+    define quote-read-syntax? [
+        %%quote %%quote
+        %%quote definition-get uplevel
+        not not
+        swap drop
+    ]
+
+    define run-repl [
+        %%quote quote uplevel
+        eof-object? %%quote current-context-clear when
+        symbol?
+        %%quote call swap
+        %%quote drop swap
+        %%quote uplevel swap
+        %%quote swap when drop
+        call
+        %%quote run-repl definition-resolve swap drop
+        current-context-set-code
+    ]
+
+    define port-drop-char [ port-read-char drop ]
+
+    define port-drop-newline [
+        port-peek-char
+        #\newline equal?
+        bury drop drop
+        %%quote port-drop-char when
+    ]
+
+    define syntax-read [
+        source-input-port
+        port-has-data
+        %%quote port-drop-newline when
+        port-has-data not
+        swap drop
+        %%quote worst-repl-prompt when
+        source-input-port
+        port-read-value swap drop
+    ]
+
+        ; source-input-port
+        ; port-has-data
+        ; %%quote port-drop-newline when
+        ; interpreter-dump-stack
+        ; %%quote worst-repl-prompt when
+        ; source-input-port
+        ; port-read-value swap drop
+    ; ]
+
+    define quote [
+        %%quote %%quote
+        %%quote syntax-read
+        %%quote quote-read-syntax? uplevel
+        %%quote swap when
+        drop uplevel
+    ]
+    run-repl
+]
+
+lexical (read-eval-loop)
+lexical-alias quote %%quote
 define worst-repl [
+    define source-input-port [ current-input-port ]
     define syntax-read [
         source-input-port port-has-char? if [
             port-peek-char equals? #\newline swap drop if [
@@ -95,36 +162,35 @@ define worst-repl [
     ; Unwinds stack to toplevel (wherever %%repl is defined)
     define %abort-to-repl [
         ; interpreter-dump-stack
-        builtin-quote %%repl
-        builtin-quote definition-exists uplevel swap drop
+        %%quote %%repl
+        %%quote definition-exists uplevel swap drop
         if [] [
-            [current-context-remove-children builtin-quote %abort-to-repl uplevel]
-            builtin-quote current-context-set-code
-            builtin-quote uplevel
-            builtin-quote uplevel
+            [current-context-remove-children %%quote %abort-to-repl uplevel]
+            %%quote current-context-set-code
+            %%quote uplevel
+            %%quote uplevel
             uplevel
         ]
     ]
 
-    define current-error-handler [
-        define current-output-port [current-error-port]
-        ansi [
-            ->string
-            " " string-append
-            "Error: " swap string-append
-            bold bright red fg print
-            current-output-port swap port-write-value drop
-            reset "\n" print
-        ]
-        updo %abort-to-repl
-    ]
+    ; define current-error-handler [
+    ;     define current-output-port [current-error-port]
+    ;     ansi [
+    ;         ->string
+    ;         " " string-append
+    ;         "Error: " swap string-append
+    ;         bold bright red fg print
+    ;         current-output-port swap port-write-value drop
+    ;         reset "\n" print
+    ;     ]
+    ;     updo %abort-to-repl
+    ; ]
+
     define quote-read-syntax? [
-        builtin-quote %%repl
-        builtin-quote definition-exists uplevel
+        %%quote %%repl
+        %%quote definition-exists uplevel
         swap drop
     ]
-    current-input-port [] swap list-push
-    builtin-quote source-input-port definition-add
     ansi [
         "Welcome to the Worst interactive environment. Type " print
         bright yellow fg "help" print

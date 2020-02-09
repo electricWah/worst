@@ -47,10 +47,34 @@ define-racket-builtin neg
 export-name add
 export-name neg
 
+define-racket-builtin string-length
+    (lambda (c s) (values c (cons (string-length (stack-top s string?)) s)))
+
+define-racket-builtin string-ref
+    (lambda (c s)
+      (let ([k (stack-top s exact-nonnegative-integer?)]
+            [v (stack-top (cdr s) string?)])
+        (values c (cons (string-ref v k) s))))
+
+define-racket-builtin string-push
+    (lambda (c s)
+      (let ([chr (stack-top s char?)]
+            [str (stack-top (cdr s) string?)])
+        (values c (cons (string-append str (string chr)) (cddr s)))))
+
 define-racket-builtin string->symbol
     (lambda (c s) (values c (cons (string->symbol (stack-top s string?)) (cdr s))))
 
+export-name string-length
+export-name string-ref
+export-name string-push
 export-name string->symbol
+
+define-racket-builtin char-whitespace?
+    (lambda (c s)
+      (values c (cons (char-whitespace? (stack-top s char?)) s)))
+
+export-name char-whitespace?
 
 define-racket-builtin port-has-char?
     (lambda (c s) (values c (cons (char-ready? (stack-top s input-port?)) s)))
@@ -129,41 +153,41 @@ define-racket-builtin current-context-remove-children
 
 export-name current-context-remove-children
 
-define-racket-builtin hash-table?
+define-racket-builtin map?
     (lambda (c s) (values c (cons (hash? (stack-top s)) s)))
-define-racket-builtin hash-table-empty
+define-racket-builtin map-empty
     (lambda (c s) (values c (cons (hash) s)))
-define-racket-builtin hash-table-keys
+define-racket-builtin map-keys
     (lambda (c s) (values c (cons (hash-keys (stack-top s hash?)) s)))
-define-racket-builtin hash-table-exists
+define-racket-builtin map-exists
     (lambda (c s)
       (let ([k (stack-top s)]
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-has-key? h k) s))))
-define-racket-builtin hash-table-get
+define-racket-builtin map-get
     (lambda (c s)
       (let ([k (stack-top s)]
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-ref h k #f) s))))
-define-racket-builtin hash-table-set
+define-racket-builtin map-set
     (lambda (c s)
       (let ([v (stack-top s)]
             [k (stack-top (cdr s))]
             [h (stack-top (cddr s) hash?)])
         (values c (cons (hash-set h k v) (cdddr s)))))
-define-racket-builtin hash-table-remove
+define-racket-builtin map-remove
     (lambda (c s)
       (let ([k (stack-top s)]
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-remove h k) (cddr s)))))
 
-export-name hash-table?
-export-name hash-table-empty
-export-name hash-table-exists
-export-name hash-table-get
-export-name hash-table-set
-export-name hash-table-keys
-export-name hash-table-remove
+export-name map?
+export-name map-empty
+export-name map-exists
+export-name map-get
+export-name map-set
+export-name map-keys
+export-name map-remove
 
 ; Places - A place is a mutable storage location
 ; capable of storing exactly one item.

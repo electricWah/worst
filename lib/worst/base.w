@@ -51,5 +51,35 @@ export-name do-times
 define print [ current-output-port swap port-write-string drop ]
 export-name print
 
+define definition-exists [
+    updo definition-get not not
+]
+export-name definition-exists
+
+; name new-name definition-rename
+define definition-rename [
+    const new-name
+    const name
+    name updo definition-get
+    false? if ["definition-rename: does not exist" abort] []
+    swap drop new-name
+    updo definition-add
+    name updo definition-remove
+]
+export-name definition-rename
+
+; name definition-copy-up
+; copies the definition into the parent scope
+define definition-copy-up [
+    const name
+    name updo definition-get
+    false? if ["definition-copy-up: does not exist" abort] []
+    swap
+    quote definition-add
+    quote uplevel
+    uplevel
+]
+export-name definition-copy-up
+
 ; vi: ft=scheme
 

@@ -73,9 +73,9 @@ define doc-eval [
 define-attribute documentation [
     args (doc-body)
     before [
-        const body const name
+        const name const def-body
         name doc-body documentation-set
-        name body
+        def-body name
     ]
 ]
 
@@ -87,7 +87,7 @@ lexical (%docs)
 define documented-names [ %docs keys ]
 
 lexical (%tag-docs)
-define doc-tags [ %tag-docs ->hash-table ]
+define doc-tags [ %tag-docs ->map ]
 
 lexical (%tag-docs)
 define doc-tag? [ %tag-docs has ]

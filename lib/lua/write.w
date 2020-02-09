@@ -15,6 +15,7 @@
 ; expr var assign -> var ; var = expr
 ; variable/uninit -> var ; local var
 ; expr variable -> var ; local var = expr
+; expr count variable/n -> var ; local var,...count = expr
 ; [expr...] returns -> return expr, ...
 ; count return/n -> return expr,...count
 ; c [tbody...] [fbody...] if-else -> if (c) then tbody... else fbody... end
@@ -24,6 +25,13 @@
 ; [args...] name funcall -> name(args, ...)
 ; expr1 expr2 binop op -> (expr1 op expr2)
 ; break -> break
+; expr1 expr2 table-index -> expr1[expr2]
+; expr name table-dot -> expr.name
+; expr name table-colon -> expr:name
+; expr dot field-name -> expr.field-name
+; [args ...] expr method-call field-name -> expr:field-name(args...)
+; TODO
+; [k1 v1 k2 v2 ...] table-literal -> { k1 = v1, k2 = v2, ... }
 ; everything else is just run as normal code
 define lua-write [
     import syntax/variable
@@ -106,10 +114,41 @@ define lua-write [
     ]
 
     define funcall [
-        ->string swap
+        ->expr expr->string swap
         tuple->string string-append
         make-expr
     ]
+
+    define table-dot [
+        ->string const name
+        ->expr expr->string
+        "." string-append
+        name string-append
+        make-expr
+    ]
+    define dot [ upuote table-dot ]
+
+    define table-colon [
+        ->string const name
+        ->expr expr->string
+        ":" string-append
+        name string-append
+        make-expr
+    ]
+    define method-call [ upquote table-colon funcall ]
+
+    define table-index [
+        ->expr expr->string
+        "[" swap string-append
+        "]" string-append
+        swap ->expr expr->string
+        swap string-append
+        make-expr
+    ]
+
+    ; define table-literal [
+    ;     wrap-braces make-expr
+    ; ]
 
     define variable/uninit [
         quote v gensym ->string const var
@@ -128,6 +167,23 @@ define lua-write [
         ->expr expr->string emit
         emit-done
         var make-expr
+    ]
+
+    define variable/n [
+        const n
+        [] n do-times [
+            gensym ->string
+            swap list-push
+        ]
+        const vars
+        emit-indent
+        "local " emit
+        list-csv->string emit
+        " = " emit
+        ->expr expr->string emit
+        emit-done
+        ; TODO may need reversing
+        vars list-iterate [ make-expr ]
     ]
 
     define assign [

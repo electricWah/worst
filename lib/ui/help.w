@@ -60,8 +60,9 @@ define help [
     ]
 
     define show-tags [
+        "Showing tags" interpreter-dump-stack drop
         ansi [
-            doc-tags hash-table-keys
+            doc-tags map-keys
             swap drop
             list-length ->string
             bold cyan fg print
@@ -73,7 +74,7 @@ define help [
     define print-tag [
         const tag
         ansi [
-            doc-tags tag hash-table-get
+            doc-tags tag map-get
             dig drop
             list-length ->string
             bold cyan fg print

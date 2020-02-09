@@ -10,16 +10,8 @@ More information is available on
 
 ## Setup
 
-First, install [Racket](https://racket-lang.org/) (tested on version 7.2).
-Then run:
-```sh
-# Install remaining dependencies
-make deps
-# Compile the interpreter
-make rworst
-```
-
-Run `./worsti` to open the interactive interpreter.
+Run `rlwrap ./lworsti` to open the interactive interpreter.
+Requires LuaJIT.
 
 ## License
 

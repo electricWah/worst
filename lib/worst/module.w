@@ -6,6 +6,7 @@ import syntax/attribute
 import syntax/assign
 
 lexical (syntax-read)
+lexical-alias quote %%quote
 define load-eval-file [
     define run [
         define %%load-eval-file []
@@ -15,16 +16,16 @@ define load-eval-file [
         drop
     ]
     define quote-read-syntax? [
-        builtin-quote %%load-eval-file
-        builtin-quote definition-exists uplevel
+        %%quote %%load-eval-file
+        %%quote definition-exists uplevel
         swap drop
     ]
     open-input-file [] swap list-push
-    builtin-quote source-input-port definition-add
+    %%quote source-input-port definition-add
     run
 ]
 
-hash-table-empty variable %import-files
+map-empty variable %import-files
 
 ; Less basic import
 lexical (variable updo %import-files)
@@ -32,7 +33,7 @@ define import-file [
     resolve-import-path const %import-path
 
     %import-files get
-    %import-path hash-table-exists if [
+    %import-path map-exists if [
         drop drop
     ] [
         drop drop
@@ -54,30 +55,32 @@ define import-file [
         ; TODO make this an attribute
         define export-name [ upquote clone export-as ]
 
-        %import-path load-eval-file
+        %import-path read-file eval
+        ; %import-path load-eval-file ; TODO make this work again
 
         %import-files get
         %import-path
         %on-import-file-finished get
-        hash-table-set
+        map-set
         %import-files set
 
     ]
 
-    %import-files get %import-path hash-table-get swap drop swap drop eval
+    %import-files get %import-path map-get swap drop swap drop eval
 ]
 
+lexical ()
 define import [ upquote quote import-file uplevel ]
 
 lexical (%import-files)
 define import-forget [
-    %import-files get upquote resolve-import-path hash-table-remove
+    %import-files get upquote resolve-import-path map-remove
     %import-files set
 ]
 
 lexical (%import-files)
 define import-forget-all [
-    hash-table-empty %import-files set
+    map-empty %import-files set
 ]
 
 export-name load-eval-file

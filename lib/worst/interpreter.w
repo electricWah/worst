@@ -24,7 +24,7 @@
 define ctx-empty [
     import list
     list-quasiquote [
-        ~[hash-table-empty] ^[[] [] #f]
+        ~[map-empty] ^[[] [] #f]
     ]
 ]
 export-name ctx-empty
@@ -52,8 +52,8 @@ export-name ctx-parent-set
 ; 6 ctx-resolve if [ "got" ] [ "no 6" ]
 define ctx-resolve [
     const name
-    ctx-defs name hash-table-exists if [
-        hash-table-get
+    ctx-defs name map-exists if [
+        map-get
         bury drop drop
         #t
     ] [
@@ -72,7 +72,7 @@ define ctx-def-add [
     const name
     const val
 
-    ctx-defs name val hash-table-set
+    ctx-defs name val map-set
     ctx-defs-set
 ]
 export-name ctx-def-add
@@ -160,7 +160,7 @@ define-object-constructor make-interpreter [
     method defined? [
         const name
         %get ctx-defs swap drop
-        name hash-table-exists
+        name map-exists
         bury drop drop
     ]
 ]

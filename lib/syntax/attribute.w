@@ -8,8 +8,10 @@ define define-attribute [
     import list
     import syntax/variable
 
-    upquote const name
-    upquote const def-body
+    upquote const attr-name
+    upquote const attr-body
+
+    ; name def-body "attribute" interpreter-dump-stack drop drop drop
 
     [[]] variable %args
 
@@ -28,7 +30,7 @@ define define-attribute [
     [] variable %before
     define before [ upquote %before set ]
 
-    def-body eval
+    attr-body eval
 
     %args get
 
@@ -39,12 +41,13 @@ define define-attribute [
     ]
     list-append
 
-    name updo definition-add+attributes
+    attr-name updo definition-add+attributes
 ]
 export-name define-attribute
 
 define definition-add+attributes [
-    quote %before-define updo definition-get swap drop false? if [drop] [eval]
+    quote %before-define updo definition-get
+    swap drop false? if [drop []] [] eval
     quote %before-define updo definition-remove
     updo definition-add
 ]

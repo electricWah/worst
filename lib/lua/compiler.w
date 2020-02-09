@@ -203,19 +203,18 @@ define lua-compile [
         [compile-block-complete] interp enter
         #t uplevel-barrier interp def
         interp-builtin compile-block-complete [
-            ; easier to manage a single list result here
-            [] ; list these in reverse order
-            statements-get list-reverse list-push
-            stack-get list-push
-            inputs-get list-push
-            ; usage: this list-iterate [] => [inputs outputs body]
+            inputs-get list-length
+            stack-get
+            statements-get list-reverse
 
             ; get values from the current context
             ; discard the current context
             ; push the values to the (parent) context stack
             interp parent drop
 
-            stack-push
+            stack-push ; statements
+            stack-push ; outputs
+            stack-push ; input-length
         ]
         stack-take literal! list? const body
         [drop] emit-statement
@@ -224,10 +223,10 @@ define lua-compile [
         body interp enter
     ]
 
-    interp-builtin definition-add/compiled [
-        stack-take literal! list?
-        ; see compile-block compile-block-complete
-        list-iterate [] => [inputs outputs defbody]
+    interp-builtin compiled-definition-emit [
+        stack-take literal! number? const input-len
+        stack-take literal! number? const outputs
+        stack-take literal! list? const defbody
 
         stack-take literal! symbol? const name
         [drop] emit-statement
@@ -238,35 +237,49 @@ define lua-compile [
                 ~[outputs list-length swap drop]
                 ^[return/n]
             ]]
-            ~[inputs list-length swap drop]
+            ~[input-len swap drop]
             ^[quote] ~[name]
             ^[definition]
         ]
         emit-statement
         ; and then interp def with a call-this-definition ...
     ]
-    interp-builtin-def definition-add [
+
+    interp-builtin definition-add [
+        stack-take literal! symbol?
+        stack-take literal! list?
+
+        [interp enter] swap list-push
+        swap interp def
+    ]
+
+    interp-builtin definition-add/builtin [
+        stack-take literal! symbol?
+        stack-take literal! list?
+
+        swap interp def
+    ]
+
+    interp-builtin-def definition-add/compile [
         swap
         compile-block
-        definition-add/compiled
+        compiled-definition-emit
     ]
 
     ; TODO add if/else here
 
     interp-builtin compile-if-else [
-        stack-take literal! list?
-        list-iterate [] => [finputs foutputs fbody]
-        stack-take literal! list?
-        list-iterate [] => [tinputs toutputs tbody]
+        stack-take literal! number? const finlen
+        stack-take literal! list?   list-length const foutlen drop
+        stack-take literal! list?   const fbody
+
+        stack-take literal! number? const tinlen
+        stack-take literal! list? list-length const toutlen drop
+        stack-take literal! list? const tbody
 
         ; TODO if this is an actual bool, just emit the corresponding arm
         stack-take const c
         [const %ifcond] emit-statement
-
-        tinputs list-length const tinlen drop
-        toutputs list-length const toutlen drop
-        finputs list-length const finlen drop
-        foutputs list-length const foutlen drop
 
         ; ensure tin - tout = fin - fout so the stack is always the same
         tinlen toutlen neg add
@@ -334,24 +347,21 @@ define lua-compile [
     ]
 
     interp-builtin compile-while [
-        stack-take literal! list?
-        list-iterate [] => [bodyins bodyouts bodybody]
-        stack-take literal! list?
-        list-iterate [] => [condins condouts condbody]
+        stack-take literal! number? const bodyinlen
+        stack-take literal! list? list-length const bodyoutlen drop
+        stack-take literal! list? const bodybody
 
-        
-
-        condins list-length const condinlen drop
-        bodyins list-length const bodyinlen drop
+        stack-take literal! number? const condinlen
+        stack-take literal! list? list-length const condoutlen drop
+        stack-take literal! list? const condbody
 
         condinlen 1 add
-        condouts list-length swap drop
+        condoutlen
         equal? if [drop drop] [
             "while: cond arity must be (in + 1 = out)" abort
         ]
 
-        bodyinlen
-        bodyouts list-length swap drop
+        bodyinlen bodyoutlen
         equal? if [drop drop] [
             "while: body arity must be (in = out)" abort
         ]
@@ -418,5 +428,4 @@ define lua-compile [
 export-name lua-compile
 
 ; vi: ft=scheme
-
 
