@@ -47,6 +47,7 @@ define define-object-constructor [
                 define %get [ P place-get swap drop ]
                 define %set [ P swap place-set drop ]
                 definition-get false? if [
+                    dname %name
                     "not recognised" abort
                 ] [
                     swap drop eval

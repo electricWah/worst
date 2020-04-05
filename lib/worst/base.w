@@ -81,5 +81,29 @@ define definition-copy-up [
 ]
 export-name definition-copy-up
 
+; define-gensym name :-> name -> symbol
+define define-gensym [
+    upquote const name
+    [
+        ; silly but simple
+        const counter
+        const name
+        counter
+        place-get
+        1 add place-set
+        place-get swap drop
+        ->string
+        name swap string-append
+        string->symbol
+    ]
+    0 make-place list-push
+    name symbol->string list-push
+    name definition-add
+    name definition-copy-up
+]
+export-name define-gensym
+
+; TODO gensym
+
 ; vi: ft=scheme
 

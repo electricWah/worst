@@ -79,6 +79,14 @@ function List:pop()
     end
 end
 
+-- function List:index(n)
+--     if n < self.stacklen then
+--         return self.stack[self.stacklen - n]
+--     else
+--         return self.shared[self.sharedi + n - self.stacklen]
+--     end
+-- end
+
 function List:to_table()
     if self.stacklen == 0 then
         return { unpack(self.shared, self.sharedi) }

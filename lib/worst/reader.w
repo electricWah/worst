@@ -1,6 +1,31 @@
 
 ; reader: read basic Worst syntax from somewhere
 
+import syntax/struct
+
+define-struct-type reader [
+    fields [idx str datum state nest-data nest-info] [get set]
+    literal-constructor make-reader
+]
+
+define reader-empty [
+    make-reader [
+        idx 0
+        str ""
+        datum #f
+        state #f
+        nest-data []
+        nest-info []
+    ]
+]
+
+lexical (set-reader-str)
+define reader-read-string [ set-reader-str ]
+
+define reader-next [
+    ...
+]
+
 ; [input-idx input-string current-datum state nest-stack-data nest-stack-info]
 define reader-empty [[0 "" #f #f [] []]]
 export-name reader-empty

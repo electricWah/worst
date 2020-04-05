@@ -21,30 +21,49 @@
 ; ] []
 ; 
 
-define ctx-empty [
-    import list
-    list-quasiquote [
-        ~[map-empty] ^[[] [] #f]
-    ]
-]
-export-name ctx-empty
+import syntax/struct
 
-define ctx-defs [ import list 0 list-ref! ]
-export-name ctx-defs
-define ctx-defs-set [ 0 swap list-set ]
-export-name ctx-defs-set
-define ctx-body [ import list 1 list-ref! ]
-export-name ctx-body
-define ctx-body-set [ 1 swap list-set ]
-export-name ctx-body-set
-define ctx-childs [ import list 2 list-ref! ]
-export-name ctx-childs
-define ctx-childs-set [ 2 swap list-set ]
-export-name ctx-childs-set
-define ctx-parent [ import list 3 list-ref! ]
-export-name ctx-parent
-define ctx-parent-set [ 3 swap list-set ]
-export-name ctx-parent-set
+define-struct-type ctx [
+    fields (get set) [ defs body childs parent ]
+    literal-constructor ctx-make
+]
+
+lexical (ctx-make ctx-defs-set)
+define ctx-empty [
+    ctx-make [
+        body []
+        childs []
+        parent #f
+    ]
+    map-empty ctx-defs-set
+]
+
+; TODO destroy the below
+
+; define ctx-empty [
+;     import list
+;     list-quasiquote [
+;         ~[map-empty] ^[[] [] #f]
+;     ]
+; ]
+; export-name ctx-empty
+
+; define ctx-defs [ import list 0 list-ref! ]
+; export-name ctx-defs
+; define ctx-defs-set [ 0 swap list-set ]
+; export-name ctx-defs-set
+; define ctx-body [ import list 1 list-ref! ]
+; export-name ctx-body
+; define ctx-body-set [ 1 swap list-set ]
+; export-name ctx-body-set
+; define ctx-childs [ import list 2 list-ref! ]
+; export-name ctx-childs
+; define ctx-childs-set [ 2 swap list-set ]
+; export-name ctx-childs-set
+; define ctx-parent [ import list 3 list-ref! ]
+; export-name ctx-parent
+; define ctx-parent-set [ 3 swap list-set ]
+; export-name ctx-parent-set
 
 ; ctx thing ctx-resolve -> result #t
 ;                    or -> #f ; couldn't resolve

@@ -26,6 +26,10 @@ function Map:get(k)
     return self[k]
 end
 
+function Map:remove(k)
+    self[k] = nil
+end
+
 function Map:count()
     local c = 0
     for _ in pairs(self) do c = c + 1 end

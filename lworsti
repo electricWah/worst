@@ -91,6 +91,7 @@ import worst/module
 import syntax/attribute
 
 ; Interactive
+import doc
 import ui
 
 worst-repl

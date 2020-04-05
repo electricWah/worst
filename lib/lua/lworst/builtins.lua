@@ -164,6 +164,15 @@ mod["list-length"] = function(i, s)
     i:stack_push(s, l:length())
 end
 
+mod["list-ref"] = function(i, s)
+    local n = i:stack_ref(s, 1, "number")
+    if n < 0 and n ~= math.floor(n) then i:error("nonnegative-integer", n) end
+    local l = i:stack_ref(s, 2, List)
+    if n >= l:length() then i:error("out-of-range", n, l:length()) end
+
+    i:stack_push(s, l:index(n))
+end
+
 mod["env-get"] = function(i, s)
     local name = i:stack_ref(s, 1, "string")
     local value = os.getenv(name) or false
@@ -192,6 +201,16 @@ mod["definition-resolve"] = function(i, s)
     local name = i:stack_ref(s, 1, Symbol)
     local def = i:resolve(name) or false
     i:stack_push(s, def)
+end
+
+mod["string->symbol"] = function(i, s)
+    local v = i:stack_pop(s, "string")
+    i:stack_push(s, Symbol.new(v))
+end
+
+mod["symbol->string"] = function(i, s)
+    local v = i:stack_pop(s, Symbol)
+    i:stack_push(s, Symbol.unwrap(v))
 end
 
 mod["symbol?"] = function(i, s)
@@ -307,6 +326,11 @@ mod["place-set"] = function(i, s)
     p:set(v)
 end
 
+mod["map?"] = function(i, s)
+    local m = i:stack_ref(s, 1)
+    i:stack_push(s, Map.is(m))
+end
+
 mod["map-empty"] = function(i, s)
     i:stack_push(s, Map.empty())
 end
@@ -329,6 +353,12 @@ mod["map-get"] = function(i, s)
     local k = i:stack_ref(s, 1)
     local m = i:stack_ref(s, 2, Map)
     i:stack_push(s, m:get(k) or false)
+end
+
+mod["map-remove"] = function(i, s)
+    local k = i:stack_pop(s)
+    local m = i:stack_ref(s, 1, Map)
+    m:remove(k)
 end
 
 mod["map-keys"] = function(i, s)
