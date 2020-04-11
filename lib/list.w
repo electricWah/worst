@@ -5,12 +5,11 @@ export-name list-ref!
 
 ; [l...] list-iterate [ body ... ]
 define list-iterate [
-    import syntax/variable
-    variable %l
     upquote quote %body definition-add
-    while [%l get list-empty? not] [
-        list-pop swap %l set
+    while [list-empty? not] [
+        list-pop swap const %l
         %body
+        %l
     ]
     drop
 ]

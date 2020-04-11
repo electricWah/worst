@@ -1,0 +1,63 @@
+
+
+module {
+    export {
+        + -
+        ; if
+    }
+}
+
+; for builtins that may be overridden by later macro or function forms
+; - not the syntax/attribute lexical because they don't use define
+;   (maybe they could?) (but even if they did this is in the wrong context)
+define lexical [
+    upquote const overs
+    upquote const kind
+    upquote const name
+    upquote const args
+    upquote const body
+    
+    ; lexical <overs> define tmp <body>
+    ; (recover new <body>)
+    [define tmp]
+    [] body list-push
+    list-append
+    overs list-iterate [
+        definition-resolve
+        dig
+        quote definition-add list-push
+        dig list-push
+        quote quote list-push
+        swap list-push
+    ]
+    ; -> body
+    [quote tmp definition-get swap drop]
+    list-append
+    eval
+
+    const newbody
+
+    ; macro <name> <args> <tmp>
+    []
+    newbody list-push
+    args list-push
+    name list-push
+    kind list-push
+    eval
+]
+
+lexical (add)
+macro + (rhs) { rhs add }
+lexical (negate add)
+macro - (rhs) { rhs negate add }
+
+; lexical (eval swap when)
+; macro if (c t f) {
+;     c eval
+;     t f
+;     quote swap when
+;     eval
+; }
+
+; vi: ft=scheme
+

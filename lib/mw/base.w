@@ -1,4 +1,6 @@
 
+import list
+
 ; module {
 ;   import (name ...)
 ;   export (name ...)
@@ -16,22 +18,23 @@
 ;     and checks for dummy values (exported values that were never defined).
 ;   Duplicate definitions are an error.
 
-lexical (export-name)
+lexical (export-name import list-iterate if)
 define module [
-    import lib/dict
+    import dict
+    import syntax/variable
 
     upquote const %modbody
 
     [] variable %exports
 
-    ; override: .w -> .mw
-    define resolve-import-path [
+    ; resolve-import-path .w -> .mw
+    define resolve-mw-import-path [
         symbol? if [
             ->string
             WORST_LIBDIR "/" string-append
             swap string-append
             ".mw" string-append
-        ] [ "resolve-import-path: invalid" abort ]
+        ] [ ("resolve-import-path: invalid") abort ]
     ]
 
     define export [
@@ -40,18 +43,7 @@ define module [
             list-append
             %exports set
         ] [
-            "export name: not implemented"
-        ]
-    ]
-
-    define import [
-        upquote list? if [
-            list-iterate [
-                resolve-import-path
-                read-file eval
-            ]
-        ] [
-            "import name: not implemented"
+            ("export name: not implemented") abort
         ]
     ]
 
@@ -60,20 +52,50 @@ define module [
         %imports has if [
             %imports get false? if [
                 drop
-                definition-resolve
+                swap
                 %imports set
             ] [
-                "export: duplicate definition" abort
+                ("export: duplicate definition") abort
             ]
-        ] []
+        ] [
+            drop
+        ]
+    ]
+
+    lexical (import)
+    define import [
+        upquote
+        list? if [
+            list-iterate [
+                resolve-mw-import-path
+                read-file eval
+            ]
+        ] [
+            ("import name: not implemented") swap list-push abort
+        ]
     ]
 
     dict %imports
     %modbody eval
-    %imports ->map updo definition-import-map
+
+    ; take imports and make them available in the calling scope for module
+    %imports keys list-iterate [
+        %imports get swap
+        quote definition-add
+        ; add uplevels until it works
+        ; (.. > module > modbody eval > list-iterate > while > .)?
+        quote uplevel
+        quote uplevel
+        quote uplevel
+        quote uplevel
+        quote uplevel
+        quote uplevel
+        uplevel
+    ]
+
     quote %imports definition-remove
     ; now %imports should refer to the importing module
-    %exports list-iterate [ #f %imports set ]
+    %exports get list-iterate [ #f %imports set ]
 ]
 export-name module
 
@@ -84,49 +106,77 @@ export-name <-
 ; butchered from syntax/function
 ; function name (args ...) { body ... }
 ; name(args ...)
+lexical (import list-iterate if)
 define function [
-    import list
     upquote const name
     upquote const args
     upquote const body
 
     body
-    ; make body get args
+    ; make body get args and eval them
     args list-iterate [
         list-push
         quote const list-push
     ]
-    ; eval arg list
     quote eval list-push
     quote upquote list-push
 
-    name updo definition-add
+    ; add meta information:
+    ; [%meta function <name> <args>] drop
+    quote drop list-push
+    [function %meta]
+    name list-push
+    args list-push
+    list-reverse
+    list-push
+
+    const body
 
     quote %maybe-export definition-resolve swap drop
-    false? if [drop] [ drop name %maybe-export ]
+    false? if [drop] [
+        drop body name %maybe-export
+    ]
+
+    body name updo definition-add
 ]
 export-name function
 
 ; mildly different to function
 ; macro name (args ...) { body ... }
 ; name args ...
+lexical (import list-iterate if)
 define macro [
-    import list
     upquote const name
     upquote const args
     upquote const body
 
     body
     ; make body get args
+    ; macro name(arg) { } -> [ quote evaluate uplevel const arg ]
     args list-reverse list-iterate [
-        list-push
-        quote const list-push
-        quote upquote list-push
+        [const uplevel evaluate quote]
+        swap list-push
+        list-reverse
+        swap list-append
     ]
 
-    name updo definition-add
+    ; add meta
+    ; [%meta macro <name> <args>] drop
+    quote drop list-push
+    [macro %meta]
+    name list-push
+    args list-push
+    list-reverse
+    list-push
+
+    const body
+
     quote %maybe-export definition-resolve swap drop
-    false? if [drop] [ drop name %maybe-export ]
+    false? if [drop] [
+        drop body name %maybe-export
+    ]
+
+    body name updo definition-add
 ]
 export-name macro
 

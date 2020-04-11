@@ -125,6 +125,16 @@ mod["add"] = function(i, s)
     i:stack_push(s, a + b)
 end
 
+mod["negate"] = function(i, s)
+    local a = i:stack_pop(s, "number")
+    i:stack_push(s, -a)
+end
+
+mod["list?"] = function(i, s)
+    local v = i:stack_ref(s, 1)
+    i:stack_push(s, List.is(v))
+end
+
 mod["list-empty?"] = function(i, s)
     local l = i:stack_ref(s, 1, List)
     local len = l:length()

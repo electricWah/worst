@@ -11,6 +11,7 @@ local Interpreter = {}
 Interpreter.__index = Interpreter
 
 Interpreter.ERROR_HANDLER = "current-error-handler"
+Interpreter.RESOLVE_HANDLER = "current-resolve-handler"
 
 function Interpreter:reset()
     self.defs = {}
@@ -44,12 +45,14 @@ function Interpreter:clone()
     return r
 end
 
-function Interpreter:resolve(name)
+function Interpreter:resolve(name, use_resolver)
     if Symbol.is(name) then name = Symbol.unwrap(name) end
     if self.defs[name] ~= nil then
         return self.defs[name]
+    elseif use_resolver and self.defs[Interpreter.RESOLVE_HANDLER] then
+        return self.defs[Interpreter.RESOLVE_HANDLER], true
     elseif self.parent then
-        return self.parent:resolve(name)
+        return self.parent:resolve(name, use_resolver)
     else
         return nil
     end
@@ -178,10 +181,11 @@ end
 function Interpreter:call(stack, name)
     -- print("call", name)
     if Symbol.is(name) then name = Symbol.unwrap(name) end
-    local def = self:resolve(name)
+    local def, was_handled = self:resolve(name, true)
     if def == nil then
         return self:handle_error(stack, "undefined", name)
     end
+    if was_handled then stack:push(Symbol.new(name)) end
     self:eval(stack, def, name)
 end
 
