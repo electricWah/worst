@@ -1,5 +1,7 @@
 
 import list
+import dict
+; import mw/mdefn
 
 ; module {
 ;   import (name ...)
@@ -18,10 +20,19 @@ import list
 ;     and checks for dummy values (exported values that were never defined).
 ;   Duplicate definitions are an error.
 
-lexical (export-name import list-iterate if)
+dict %mw-imports
+
+lexical (%mw-imports export-name import list-iterate if)
 define module [
     import dict
     import syntax/variable
+
+    ; %mw-imports: cache dict (path -> dict (symbol -> def))
+    ; %exports: list of symbols this module will be exporting.
+    ; %module-imports: dict of defs this module will be importing.
+    ; %imports: dict added to by inner import when exporting
+    ;  which is added to %mw-imports on first import
+    ;  and absorbed into %module-imports
 
     upquote const %modbody
 
@@ -31,7 +42,7 @@ define module [
     define resolve-mw-import-path [
         symbol? if [
             ->string
-            WORST_LIBDIR "/" string-append
+            WORST_LIBDIR "/mw/" string-append
             swap string-append
             ".mw" string-append
         ] [ ("resolve-import-path: invalid") abort ]
@@ -48,39 +59,95 @@ define module [
     ]
 
     ; body name %maybe-export
+    ; only exports if it is being imported (%imports exists)
     define %maybe-export [
-        %imports has if [
-            %imports get false? if [
-                drop
-                swap
-                %imports set
+        const name const body
+        body name
+        quote %imports definition-resolve swap drop
+        false? swap drop if [] [
+            %imports has if [
+                %imports get false? if [
+                    drop
+                    swap
+                    %imports set
+                ] [
+                    ("export: duplicate definition") abort
+                ]
             ] [
-                ("export: duplicate definition") abort
+                drop drop
             ]
-        ] [
-            drop
+            body name
         ]
     ]
+
+    define %on-definition-add [ ]
+    define %after-definition-add [
+        definition-resolve swap
+        %maybe-export
+        drop drop
+    ]
+
+    define reload [
+        %mw-imports keys list-iterate [
+            %mw-imports remove
+        ]
+    ]
+
+    dict %module-imports
 
     lexical (import)
     define import [
         upquote
         list? if [
             list-iterate [
-                resolve-mw-import-path
-                read-file eval
+                resolve-mw-import-path const path
+                path %mw-imports has if [
+                    %mw-imports get swap drop
+                    map-keys
+                    list-iterate [ map-get %module-imports set ]
+                    drop
+                ] [
+                    dict %imports
+                    read-file eval
+
+                    map-empty
+                    %imports keys list-iterate [
+                        %imports get false? if [
+                            drop
+                            ("export: not defined") swap list-push abort
+                        ] [
+                            map-set
+                        ]
+                    ]
+
+                    path swap %mw-imports set
+                    path %mw-imports get swap drop
+                    map-keys
+                    list-iterate [ map-get %module-imports set ]
+                    drop
+                ]
             ]
         ] [
             ("import name: not implemented") swap list-push abort
         ]
     ]
 
-    dict %imports
+    define imports->map [
+        dict ret
+        %module-imports keys list-iterate [
+            const k
+            k %module-imports get
+            ret set
+            k %module-imports remove
+        ]
+        ret ->map
+    ]
+
     %modbody eval
 
     ; take imports and make them available in the calling scope for module
-    %imports keys list-iterate [
-        %imports get swap
+    %module-imports keys list-iterate [
+        %module-imports get swap
         quote definition-add
         ; add uplevels until it works
         ; (.. > module > modbody eval > list-iterate > while > .)?
@@ -93,8 +160,7 @@ define module [
         uplevel
     ]
 
-    quote %imports definition-remove
-    ; now %imports should refer to the importing module
+    ; prepare to export using %maybe-export
     %exports get list-iterate [ #f %imports set ]
 ]
 export-name module
@@ -103,49 +169,74 @@ import syntax/assign
 quote := quote <- definition-rename
 export-name <-
 
+lexical (import)
+define mdefn-eval [
+    ; import mw/mdefn
+    mdefn-cbody swap drop
+    ; quote eval quote uplevel uplevel
+    quote eval uplevel
+]
+; export-name mdefn-eval
+
 ; butchered from syntax/function
 ; function name (args ...) { body ... }
 ; name(args ...)
-lexical (import list-iterate if)
+lexical (list-iterate)
 define function [
+    ; import mw/mdefn
+    ; import overrides this
+    quote on-mdefn-created definition-remove
+
     upquote const name
     upquote const args
     upquote const body
 
+    ; prepend evaling args to body to get cbody
     body
-    ; make body get args and eval them
     args list-iterate [
         list-push
         quote const list-push
     ]
     quote eval list-push
     quote upquote list-push
+    const cbody
 
-    ; add meta information:
-    ; [%meta function <name> <args>] drop
-    quote drop list-push
-    [function %meta]
-    name list-push
-    args list-push
-    list-reverse
-    list-push
+;     mdefn-empty
+;     mdefn-kind-set-function
+;     name mdefn-name-set
+;     args mdefn-args-set
+;     body mdefn-body-set
+;     cbody mdefn-cbody-set
 
-    const body
+;     quote on-mdefn-created definition-resolve swap drop
+;     false? swap drop if [] [ on-mdefn-created ]
 
-    quote %maybe-export definition-resolve swap drop
-    false? if [drop] [
-        drop body name %maybe-export
-    ]
+;     [quote mdefn-eval uplevel] swap list-push
+;     const fbody
 
-    body name updo definition-add
+    cbody const fbody
+
+    fbody name 
+    quote %before-definition-add definition-resolve swap drop
+    false? swap drop if [] [ %before-definition-add ]
+
+    updo definition-add+attributes
+
+    quote %after-definition-add definition-resolve swap drop
+    false? swap drop if [] [ name %after-definition-add ]
 ]
 export-name function
 
 ; mildly different to function
 ; macro name (args ...) { body ... }
 ; name args ...
-lexical (import list-iterate if)
+; if any of args are in an additional list, do not evaluate it.
+; i.e. macro function([name] args body) { ... }
+lexical (list-iterate)
 define macro [
+    ; import mw/mdefn
+    quote on-mdefn-created definition-remove
+
     upquote const name
     upquote const args
     upquote const body
@@ -154,32 +245,47 @@ define macro [
     ; make body get args
     ; macro name(arg) { } -> [ quote evaluate uplevel const arg ]
     args list-reverse list-iterate [
-        [const uplevel evaluate quote]
-        swap list-push
-        list-reverse
-        swap list-append
+        list? if [
+            list-reverse list-iterate [
+                [const uplevel quote quote]
+                swap list-push
+                list-reverse
+                swap list-append
+            ]
+        ] [
+            [const uplevel evaluate quote]
+            swap list-push
+            list-reverse
+            swap list-append
+        ]
     ]
+    const cbody
 
-    ; add meta
-    ; [%meta macro <name> <args>] drop
-    quote drop list-push
-    [macro %meta]
-    name list-push
-    args list-push
-    list-reverse
-    list-push
+;     mdefn-empty
+;     mdefn-kind-set-macro
+;     name mdefn-name-set
+;     args mdefn-args-set
+;     body mdefn-body-set
+;     cbody mdefn-cbody-set
 
-    const body
+;     quote on-mdefn-created definition-resolve swap drop
+;     false? swap drop if [] [ on-mdefn-created ]
 
-    quote %maybe-export definition-resolve swap drop
-    false? if [drop] [
-        drop body name %maybe-export
-    ]
+;     [quote mdefn-eval uplevel] swap list-push
+;     const fbody
 
-    body name updo definition-add
+    cbody const fbody
+
+    fbody name 
+    quote %before-definition-add definition-resolve swap drop
+    false? swap drop if [] [ %before-definition-add ]
+
+    updo definition-add+attributes
+
+    quote %after-definition-add definition-resolve swap drop
+    false? swap drop if [] [ name %after-definition-add ]
 ]
 export-name macro
-
 
 ; vi: ft=scheme
 

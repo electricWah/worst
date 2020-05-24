@@ -209,12 +209,15 @@ end
 function Interpreter:stack_pop(stack, ty)
     local v = stack:pop()
     if v == nil then self:error("stack-empty") end
-    if ty ~= nil and (Type.is(ty) and not ty.is(v)) and (type(v) ~= ty) then
-        -- print("Stack:", unpack(stack))
-        self:error("wrong-type", ty, v)
-    else
-        return v
+    if ty ~= nil then
+        if type(v) == ty then
+        elseif Type.is(ty) and ty.is(v) then
+        else
+            self:error("wrong-type", ty, v)
+        end
     end
+
+    return v
 end
 
 function Interpreter:step(stack)

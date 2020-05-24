@@ -30,15 +30,38 @@ export-name function
 export-name macro
 export-name <-
 
-;; Lexical-ify Mw
-; - identify functions and macros by a signature
-;   [%meta (function|macro) <name> <args>] drop
-; - eval the current body with a current-resolve-handler that checks the name
-;   - function: resolve and record its definition
-;   - macro: eval it
-;   - otherwise just resolve and call it
-; - take all recorded functions and put them at the top of the function
-; - is that it?
+; import mw/mdefn
+; export-name mdefn-eval
+
+; import mw in the repl will break everything
+; as it will redefine several words such as if and import.
+; Detect a repl and import mw/repl instead.
+quote %%repl definition-resolve false? if [
+    drop drop
+    ; ???
+] [
+    drop drop
+    ; module {
+    ;     import {
+    ;         builtins
+    ;         ; lexical-module
+    ;         ui/repl
+    ;     }
+    ; }
+
+    ; function cool(a b) {
+    ;     a + b
+    ;     a - b
+    ; }
+
+    ; (a b) <- cool(5 6)
+
+    ; a b
+
+    ; cool()
+
+;     read-eval-loop()
+]
 
 ;; Lexical-ify Worst
 ; Might as well just compile it to itself

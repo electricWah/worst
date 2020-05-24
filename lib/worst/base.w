@@ -3,7 +3,7 @@ define abort [ quote abort current-error-handler ]
 export-name abort
 
 ; evaluate = quote; call if symbol
-define evaluate [ upquote symbol? if [quote call] [[] quote eval] uplevel ]
+define evaluate [ upquote symbol? quote call quote when uplevel ]
 export-name evaluate
 
 ; a equals? b => a bool
@@ -104,6 +104,14 @@ define define-gensym [
 export-name define-gensym
 
 ; TODO gensym
+
+define stack-swap [
+    const new
+    interpreter-stack const old
+    new interpreter-stack-set
+    old
+]
+export-name stack-swap
 
 ; vi: ft=scheme
 

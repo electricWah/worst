@@ -67,6 +67,10 @@ function Stack:pop()
     return table.remove(self)
 end
 
+function Stack:length()
+    return #self
+end
+
 local Place = Type.new("place")
 Place.__tostring = function(p)
     return "Place(" .. tostring(p.v) .. ")"

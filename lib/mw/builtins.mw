@@ -1,63 +1,156 @@
 
-
 module {
     export {
         + -
+        = !=
+        ; || &&
+        > <
         ; if
+        case
+        var get set
+
+        getdef adddef redef updef undef
+
+        do
+
+        @: @. @@
+        @length @?
+        decons
+        unpack
+
+        mempty mis?
+        mkeys
+        mget mset! mhas
+        m. m=
+
+        $! $+
     }
 }
 
-; for builtins that may be overridden by later macro or function forms
-; - not the syntax/attribute lexical because they don't use define
-;   (maybe they could?) (but even if they did this is in the wrong context)
-define lexical [
-    upquote const overs
-    upquote const kind
-    upquote const name
-    upquote const args
-    upquote const body
-    
-    ; lexical <overs> define tmp <body>
-    ; (recover new <body>)
-    [define tmp]
-    [] body list-push
-    list-append
-    overs list-iterate [
-        definition-resolve
-        dig
-        quote definition-add list-push
-        dig list-push
-        quote quote list-push
-        swap list-push
-    ]
-    ; -> body
-    [quote tmp definition-get swap drop]
-    list-append
-    eval
-
-    const newbody
-
-    ; macro <name> <args> <tmp>
-    []
-    newbody list-push
-    args list-push
-    name list-push
-    kind list-push
-    eval
-]
+; import mw/interop
 
 lexical (add)
 macro + (rhs) { rhs add }
-lexical (negate add)
+; lexical (negate add)
 macro - (rhs) { rhs negate add }
 
-; lexical (eval swap when)
-; macro if (c t f) {
-;     c eval
-;     t f
-;     quote swap when
-;     eval
+; lexical (equal? bury drop)
+macro = (rhs) { rhs equal? bury drop drop }
+macro != (rhs) { rhs equal? not bury drop drop }
+; macro || (rhs) { rhs or bury drop drop }
+; macro && (rhs) { rhs and bury drop drop }
+macro > (rhs) { rhs ascending? }
+macro < (rhs) { rhs swap ascending? }
+
+; lexical (eval dig quote swap when)
+; macro if (c t f) { c eval t f dig quote swap when eval }
+
+; case {
+;    (-> bool) { do-if-true }
+;    (a > b) { print("a was bigger than b") } ; eg.
+;    ...
+;    #t { default } ; optional
 ; }
+macro case(arms) {
+    [%cond-arms] <- var arms
+    while (get %cond-arms != []) {
+        [%arms] <- get %cond-arms
+        [%c %rest] <- decons(%arms)
+        [%t %rest] <- decons(%rest)
+        %c eval if {
+            %t eval
+            set %cond-arms []
+        } {
+            set %cond-arms %rest
+        }
+    }
+}
+
+; (v) <- var value
+; (value) <- get v
+; set v newvalue
+; lexical (make-place)
+macro var (v) { v make-place }
+; lexical (place-get swap drop)
+macro get (v) { v place-get swap drop }
+; lexical (place-get drop)
+macro set (v val) { v val place-set drop }
+
+; lexical (definition-resolve)
+function getdef(name) { name definition-resolve swap drop }
+
+; lexical (quote definition-add uplevel)
+function adddef (name body) { body name quote definition-add uplevel }
+
+; lexical (definition-resolve swap drop quote definition-add uplevel)
+function redef (old new) {
+    old definition-resolve
+    swap drop new
+    quote definition-add
+    uplevel
+}
+
+; lexical (definition-resolve swap quote definition-add uplevel)
+function updef (n) {
+    n definition-resolve swap
+    quote definition-add
+    quote uplevel
+    uplevel
+}
+
+function undef(n) { n updo definition-remove }
+
+; macros are left-to-right, so 1 @: 2 @: [] is (1 @: 2) @: []
+; lexical (list-push)
+macro @:(l) { l swap list-push }
+
+; infix list-append
+; lexical (list-append)
+macro @@(l) { l list-append }
+
+; @ is apparently the list sigil
+function @length(l) { l list-length swap drop }
+function @?(l) { l list? swap drop }
+
+; reversed cons
+; [1 2] @. 3 @. 4 -> [1 2 3 4]
+; lexical (list-push list-append)
+macro @.(b) { [] b list-push list-append }
+
+; deconstruct a list
+; [x xs] <- unpair([1 2 3])
+; -> x = 1, xs = [2 3]
+; lexical (list-pop swap)
+function decons(l) { l list-pop swap }
+
+; lexical (if)
+function unpack(l) {
+    l = [] if [ ] [
+        [x xs] <- decons(l)
+        x
+        unpack(xs)
+    ]
+}
+
+; this only works because of how arguments are evaluated
+function do(){}
+
+; maps
+macro mempty() { map-empty }
+function mis?(m) { m map? swap drop }
+function mkeys(m) { m map-keys swap drop }
+function mget(m k) { m k map-get bury drop drop }
+function mset!(m k v) { m k v map-set drop }
+function mhas(m k) { m k map-exists bury drop drop }
+
+lexical (map-get)
+macro m.([k]) { k map-get bury drop drop }
+lexical (map-set)
+macro m=([k] v) { k v map-set drop }
+
+lexical (string-append)
+macro $+(rhs) { rhs string-append }
+macro $!(v) { v ->string }
 
 ; vi: ft=scheme
 

@@ -122,7 +122,15 @@ function Equal.equal_for(t, equal)
     Equal:install_method(t, "equal", equal)
 end
 
-function Equal.equal(a, b) return Equal:call("equal", a, b) end
+function Equal.equal(a, b)
+    if Equal:can(a) then
+        return Equal:call("equal", a, b)
+    elseif Equal:can(b) then
+        return Equal:call("equal", b, a)
+    else
+        return a == b
+    end
+end
 
 return {
     Type = Type,

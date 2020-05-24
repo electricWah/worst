@@ -2,6 +2,7 @@
 local base = require("base")
 local Type = base.Type
 local ToString = base.ToString
+local Equal = base.Equal
 
 -- Immutable lists with a shareable, immutable region and a mutable stack
 
@@ -13,6 +14,22 @@ ToString.terse_for(List, function(l)
         table.insert(acc, ToString.terse(v))
     end
     return "(" .. table.concat(acc, " ") .. ")"
+end)
+
+Equal.equal_for(List, function(a, b)
+    local alen = a:length()
+    if not List.is(b) then return false
+    elseif alen ~= b:length() then return false
+    elseif alen == 0 then return true
+    else
+        for i = 0, alen do
+            local av = a:index(i)
+            local bv = b:index(i)
+            local e = Equal.equal(av, bv)
+            if not e then return false end
+        end
+        return true
+    end
 end)
 
 List.__tostring = function(l) return ToString.terse(l) end
@@ -79,13 +96,13 @@ function List:pop()
     end
 end
 
--- function List:index(n)
---     if n < self.stacklen then
---         return self.stack[self.stacklen - n]
---     else
---         return self.shared[self.sharedi + n - self.stacklen]
---     end
--- end
+function List:index(n)
+    if n < self.stacklen then
+        return self.stack[self.stacklen - n]
+    else
+        return self.shared[self.sharedi + n - self.stacklen]
+    end
+end
 
 function List:to_table()
     if self.stacklen == 0 then

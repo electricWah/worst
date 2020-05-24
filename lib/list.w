@@ -15,6 +15,23 @@ define list-iterate [
 ]
 export-name list-iterate
 
+; [l...] list-map [ body : l -> l' ] -> [l' ...]
+define list-map [
+    upquote quote %body definition-add
+    [] swap ; acc
+    while [list-empty? not] [
+        list-pop swap const %l
+        swap const %acc
+        %body
+        %acc swap list-push
+        %l
+    ]
+    drop
+    list-reverse
+]
+export-name list-map
+
+
 ; [a1 a2 ...] [b1 b2 ...] list-zip -> [[a1 b1] [a2 b2] ...]
 define list-zip [
     import syntax/variable
@@ -30,19 +47,6 @@ define list-zip [
     drop drop acc get list-reverse
 ]
 export-name list-zip
-
-; [l...] list-map [ body : l -> l' ] -> [l' ...]
-define list-map [
-    import syntax/variable
-    upquote const body
-    [] variable %acc
-    list-iterate [
-        body eval
-        %acc get swap list-push %acc set
-    ]
-    %acc get list-reverse
-]
-export-name list-map
 
 ; list-quasiquote( ^[literal-list] *[list-expr] ~[single-value-expr] ... )
 define list-quasiquote [

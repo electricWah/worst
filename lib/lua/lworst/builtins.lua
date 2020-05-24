@@ -55,13 +55,8 @@ end
 mod["equal?"] = function(i, s)
     local b = i:stack_ref(s, 1)
     local a = i:stack_ref(s, 2)
-    if Equal:can(a) then
-        i:stack_push(s, Equal.equal(a, b))
-    else
-        i:stack_push(s, a == b)
-    end
+    i:stack_push(s, Equal.equal(a, b))
 end
-
 
 mod["clone"] = function(i, s)
     local v = i:stack_ref(s, 1)
@@ -128,6 +123,12 @@ end
 mod["negate"] = function(i, s)
     local a = i:stack_pop(s, "number")
     i:stack_push(s, -a)
+end
+
+mod["ascending?"] = function(i, s)
+    local a = i:stack_pop(s, "number")
+    local b = i:stack_pop(s, "number")
+    i:stack_push(s, b > a)
 end
 
 mod["list?"] = function(i, s)
@@ -251,11 +252,15 @@ mod["interpreter-stack"] = function(i, s)
 end
 
 mod["interpreter-stack-set"] = function(i, s)
-    local new = i:stack_pop(s, List):to_table()
+    local new = i:stack_pop(s, List):reverse():to_table()
     while s:pop() ~= nil do end
     for _, v in ipairs(new) do
-        s:push(v)
+        i:stack_push(s, v)
     end
+end
+
+mod["interpreter-stack-length"] = function(i, s)
+    i:stack_push(s, s:length())
 end
 
 mod["string-append"] = function(i, s)
@@ -263,6 +268,13 @@ mod["string-append"] = function(i, s)
     local a = i:stack_pop(s, "string")
     i:stack_push(s, a .. b)
 end
+
+mod["string-join"] = function(i, s)
+    local sep = i:stack_pop(s, "string")
+    local strs = i:stack_pop(s, List)
+    i:stack_push(s, table.concat(strs:to_table(), sep))
+end
+
 
 mod["current-input-port"] = function(i, s)
     i:stack_push(s, Port.stdin())
@@ -383,6 +395,31 @@ end
 
 mod["current-context-clear"] = function(i, s)
     i:set_body(List.empty())
+end
+
+mod["current-context-definitions"] = function(i, s)
+    local m = Map.empty()
+    for k, v in pairs(i.defs) do
+        if Clone:can(v) then
+            v = Clone.clone(v)
+        end
+        m:set(Symbol.new(k), v)
+    end
+    i:stack_push(s, m)
+end
+
+-- string lua-load-string -> function #t
+--                        -> error    #f
+mod["lua-load-string"] = function(i, s)
+    local src = i:stack_pop(s, "string")
+    local r, err = load(src)
+    if r then
+        i:stack_push(s, r)
+        i:stack_push(s, true)
+    else
+        i:stack_push(s, err)
+        i:stack_push(s, false)
+    end
 end
 
 mod[Interpreter.ERROR_HANDLER] = function(i, s)
