@@ -10,8 +10,10 @@ export-name evaluate
 define equals? [ upquote equal? swap drop ]
 export-name equals?
 
-define max [ greater-than if [swap] [] drop ]
-define min [ greater-than if [] [] drop ]
+define abs [ 0 ascending? swap drop if [negate] [] ]
+define max [ ascending? if [swap] [] drop ]
+define min [ ascending? if [] [swap] drop ]
+export-name abs
 export-name max
 export-name min
 
@@ -105,13 +107,13 @@ export-name define-gensym
 
 ; TODO gensym
 
-define stack-swap [
+define interpreter-stack-swap [
     const new
     interpreter-stack const old
     new interpreter-stack-set
     old
 ]
-export-name stack-swap
+export-name interpreter-stack-swap
 
 ; vi: ft=scheme
 

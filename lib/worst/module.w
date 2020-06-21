@@ -20,7 +20,6 @@ define load-eval-file [
         %%quote definition-exists uplevel
         swap drop
     ]
-    interpreter-dump-stack
     open-input-file [] swap list-push
     %%quote source-input-port definition-add
     run
@@ -54,11 +53,7 @@ define import-file [
         ]
 
         ; TODO make this an attribute
-        define export-name [ upquote
-                             interpreter-dump-stack
-                             clone
-                             interpreter-dump-stack
-                             export-as ]
+        define export-name [ upquote clone export-as ]
 
         %import-path read-file eval
         ; %import-path load-eval-file ; TODO make this work again

@@ -100,10 +100,24 @@ mod["when"] = function(i, s)
     end
 end
 
+mod["and"] = function(i, s)
+    local a = i:stack_ref(s, 1)
+    local b = i:stack_ref(s, 2)
+    i:stack_push(s, b and a)
+end
+
 mod["or"] = function(i, s)
     local a = i:stack_ref(s, 1)
     local b = i:stack_ref(s, 2)
     i:stack_push(s, b or a)
+end
+
+mod["string?"] = function(i, s)
+    i:stack_push(s, type(i:stack_ref(s, 1)) == "string")
+end
+
+mod["bool?"] = function(i, s)
+    i:stack_push(s, type(i:stack_ref(s, 1)) == "boolean")
 end
 
 mod["false?"] = function(i, s)
@@ -126,9 +140,9 @@ mod["negate"] = function(i, s)
 end
 
 mod["ascending?"] = function(i, s)
-    local a = i:stack_pop(s, "number")
-    local b = i:stack_pop(s, "number")
-    i:stack_push(s, b > a)
+    local a = i:stack_ref(s, 1, "number")
+    local b = i:stack_ref(s, 2, "number")
+    i:stack_push(s, a > b)
 end
 
 mod["list?"] = function(i, s)

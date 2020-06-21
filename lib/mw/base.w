@@ -80,7 +80,7 @@ define module [
         ]
     ]
 
-    define %on-definition-add [ ]
+    define %before-definition-add [ ]
     define %after-definition-add [
         definition-resolve swap
         %maybe-export

@@ -39,8 +39,8 @@ macro = (rhs) { rhs equal? bury drop drop }
 macro != (rhs) { rhs equal? not bury drop drop }
 ; macro || (rhs) { rhs or bury drop drop }
 ; macro && (rhs) { rhs and bury drop drop }
-macro > (rhs) { rhs ascending? }
-macro < (rhs) { rhs swap ascending? }
+macro > (rhs) { rhs ascending? bury drop drop }
+macro < (rhs) { rhs swap ascending? bury drop drop }
 
 ; lexical (eval dig quote swap when)
 ; macro if (c t f) { c eval t f dig quote swap when eval }
