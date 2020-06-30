@@ -195,7 +195,7 @@ mod["list-ref"] = function(i, s)
     local l = i:stack_ref(s, 2, List)
     if n >= l:length() then i:error("out-of-range", n, l:length()) end
 
-    i:stack_push(s, l:index(n))
+    i:stack_push(s, l[n])
 end
 
 mod["env-get"] = function(i, s)
@@ -288,7 +288,6 @@ mod["string-join"] = function(i, s)
     local strs = i:stack_pop(s, List)
     i:stack_push(s, table.concat(strs:to_table(), sep))
 end
-
 
 mod["current-input-port"] = function(i, s)
     i:stack_push(s, Port.stdin())

@@ -77,8 +77,10 @@ export-name list-eval
 ; [v0 v1 v2 ... vN] i list-join -> [v0 i v1 i v2 i ... vN]
 define list-join [
     const i
-    const l
-    [ l list-iterate [i] drop ] list-eval
+    list-empty? if [ ] [
+        const l
+        [ l list-iterate [i] drop ] list-eval
+    ]
 ]
 export-name list-join
 

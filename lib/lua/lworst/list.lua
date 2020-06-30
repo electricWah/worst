@@ -23,16 +23,23 @@ Equal.equal_for(List, function(a, b)
     elseif alen == 0 then return true
     else
         for i = 0, alen do
-            local av = a:index(i)
-            local bv = b:index(i)
-            local e = Equal.equal(av, bv)
-            if not e then return false end
+            if not Equal.equal(a[i], b[i]) then return false end
         end
         return true
     end
 end)
 
 List.__tostring = function(l) return ToString.terse(l) end
+
+List.__index = function(l, k)
+    if type(k) == "number" then
+        return l:index(k)
+    else
+        return getmetatable(l)[k]
+    end
+end
+
+List.__len = function(l) return l:length() end
 
 function List.create(src)
     if List.is(src) then

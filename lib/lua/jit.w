@@ -61,6 +61,7 @@ define lua-assignment? [
 export-name lua-assignment?
 
 define lua-assignment->string [
+    import list
     import data/map
     const stmt
     stmt . var swap drop
@@ -78,13 +79,17 @@ define lua-assignment->string [
 export-name lua-assignment->string
 
 define lua-expr->string [
+    import list
     import syntax/case
     define value->string [
         case {
-            (lua-expr?) { quote value map-get bury drop drop value->string }
+            (lua-expr?) {
+                quote value map-get bury drop drop value->string
+            }
             (list?) {
-                list-map [value->string]
-                ", " string-append
+                ; ??
+                list-map [10 ->string/prec]
+                ", " string-join
                 "{" swap string-append
                 "}" string-append
             }
@@ -133,9 +138,10 @@ export-name lua-expr->string
 define lua-statement->string [
     import syntax/case
     case {
+        (false?) { }
         (lua-expr?) { lua-expr->string }
         (lua-assignment?) { lua-assignment->string }
-        #t { #f }
+        #t { ["lua-statement->string unexpected"] swap list-append abort }
     }
 ]
 export-name lua-statement->string
@@ -209,64 +215,134 @@ define lua-eval-code [
 ]
 export-name lua-eval-code
 
-define lua-eval->definition [
+; interp stack body lua-eval-interpreter -> body eval
+; All args and returns use the given stack, which is isolated within body.
+; You can reference expressions by name (const) or push/pop the given stack.
+define lua-eval-interpreter [
     import list
-    lua-eval-code const bodystate
     
-    quote interp_ const lua-eval-code:var-name
+    lua-eval-code
+
+    quote statements map-get swap drop const statements
+    quote returns map-get swap drop const rets
+    quote args map-get swap drop const args
+    drop
+
     [
+        quote interp_ const lua-eval-code:var-name
         2 lua-expect-values
-        const interp
-        const stack
-        
-        bodystate
-        quote args map-get swap drop
-        list-iterate [
-            const arg
-            ; obj name args retcount lua-method-call -> obj:name(args)
-            interp
-            quote stack_pop
-            [stack] list-eval
-            1 lua-method-call
-            arg swap
-            make-lua-assignment
-            lua-emit-statement
-        ]
+    ] eval
+    const interp
+    const istack
 
-        quote statements map-get swap drop
-        list-iterate [lua-emit-statement]
+    ; args -> local arg = interp:stack_pop(istack)
+    args
+    list-iterate [
+        const arg
+        ; obj name args retcount lua-method-call -> obj:name(args)
+        interp
+        quote stack_pop
+        [istack] list-eval
+        1 lua-method-call
+        arg swap
+        make-lua-assignment
+        lua-emit-statement
+    ]
 
-        quote returns map-get swap drop
-        list-iterate [
-            const r
-            ; obj name args retcount lua-method-call -> obj:name(args)
-            interp
-            quote stack_push
-            [stack r] list-eval
-            0 lua-method-call
-        ]
-    ] lua-eval-code
+    statements
+    list-iterate [lua-emit-statement]
 
+    ; returns -> interp:stack_push(istack, ret)
+    rets
+    list-iterate [
+        const r
+        ; obj name args retcount lua-method-call -> obj:name(args)
+        interp
+        quote stack_push
+        [istack r] list-eval
+        0 lua-method-call
+    ]
+]
+export-name lua-eval-interpreter
+
+; For use within lua-eval
+; body -> function(args) stmts; return ret, ... end
+define lua-eval->function-expr [
+    import list
+
+    lua-eval-code
+    quote statements map-get swap drop const statements
+    quote returns map-get swap drop const rets
     quote args map-get swap drop
     list-map [ quote declared #t map-set ]
     const args
-    [ "local " args list-iterate [", "] drop " = ..." ] list-eval
-    #f make-lua-expr
-    const args
+    drop
 
-    quote statements map-get swap drop
-    args list-push
+    ["function (" args ", " list-join list-iterate [] ")"] list-eval
+    #f make-lua-expr
+    const argstmt
+
+    rets list-empty? swap drop if [#f] [
+        ["return " rets ", " list-join list-iterate []] list-eval
+        #f make-lua-expr
+    ]
+    const retstmt
+
+    statements
+    argstmt list-push
+    list-reverse
+    retstmt list-push
+    ["end"] #f make-lua-expr list-push
+    list-reverse
+
+    list-choose [lua-statement->string]
+
+    "\n" string-join
+    [] swap list-push
+    #f make-lua-expr
+
+]
+export-name lua-eval->function-expr
+
+; Compiles eval into a lua function ("chunk")
+; body -> local args = ...; stmts; return ret, ... -> lua-load-string
+define lua-eval->lua-function [
+    import list
+
+    lua-eval-code
+    quote statements map-get swap drop const statements
+    quote returns map-get swap drop const rets
+    quote args map-get swap drop
+    list-map [ quote declared #t map-set ]
+    const args
+    drop
+
+    args list-empty? swap drop if [#f] [
+        [ "local " args ", " list-join list-iterate [] " = ..." ] list-eval
+        #f make-lua-expr
+    ]
+    const argstmt
+
+    rets list-empty? swap drop if [#f] [
+        [ "return " rets ", " list-join list-iterate [] ] list-eval
+        #f make-lua-expr
+    ]
+    const retstmt
+
+    statements
+    argstmt list-push
+    list-reverse retstmt list-push list-reverse
+
     list-choose [lua-statement->string]
     "\n" string-join
 
-    swap drop
     interpreter-dump-stack
     lua-load-string if [] [
-        ["lua-eval->definition failure"] swap list-push
+        ["lua-eval->lua-function failure"] swap list-push abort
     ]
-
 ]
-export-name lua-eval->definition
+export-name lua-eval->lua-function
+
 
 ; lhs rhs op prec lua-binop -> expr "lhs op rhs"
 define lua-binop [
@@ -303,7 +379,7 @@ define lua-index [
     const key
     const obj
     [ obj "[" key "]" ] list-eval
-    9 make-lua-expr
+    0 make-lua-expr
 ]
 export-name lua-index
 
@@ -312,45 +388,67 @@ define lua-declare-vars [
     list-length 0 equal? not bury drop drop if [
         list-map [ quote declared #t map-set ]
         const vars
-        ["local " vars list-iterate [", "] drop ] list-eval
+        ["local " vars ", " list-join list-iterate []] list-eval
         #f make-lua-expr
         lua-emit-statement
     ] [drop]
 ]
 export-name lua-declare-vars
 
-; expr args retcount lua-funcall -> local r1, r2, ... = expr(args)
+
+; expr name lua-expr->variable -> local name = expr; name
+define lua-expr->variable [
+    const name
+    1 lua-expect-values const expr
+    name lua-new-var
+    quote declared #t map-set
+    const var
+    var expr make-lua-assignment lua-emit-statement
+    var
+]
+export-name lua-expr->variable
+
+; multivalue, impure-safe version
+; expr args retcount lua-funcall -> local r1, r2, ... = expr(args); r1, r2, ...
+; single-value version
+; expr args #t lua-funcall -> expr(args)
 define lua-funcall [
     import list
     const rcount
     const args
     const func
 
-    [ func "(" args list-iterate [", "] drop ")" ] list-eval
-    #f make-lua-expr
+    [ func "(" args ", " list-join list-iterate [] ")" ] list-eval
+    0 make-lua-expr
     const fcall
-    
-    ; multival assign
-    rcount 0 equal? bury drop drop if [
-        ; Don't do any assigning
-        fcall lua-emit-statement
+
+    ; pure single expression
+    rcount #t equal? bury drop drop if [
+        fcall
     ] [
-        ; Make enough return values
-        rcount list-imake [
-            drop
-            quote v lua-new-var
-            quote declared #t map-set
+        ; multival assign
+        rcount 0 equal? bury drop drop if [
+            ; Don't do any assigning
+            fcall lua-emit-statement
+        ] [
+            ; Make enough return values
+            rcount list-imake [
+                drop
+                quote v lua-new-var
+                quote declared #t map-set
+            ]
+            ; interpreter-dump-stack
+            const rets
+
+            ; Emit the returns assignment as a statement
+            [ "local " rets ", " list-join list-iterate [] " = " fcall ]
+            list-eval
+            #f make-lua-expr
+            lua-emit-statement
+
+            ; Drop the values on the stack
+            rets list-iterate []
         ]
-        ; interpreter-dump-stack
-        const rets
-
-        ; Emit the returns assignment as a statement
-        [ "local " rets list-iterate [","] drop " = " fcall ] list-eval
-        #f make-lua-expr
-        lua-emit-statement
-
-        ; Drop the values on the stack
-        rets list-iterate []
     ]
 ]
 export-name lua-funcall
@@ -363,6 +461,12 @@ define lua-method-call [
     args rcount lua-funcall
 ]
 export-name lua-method-call
+
+define lua-nil [ quote nil #t make-lua-expr ]
+export-name lua-nil
+
+define lua-break [ ["break"] #f make-lua-expr lua-emit-statement ]
+export-name lua-break
 
 ; [(c1 if1) (c2 if2) ...] lua-case -> if c1 then if1 elseif c2 ... end
 define lua-case [
@@ -532,6 +636,261 @@ define lua-while [
 ]
 export-name lua-while
 
+; init limit step [body] lua-for-iter -> for v = init, limit, step do body end
+; body = [v -> ]
+; body must have arity -1, i.e. the smallest body is [drop]
+; as loops must have 0 arity in total but v is put on the stack
+define lua-for-iter [
+    const %body
+
+    3 lua-expect-values
+    const %step
+    const %limit
+    const %init
+
+    quote f lua-new-var const %forvar
+
+    %body lua-eval-code const %bstate
+
+    import data/map
+
+    %bstate
+    . args
+    list-length const arglen
+    list-reverse
+    const args
+    . returns
+    list-length const retlen
+    const rets
+    . statements
+    const stmts
+    drop
+
+    arglen retlen 1 add equal? if [drop drop] [
+        ["for (iter) body input arity must be 1 more than output"] abort
+    ]
+
+    args
+    ; the top arg is the iter
+    list-reverse list-pop const %forvar-arg list-reverse
+    list-iterate [
+        ; expect a value and give it to the arg
+        2 lua-expect-values swap
+        make-lua-assignment
+        lua-emit-statement
+    ]
+
+    ["for " %forvar " = " %init ", " %limit ", " %step " do"] list-eval
+    #f make-lua-expr
+    lua-emit-statement
+
+    %forvar-arg %forvar make-lua-assignment lua-emit-statement
+
+    stmts list-iterate [lua-emit-statement]
+
+    args
+    rets
+    list-iterate [
+        swap list-pop dig
+        make-lua-assignment
+        lua-emit-statement
+    ]
+    drop
+
+    ["end"] #f make-lua-expr lua-emit-statement
+
+    ; TODO wrong order here(?)
+    rets
+    list-iterate []
+]
+export-name lua-for-iter
+
+; expr n [body] lua-for-in -> for v1, ..., vn in expr do body end
+; body = [v1 ... vn -> ]
+; body must have arity -n
+; as loops must have 0 arity in total but all iter vars are put on the stack
+define lua-for-in [
+    const %body
+
+    0 swap ascending? if [swap drop] [
+        ["for (in) must declare at least one loop variable"] abort
+    ]
+    const %nvars
+
+    1 lua-expect-values
+    const %expr
+
+    %body lua-eval-code const %bstate
+
+    %nvars list-imake [ drop quote f lua-new-var ] const forvars
+
+    import data/map
+
+    %bstate
+    . args
+    list-length const arglen
+    list-reverse
+    const args
+    . returns
+    list-length const retlen
+    const rets
+    . statements
+    const stmts
+    drop
+
+    arglen retlen %nvars add equal? if [drop drop] [
+        arglen retlen interpreter-dump-stack
+        ["for (in) body input arity must be n more than output"] abort
+    ]
+
+    args
+    ; first assign forvars
+    forvars
+    list-map [ swap list-pop dig make-lua-assignment ]
+    const forvar-assignments
+    
+    ; then expect more inputs
+    list-iterate [
+        ; expect a value and give it to the arg
+        2 lua-expect-values swap
+        make-lua-assignment
+        lua-emit-statement
+    ]
+
+    ["for " forvars ", " list-join list-iterate [] " in " %expr " do"] list-eval
+    #f make-lua-expr
+    lua-emit-statement
+
+    forvar-assignments list-iterate [lua-emit-statement]
+    stmts list-iterate [lua-emit-statement]
+
+    args
+    rets
+    list-iterate [
+        swap list-pop dig
+        make-lua-assignment
+        lua-emit-statement
+    ]
+    drop
+
+    ["end"] #f make-lua-expr lua-emit-statement
+
+    ; TODO wrong order here(?)
+    rets
+    list-iterate []
+]
+export-name lua-for-in
+
+; Redefining things in terms of themselves
+
+; func in-n lua-function-wrap-definition -> def
+; stack_push_all(func(unpack(stack_pop(in_n))))
+[
+    [
+        2 lua-expect-values
+        const arglen
+        const func
+        [
+            ; lua-eval-interpreter can't do dynamic stack lengths
+            2 lua-expect-values
+            const istack
+            const interp
+
+            ; interp:stack_pop(istack)
+            define interp-stack-pop [
+                interp
+                quote stack_pop
+                [istack] list-eval
+                1
+                lua-method-call
+            ]
+
+            ; local args = {}
+            [] quote args lua-expr->variable const args
+
+            ; for i = 0, arglen, 1 do
+            0 arglen 1 [
+                1 lua-expect-values drop ; drop i
+
+                ; table.insert(args, interp:stack_pop()) end
+
+                quote table.insert
+                [args interp-stack-pop] list-eval
+                0
+                lua-funcall
+            ]
+            lua-for-iter
+
+            ; local rets = {func(unpack(args))}
+            [
+                ; func(unpack(args))
+                func
+                [
+                    ; unpack(args)
+                    quote unpack [args] list-eval
+                    #t lua-funcall
+                ]
+                list-eval
+                #t lua-funcall
+            ]
+            list-eval
+            quote rets lua-expr->variable
+            const rets
+
+            ; for i, r in ipairs(rets) do interp:stack_push(r) end
+            quote ipairs [rets] list-eval #t lua-funcall
+            2
+            [
+                2 lua-expect-values
+                const i
+                const ret
+
+                interp
+                quote stack_push
+                [istack ret] list-eval
+                0 lua-method-call
+            ]
+            lua-for-in
+
+            ; TODO
+
+        ]
+        lua-eval->function-expr
+    ]
+    lua-eval-interpreter
+]
+lua-eval->lua-function
+quote lua-function-wrap-definition
+definition-add
+export-name lua-function-wrap-definition
+
+; define lua-expr? [ map? if [ quote %expr map-exists swap drop ] [ #f ] ]
+; quote %expr must be injected because lua doesn't have access to symbols
+; (technically it does, but only through require(), which may fail at runtime
+;  if this is accidentally used outside of jit - so don't let it happen)
+; [
+;     [
+;         ; quote %expr
+;         1 lua-expect-values const expr-symbol
+;         [
+;             [
+;                 ; return pop()[quote %expr] ~= nil
+;                 1 lua-expect-values
+;                 clone ; keep it on stack
+;                 expr-symbol lua-index
+;                 lua-nil
+;                 quote ~= 6 lua-binop
+;             ]
+;             lua-eval-interpreter
+;         ]
+;         lua-eval->function-expr
+;     ]
+;     lua-eval-interpreter
+; ]
+; lua-eval->lua-function
+; quote %expr swap eval
+; quote lua-expr? definition-add
+; export-name lua-expr?
 
 ; vi: ft=scheme
 
