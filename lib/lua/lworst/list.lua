@@ -6,6 +6,13 @@ local Equal = base.Equal
 
 -- Immutable lists with a shareable, immutable region and a mutable stack
 
+-- TODO?:
+-- Immutable lists.
+-- Uses a shared table and a 'top' index.
+-- Pop: return copy with top -= 1
+-- Push when top = #shared: add to shared, copy with top += 1
+-- Push otherwise: clone shared[..top] and push as above
+
 local List = Type.new("list")
 
 ToString.terse_for(List, function(l)
@@ -33,7 +40,7 @@ List.__tostring = function(l) return ToString.terse(l) end
 
 List.__index = function(l, k)
     if type(k) == "number" then
-        return l:index(k)
+        return l:index(k - 1)
     else
         return getmetatable(l)[k]
     end
@@ -113,8 +120,10 @@ end
 
 function List:to_table()
     if self.stacklen == 0 then
+        -- print("to_table 1")
         return { unpack(self.shared, self.sharedi) }
     else
+        -- print("to_table 2")
         local r = {}
         for i = self.stacklen, 1, -1 do
             table.insert(r, self.stack[i])

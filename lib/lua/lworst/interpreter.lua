@@ -11,80 +11,123 @@ local Interpreter = {}
 Interpreter.__index = Interpreter
 
 Interpreter.ERROR_HANDLER = "current-error-handler"
-Interpreter.RESOLVE_HANDLER = "current-resolve-handler"
 
-function Interpreter:reset()
-    self.defs = {}
-    self.body = List.empty()
-    self.childs = {}
-    self.parent = nil
+-- instead of a parent / [childs] tree with O(stack length) resolve
+-- interpreter contains:
+-- - stack of parent frames
+-- - current frame
+-- - dict of def stacks <-- NEW
+-- frame contains:
+-- - body
+-- - stack of children
+-- - definition table
+
+-- moving between frames updates the dict of def stacks
+-- if traversing into a child push all in defs
+-- if traversing into a parent, pop all in defs
+
+function frame_empty()
+    return { body = {}, childs = {}, defs = {} }
 end
 
 function Interpreter.empty()
-    local new = setmetatable({}, Interpreter)
-    new:reset()
-    return new
+    return setmetatable({
+        parents = {},
+        frame = frame_empty(),
+        defstacks = {}
+    }, Interpreter)
+end
+
+function Interpreter:reset()
+    self.parents = {}
+    self.frame = frame_empty()
+    self.defstacks = {}
 end
 
 function Interpreter.create(body)
     local i = Interpreter.empty()
-    i.body = List.create(body)
+    i.frame.body = List.create(body)
     return i
 end
 
-function Interpreter:assume(source)
-    self.defs = source.defs
-    self.body = source.body
-    self.childs = source.childs
-    self.parent = source.parent
-end
-
-function Interpreter:clone()
-    local r = Interpreter.empty()
-    r:assume(self)
-    return r
-end
-
-function Interpreter:resolve(name, use_resolver)
-    if Symbol.is(name) then name = Symbol.unwrap(name) end
-    if self.defs[name] ~= nil then
-        return self.defs[name]
-    elseif use_resolver and self.defs[Interpreter.RESOLVE_HANDLER] then
-        return self.defs[Interpreter.RESOLVE_HANDLER], true
-    elseif self.parent then
-        return self.parent:resolve(name, use_resolver)
-    else
-        return nil
+function Interpreter:resolve(name)
+    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
+    if self.frame.defs[name] ~= nil then
+        return self.frame.defs[name]
     end
+    local namestack = self.defstacks[name]
+    return namestack and namestack[#namestack]
 end
 
-function Interpreter:enter_body(body)
-    local parent = self:clone()
-    self:reset()
-    self.parent = parent
-    self.body = List.create(body)
+-- returns old frame
+function enter_parent_frame(interp)
+    if #interp.parents == 0 then return nil end
+    local frame = interp.frame
+    interp.frame = table.remove(interp.parents)
+    -- table.insert(interp.frame.childs, frame)
+
+    for name, def in pairs(interp.frame.defs) do
+        table.remove(interp.defstacks[name])
+    end
+    return frame
+end
+
+function enter_child_frame(interp, frame)
+    for name, def in pairs(interp.frame.defs) do
+        local s = interp.defstacks[name] or {}
+        table.insert(s, def)
+        interp.defstacks[name] = s
+    end
+
+    table.insert(interp.parents, interp.frame)
+    interp.frame = frame
+end
+
+function enter_body(interp, body)
+    local f = frame_empty()
+    f.body = List.create(body)
+    enter_child_frame(interp, f)
 end
 
 function Interpreter:set_body(body)
-    self.body = List.create(body)
+    self.frame.body = List.create(body)
 end
 
 function Interpreter:body_read()
-    local body, v = self.body:pop()
-    -- print("body_read", self.body, body, v)
-    self.body = body
+    local body, v = self.frame.body:pop()
+    self.frame.body = body
     return v
+end
+
+function Interpreter:into_parent()
+    local old_frame = enter_parent_frame(self)
+    if not old_frame then return false end
+    table.insert(self.frame.childs, old_frame)
+    return true
+end
+
+function Interpreter:define(name, def)
+    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
+    self.frame.defs[name] = def
+end
+
+function Interpreter:definition_get(name)
+    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
+    return self.frame.defs[name]
+end
+
+function Interpreter:definition_remove(name)
+    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
+    self.frame.defs[name] = nil
 end
 
 function Interpreter:code_read()
     while true do
         -- ctx->child-innermost
         while true do
-            local child = table.remove(self.childs)
+            local child = table.remove(self.frame.childs)
             if child then
-                local parent = self:clone()
-                self:assume(child)
-                self.parent = parent
+                enter_child_frame(self, child)
             else
                 break
             end
@@ -95,48 +138,13 @@ function Interpreter:code_read()
             return body
         end
 
-        if self.parent then
-            self:assume(self.parent)
-        else
+        if enter_parent_frame(self) == nil then
             return nil
         end
     end
 end
 
-function Interpreter:into_parent()
-    if not self.parent then
-        return false
-    end
-    local child = self:clone()
-    child.parent = nil
-    self:assume(self.parent)
-    table.insert(self.childs, child)
-    return true
-end
-
-function Interpreter:define(name, def)
-    if Symbol.is(name) then name = Symbol.unwrap(name) end
-    self.defs[name] = def
-end
-
-function Interpreter:define_all(t)
-    for name, def in pairs(t) do
-        self:define(name, def)
-    end
-end
-
-function Interpreter:definition_get(name)
-    if Symbol.is(name) then name = Symbol.unwrap(name) end
-    return self.defs[name]
-end
-
-function Interpreter:definition_remove(name)
-    if Symbol.is(name) then name = Symbol.unwrap(name) end
-    self.defs[name] = nil
-end
-
 function Interpreter:error(name, ...)
-    -- print("Error", name, ...)
     error(Error({name, ...}), 0)
 end
 
@@ -150,10 +158,10 @@ function Interpreter:handle_error(stack, name, ...)
         return true
     elseif List.is(handler) then
         -- print("handle_error", handler)
-        self:enter_body(handler)
+        enter_body(self, handler)
     else
         local irr_messages = {}
-        for _, v in ipairs(irritants:to_table()) do
+        for _, v in ipairs(irritants) do
             table.insert(irr_messages, tostring(v))
         end
         error(name .. " " .. table.concat(irr_messages, ", "), 0)
@@ -161,7 +169,9 @@ function Interpreter:handle_error(stack, name, ...)
 end
 
 function Interpreter:eval(stack, v, name)
-    if type(v) == "function" then
+    if List.is(v) then
+        enter_body(self, v)
+    elseif type(v) == "function" then
         local ok, err = pcall(v, self, stack)
         if not ok then
             if name then print("Error in", name, stack) end
@@ -171,8 +181,6 @@ function Interpreter:eval(stack, v, name)
                 return self:handle_error(stack, err)
             end
         end
-    elseif List.is(v) then
-        self:enter_body(v)
     else
         self:stack_push(stack, v)
     end
@@ -180,12 +188,11 @@ end
 
 function Interpreter:call(stack, name)
     -- print("call", name)
-    if Symbol.is(name) then name = Symbol.unwrap(name) end
-    local def, was_handled = self:resolve(name, true)
+    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
+    local def = self:resolve(name)
     if def == nil then
         return self:handle_error(stack, "undefined", name)
     end
-    if was_handled then stack:push(Symbol.new(name)) end
     self:eval(stack, def, name)
 end
 

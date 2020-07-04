@@ -266,10 +266,10 @@ mod["interpreter-stack"] = function(i, s)
 end
 
 mod["interpreter-stack-set"] = function(i, s)
-    local new = i:stack_pop(s, List):reverse():to_table()
+    local new = i:stack_pop(s, List)
     while s:pop() ~= nil do end
-    for _, v in ipairs(new) do
-        i:stack_push(s, v)
+    for j = new:length() - 1, 0, -1 do
+        i:stack_push(s, new:index(j))
     end
 end
 

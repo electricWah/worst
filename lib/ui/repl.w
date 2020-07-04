@@ -118,22 +118,19 @@ define read-eval-loop [
         port-read-value swap drop
     ]
 
-        ; source-input-port
-        ; port-has-data
-        ; %%quote port-drop-newline when
-        ; interpreter-dump-stack
-        ; %%quote worst-repl-prompt when
-        ; source-input-port
-        ; port-read-value swap drop
-    ; ]
+    [
+        clone eval %%quote definition-add
 
-    define quote [
         %%quote %%quote
         %%quote syntax-read
         %%quote quote-read-syntax? uplevel
         %%quote swap when
         drop uplevel
     ]
+    quote %%quote definition-resolve swap drop list-push
+    quote quote
+    definition-add
+
     run-repl
 ]
 

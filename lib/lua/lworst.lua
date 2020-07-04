@@ -1,6 +1,7 @@
 
 local base = require("base")
 local Stack = base.Stack
+local Symbol = base.Symbol
 
 local Interpreter = require("interpreter")
 
@@ -20,7 +21,9 @@ function run(args)
 
     local interp = Interpreter.create(body)
 
-    interp:define_all(require("builtins"))
+    for name, def in pairs(require("builtins")) do
+        interp:define(Symbol.new(name), def)
+    end
 
     local stack = Stack.empty()
     while interp:step(stack) do
