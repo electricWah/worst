@@ -2,9 +2,6 @@
 local base = require("base")
 local Error = base.Error
 local Type = base.Type
-local types = require("types")
-local Drop = types.Drop
-local Clone = types.Clone
 
 local mod = {}
 
@@ -109,9 +106,7 @@ function InputPort:match(pat)
     return string.match(self.buf, pat, self.bufi)
 end
 
-Drop.drop_for(InputPort, function(p) p:close() end)
-
-Drop.drop_for(InputPort, function(p)
+function InputPort.destroy(p)
     if p.mode == "file" then
         if p.refs <= 1 then
             p.fh:close()
@@ -120,13 +115,13 @@ Drop.drop_for(InputPort, function(p)
             p.refs = p.refs - 1
         end
     end
-end)
+end
 
-Clone.clone_for(InputPort, function(p)
+function InputPort.clone(p)
     if p.mode == "file" then
         p.refs = p.refs + 1
     end
-end)
+end
 
 local OutputPort = Type.new("output-port")
 mod.OutputPort = OutputPort

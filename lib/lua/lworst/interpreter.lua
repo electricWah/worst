@@ -5,7 +5,6 @@ local Error = base.Error
 local Symbol = base.Symbol
 local Stack = base.Stack
 local Type = base.Type
-local Readonly = base.Readonly
 
 local Interpreter = {}
 Interpreter.__index = Interpreter
@@ -174,7 +173,7 @@ function Interpreter:eval(stack, v, name)
     elseif type(v) == "function" then
         local ok, err = pcall(v, self, stack)
         if not ok then
-            if name then print("Error in", name, stack) end
+            if name then print("Error in", name, stack, err) end
             if type(err) == "table" then
                 return self:handle_error(stack, err[1], unpack(err, 2))
             else
@@ -198,7 +197,9 @@ end
 
 function Interpreter:stack_push(stack, v)
     if v == nil then error("stack_push(nil)") end
-    -- print("+", v)
+    if type(v) == "table" and getmetatable(v) == nil then
+        self:error("stack_push: unknown type", v)
+    end
     stack:push(v)
 end
 

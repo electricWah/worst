@@ -1,58 +1,49 @@
 
 local base = require("base")
 local Type = base.Type
-local ToString = base.ToString
-local Equal = base.Equal
 
 -- Immutable lists with a shareable, immutable region and a mutable stack
 
--- TODO?:
--- Immutable lists.
--- Uses a shared table and a 'top' index.
--- Pop: return copy with top -= 1
--- Push when top = #shared: add to shared, copy with top += 1
--- Push otherwise: clone shared[..top] and push as above
-
 local List = Type.new("list")
 
-ToString.terse_for(List, function(l)
+function List.to_string_terse(l)
     local acc = {}
     for v in l:iter() do
-        table.insert(acc, ToString.terse(v))
+        table.insert(acc, base.to_string_terse(l))
     end
     return "(" .. table.concat(acc, " ") .. ")"
-end)
+end
 
-Equal.equal_for(List, function(a, b)
+List.__tostring = function(l) return List.to_string_terse(l) end
+
+function List.equal(a, b)
     local alen = a:length()
     if not List.is(b) then return false
     elseif alen ~= b:length() then return false
     elseif alen == 0 then return true
     else
         for i = 0, alen do
-            if not Equal.equal(a[i], b[i]) then return false end
+            if not base.equal(a[i], b[i]) then return false end
         end
         return true
     end
-end)
-
-List.__tostring = function(l) return ToString.terse(l) end
-
-List.__index = function(l, k)
-    if type(k) == "number" then
-        return l:index(k - 1)
-    else
-        return getmetatable(l)[k]
-    end
 end
+
+-- List.__index = function(l, k)
+--     if type(k) == "number" then
+--         return l:index(k - 1)
+--     else
+--         return getmetatable(l)[k]
+--     end
+-- end
 
 List.__len = function(l) return l:length() end
 
 function List.create(src)
     if List.is(src) then
         return src:clone()
-    elseif not base.Readonly.is(src) and getmetatable(src) ~= nil then
-        error("List.create: not a plain table: " .. ToString.debug(src))
+    elseif getmetatable(src) ~= nil then
+        error("List.create: not a plain table: " .. base.to_string_debug(src))
     else
         return setmetatable({
             shared = base.readonly(src),

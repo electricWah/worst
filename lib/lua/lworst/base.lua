@@ -1,11 +1,108 @@
 
-local Symbol = require("symbol")
-local types = require("types")
-local Type = types.Type
-local ToString = types.ToString
-local Drop = types.Drop
-local Clone = types.Clone
-local Equal = types.Equal
+local Type = {}
+Type.__index = Type
+Type.__tostring = function(t)
+    return "Type(" .. t.name .. ")"
+end
+
+Type.is = function(v) return getmetatable(v) == Type end
+
+function Type.new(name)
+    local t = setmetatable({ name = name }, Type)
+    t.__index = t
+    t.is = function(v) return getmetatable(v) == t end
+    return t
+end
+
+function Type.any(...)
+    local types = {...}
+    local names = {}
+    for _, t in ipairs(types) do
+        table.insert(names, t.name)
+    end
+    return setmetatable({
+        name = table.concat(names, "|"),
+        is = function(v)
+            for _, t in ipairs(types) do
+                if Type.is(t) then
+                    if t.is(v) then
+                        return true
+                    end
+                elseif type(t) == "string" then
+                    if type(v) == t then
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+    }, Type)
+end
+
+local Symbol = Type.new("symbol")
+local SymbolCache = setmetatable({}, { __mode = "kv" })
+function Symbol.new(v)
+    if SymbolCache[v] then return SymbolCache[v] end
+    local s = setmetatable({v = v}, Symbol)
+    SymbolCache[v] = s
+    return s
+end
+function Symbol.to_string_terse(s) return s.v end
+function Symbol.to_string_debug(s) return "Symbol(" .. s.v .. ")" end
+Symbol.__tostring = function(s) return String.to_string_debug(s) end
+function Symbol.unwrap(v) return v.v end
+
+function can(v, f) return (getmetatable(v) or {})[f] ~= nil end
+function can_equal(a) return can(v, 'equal') end
+function equal(a, b)
+    if can_equal(a) then
+        return a:equal(b)
+    elseif can_equal(b) then
+        return b:equal(a)
+    else
+        return a == b
+    end
+end
+
+function can_clone(a) return can(a, 'clone') end
+function clone(a)
+    if can_clone(a) then
+        return a:clone()
+    else
+        return a
+    end
+end
+
+function can_destroy(a) return can(a, 'destroy') end
+function destroy(a) if can_destroy(a) then a:destroy() end end
+
+function can_to_string_format(a) return can(a, 'to_string_format') end
+function can_to_string_terse(a) return can(a, 'to_string_terse') end
+function can_to_string_debug(a) return can(a, 'to_string_debug') end
+
+function to_string_format(a, fmt)
+    if can_to_string_format(a) then
+        return a:to_string_format(fmt) or false
+    end
+    return false
+end
+
+function to_string_terse(a)
+    local r = nil
+    if can_to_string_terse(a) then r = a:to_string_terse() end
+    if not r then r = to_string_format(a, 'terse') end
+    if not r then r = tostring(a) end
+    return r or false
+end
+
+function to_string_debug(a)
+    local r = nil
+    if can_to_string_debug(a) then r = a:to_string_debug() end
+    if not r then r = to_string_format(a, 'debug') end
+    if not r and type(a) == "string" then r = string.format("%q", a) end
+    if not r then r = tostring(a) end
+    return r or false
+end
 
 local Char = Type.new("char")
 function Char.of_str(s)
@@ -15,14 +112,14 @@ function Char.of_int(v)
     return Char.of_str(string.char(v))
 end
 
-Equal.equal_for(Char, function(a, b)
+function Char.equal(a, b)
     return Char.is(a) and Char.is(b) and a.s == b.s
-end)
+end
 
-ToString.terse_for(Char, function(c) return "#\\" .. c.s end)
-ToString.debug_for(Char, function(c) return "Char(" .. c.s .. ")" end)
+function Char.to_string_terse(c) return "#\\" .. c.s end
+function Char.to_string_debug(c) return "Char(" .. c.s .. ")" end
 
-Char.__tostring = function(s) return ToString.terse(s) end
+Char.__tostring = function(s) return Char.to_string_terse(s) end
 
 function Char.unwrap(v) return v.v end
 
@@ -91,14 +188,14 @@ end
 local Readonly = Type.new("readonly")
 function Readonly.__newindex(t, k, v)
     error("attempt to assign to readonly table: "
-        .. tostring(t) .. "[" .. tostring(k) .. "] = " .. tostring(v))
+        .. tostring(t) .. "[" .. tostring(k) .. "] = " .. to_string_debug(v))
 end
 
 function readonly(t)
     local mt = getmetatable(t) 
     if mt == Readonly then return t end
     if mt ~= nil then
-        error("readonly: already has metatable: " .. ToString.debug(t))
+        error("readonly: already has metatable: " .. to_string_debug(t))
     end
     return setmetatable(t, Readonly)
 end
@@ -108,10 +205,12 @@ return {
     Symbol = Symbol,
     Char = Char,
     Type = Type,
-    Clone = Clone,
-    Drop = Drop,
-    Equal = Equal,
-    ToString = ToString,
+    clone = clone,
+    destroy = destroy,
+    equal = equal,
+    to_string_format = to_string_format,
+    to_string_terse = to_string_terse,
+    to_string_debug = to_string_debug,
     Stack = Stack,
     Place = Place,
     readonly = readonly,

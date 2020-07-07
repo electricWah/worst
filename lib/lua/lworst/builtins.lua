@@ -10,10 +10,6 @@ local List = require("list")
 local Reader = require("reader")
 local Map = require("map")
 local Type = base.Type
-local Drop = base.Drop
-local Clone = base.Clone
-local Equal = base.Equal
-local ToString = base.ToString
 
 local mod = {}
 
@@ -47,24 +43,18 @@ end
 
 mod["drop"] = function(i, s)
     local v = i:stack_pop(s)
-    if Drop:can(v) then
-        Drop.drop(v)
-    end
+    base.destroy(v)
 end
 
 mod["equal?"] = function(i, s)
     local b = i:stack_ref(s, 1)
     local a = i:stack_ref(s, 2)
-    i:stack_push(s, Equal.equal(a, b))
+    i:stack_push(s, base.equal(a, b))
 end
 
 mod["clone"] = function(i, s)
     local v = i:stack_ref(s, 1)
-    if Clone:can(v) then
-        i:stack_push(s, Clone.clone(v))
-    else
-        i:stack_push(s, v)
-    end
+    i:stack_push(s, base.clone(v))
 end
 
 mod["swap"] = function(i, s)
@@ -245,12 +235,12 @@ end
 
 mod["to-string/terse"] = function(i, s)
     local v = i:stack_ref(s, 1)
-    i:stack_push(s, ToString.terse(v))
+    i:stack_push(s, base.to_string_terse(v))
 end
 
 mod["to-string/debug"] = function(i, s)
     local v = i:stack_ref(s, 1)
-    i:stack_push(s, ToString.debug(v))
+    i:stack_push(s, base.to_string_debug(v))
 end
 
 mod["interpreter-dump-stack"] = function(i, s)
@@ -413,10 +403,7 @@ end
 mod["current-context-definitions"] = function(i, s)
     local m = Map.empty()
     for k, v in pairs(i.defs) do
-        if Clone:can(v) then
-            v = Clone.clone(v)
-        end
-        m:set(Symbol.new(k), v)
+        m:set(Symbol.new(k), base.clone(v))
     end
     i:stack_push(s, m)
 end
