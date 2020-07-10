@@ -117,12 +117,6 @@ function InputPort.destroy(p)
     end
 end
 
-function InputPort.clone(p)
-    if p.mode == "file" then
-        p.refs = p.refs + 1
-    end
-end
-
 local OutputPort = Type.new("output-port")
 mod.OutputPort = OutputPort
 function OutputPort.stdout()

@@ -49,11 +49,11 @@ function Symbol.new(v)
 end
 function Symbol.to_string_terse(s) return s.v end
 function Symbol.to_string_debug(s) return "Symbol(" .. s.v .. ")" end
-Symbol.__tostring = function(s) return String.to_string_debug(s) end
+Symbol.__tostring = function(s) return Symbol.to_string_debug(s) end
 function Symbol.unwrap(v) return v.v end
 
 function can(v, f) return (getmetatable(v) or {})[f] ~= nil end
-function can_equal(a) return can(v, 'equal') end
+function can_equal(a) return can(a, 'equal') end
 function equal(a, b)
     if can_equal(a) then
         return a:equal(b)

@@ -9,7 +9,7 @@ local List = Type.new("list")
 function List.to_string_terse(l)
     local acc = {}
     for v in l:iter() do
-        table.insert(acc, base.to_string_terse(l))
+        table.insert(acc, base.to_string_terse(v))
     end
     return "(" .. table.concat(acc, " ") .. ")"
 end
@@ -23,7 +23,7 @@ function List.equal(a, b)
     elseif alen == 0 then return true
     else
         for i = 0, alen do
-            if not base.equal(a[i], b[i]) then return false end
+            if not base.equal(a:index(i), b:index(i)) then return false end
         end
         return true
     end
