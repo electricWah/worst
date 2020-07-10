@@ -20,16 +20,18 @@ define lua-if-then-else [
         %ift lua-eval-code const %tstate
         %iff lua-eval-code const %fstate
 
-        import data/map
-
         %tstate
-        . args list-length const t-arglen drop
-        . returns list-length const t-retlen drop
+        quote args dict-get swap drop
+        list-length const t-arglen drop
+        quote returns dict-get swap drop
+        list-length const t-retlen drop
         drop
 
         %fstate
-        . args list-length const f-arglen drop
-        . returns list-length const f-retlen drop
+        quote args dict-get swap drop
+        list-length const f-arglen drop
+        quote returns dict-get swap drop
+        list-length const f-retlen drop
         drop
 
         t-arglen negate t-retlen add const t-size
@@ -69,7 +71,7 @@ define lua-if-then-else [
         const rvars
 
         define write-arm [
-            . args
+            quote args dict-get swap drop
             list-reverse
             rvars
             swap
@@ -82,10 +84,10 @@ define lua-if-then-else [
             ]
             drop ; remaining rvars
 
-            . statements
+            quote statements dict-get swap drop
             list-iterate [ lua-emit-statement ]
 
-            . returns
+            quote returns dict-get swap drop
             ; list-reverse
             rvars swap
             list-iterate [
@@ -120,17 +122,15 @@ define lua-while [
 
     %body lua-eval-code const %bstate
 
-    import data/map
-
     %bstate
-    . args
+    quote args dict-get swap drop
     list-length const arglen
     list-reverse
     const args
-    . returns
+    quote returns dict-get swap drop
     list-length const retlen
     const rets
-    . statements
+    quote statements dict-get swap drop
     const stmts
     drop
 
@@ -186,17 +186,15 @@ define lua-for-iter [
 
     %body lua-eval-code const %bstate
 
-    import data/map
-
     %bstate
-    . args
+    quote args dict-get swap drop
     list-length const arglen
     list-reverse
     const args
-    . returns
+    quote returns dict-get swap drop
     list-length const retlen
     const rets
-    . statements
+    quote statements dict-get swap drop
     const stmts
     drop
 
@@ -258,17 +256,15 @@ define lua-for-in [
 
     %nvars list-imake [ drop quote f lua-new-var ] const forvars
 
-    import data/map
-
     %bstate
-    . args
+    quote args dict-get swap drop
     list-length const arglen
     list-reverse
     const args
-    . returns
+    quote returns dict-get swap drop
     list-length const retlen
     const rets
-    . statements
+    quote statements dict-get swap drop
     const stmts
     drop
 

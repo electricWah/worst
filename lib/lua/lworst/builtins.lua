@@ -372,23 +372,25 @@ mod["map-exists"] = function(i, s)
     i:stack_push(s, v)
 end
 
-mod["map-set"] = function(i, s)
-    local v = i:stack_pop(s)
-    local k = i:stack_pop(s)
-    local m = i:stack_ref(s, 1, Map)
-    m:set(k, v)
-end
-
 mod["map-get"] = function(i, s)
     local k = i:stack_ref(s, 1)
     local m = i:stack_ref(s, 2, Map)
     i:stack_push(s, m:get(k) or false)
 end
 
+mod["map-set"] = function(i, s)
+    local v = i:stack_pop(s)
+    local k = i:stack_pop(s)
+    local m = i:stack_pop(s, Map)
+    local r = Map.set(m, k, v)
+    i:stack_push(s, r)
+end
+
 mod["map-remove"] = function(i, s)
     local k = i:stack_pop(s)
-    local m = i:stack_ref(s, 1, Map)
-    m:remove(k)
+    local m = i:stack_pop(s, Map)
+    local r = Map.remove(m, k)
+    i:stack_push(s, r)
 end
 
 mod["map-keys"] = function(i, s)
