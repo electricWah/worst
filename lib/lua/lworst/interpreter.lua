@@ -25,8 +25,8 @@ Interpreter.ERROR_HANDLER = "current-error-handler"
 -- if traversing into a child push all in defs
 -- if traversing into a parent, pop all in defs
 
-function frame_empty()
-    return { body = {}, childs = {}, defs = {} }
+function frame_empty(name)
+    return { body = {}, childs = {}, defs = {}, name = name }
 end
 
 function Interpreter.empty()
@@ -82,8 +82,8 @@ function enter_child_frame(interp, frame)
     interp.frame = frame
 end
 
-function enter_body(interp, body)
-    local f = frame_empty()
+function enter_body(interp, body, name)
+    local f = frame_empty(name)
     f.body = List.create(body)
     enter_child_frame(interp, f)
 end
@@ -169,11 +169,14 @@ end
 
 function Interpreter:eval(stack, v, name)
     if List.is(v) then
-        enter_body(self, v)
+        enter_body(self, v, name)
     elseif type(v) == "function" then
         local ok, err = pcall(v, self, stack)
         if not ok then
             print("Error in", name or "???", stack, err)
+            for _, p in ipairs(self.parents) do
+                print("...", p.name or "???")
+            end
             if type(err) == "table" then
                 return self:handle_error(stack, err[1], unpack(err, 2))
             else
