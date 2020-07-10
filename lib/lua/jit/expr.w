@@ -2,7 +2,7 @@
 ; [v0 v1 ...] lua-declare-vars -> local v0, v1, ...
 define lua-declare-vars [
     list-length 0 equal? not bury drop drop if [
-        list-map [ quote declared #t map-set ]
+        list-map [ quote declared #t dict-set ]
         const vars
         ["local " vars ", " list-join list-iterate []] list-eval
         #f make-lua-expr
@@ -16,7 +16,7 @@ define lua-expr->variable [
     const name
     1 lua-expect-values const expr
     name lua-new-var
-    quote declared #t map-set
+    quote declared #t dict-set
     const var
     var expr make-lua-assignment lua-emit-statement
     var
@@ -92,7 +92,7 @@ define lua-funcall [
             rcount list-imake [
                 drop
                 quote v lua-new-var
-                quote declared #t map-set
+                quote declared #t dict-set
             ]
             ; interpreter-dump-stack
             const rets

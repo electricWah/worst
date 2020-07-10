@@ -4,26 +4,26 @@
 ; import syntax/object
 
 ; define-object-constructor dict [
-;     init [ map-empty ]
-;     method has [ %get swap map-exists dig drop ]
-;     method get [ %get swap map-get dig drop ]
+;     init [ dict-empty ]
+;     method has [ %get swap dict-exists dig drop ]
+;     method get [ %get swap dict-get dig drop ]
 ;     method get! [ get swap drop ]
-;     method set [ %get bury map-set %set ]
-;     method keys [ %get map-keys swap drop ]
+;     method set [ %get bury dict-set %set ]
+;     method keys [ %get dict-keys swap drop ]
 ;     method ->map [ %get ]
 ; ]
 ; export-name dict
 
 import syntax/attribute
 
-map-empty
- quote has [ swap map-exists dig drop ] map-set
-quote get [ swap map-get dig drop ] map-set
-quote get! [ swap map-get bury drop drop ] map-set
-quote set [ bury map-set drop ] map-set
-quote remove [ swap map-remove drop ] map-set
-quote keys [ map-keys swap drop ] map-set
-quote ->map [] map-set
+dict-empty
+ quote has [ swap dict-exists dig drop ] dict-set
+quote get [ swap dict-get dig drop ] dict-set
+quote get! [ swap dict-get bury drop drop ] dict-set
+quote set [ bury dict-set drop ] dict-set
+quote remove [ swap dict-remove drop ] dict-set
+quote keys [ dict-keys swap drop ] dict-set
+quote ->map [] dict-set
 const %dict-methods
 
 lexical (%dict-methods)
@@ -31,13 +31,13 @@ define dict [
     upquote const name
     [
         upquote
-        map-get
+        dict-get
         false? if [drop ("not a dict method") swap list-push abort] [
             bury drop drop eval
         ]
     ]
     %dict-methods list-push
-    map-empty list-push
+    dict-empty list-push
 
     name
     updo definition-add

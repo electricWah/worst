@@ -77,7 +77,7 @@ define lua-if-then-else [
                 ; every arm arg is assigned from rvars
                 swap list-pop swap bury
                 make-lua-assignment
-                ; quote new #t map-set
+                ; quote new #t dict-set
                 lua-emit-statement
             ]
             drop ; remaining rvars

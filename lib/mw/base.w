@@ -103,27 +103,27 @@ define module [
                 resolve-mw-import-path const path
                 path %mw-imports has if [
                     %mw-imports get swap drop
-                    map-keys
-                    list-iterate [ map-get %module-imports set ]
+                    dict-keys
+                    list-iterate [ dict-get %module-imports set ]
                     drop
                 ] [
                     dict %imports
                     read-file eval
 
-                    map-empty
+                    dict-empty
                     %imports keys list-iterate [
                         %imports get false? if [
                             drop
                             ("export: not defined") swap list-push abort
                         ] [
-                            map-set
+                            dict-set
                         ]
                     ]
 
                     path swap %mw-imports set
                     path %mw-imports get swap drop
-                    map-keys
-                    list-iterate [ map-get %module-imports set ]
+                    dict-keys
+                    list-iterate [ dict-get %module-imports set ]
                     drop
                 ]
             ]

@@ -25,7 +25,7 @@ define load-eval-file [
     run
 ]
 
-map-empty variable %import-files
+dict-empty variable %import-files
 
 ; Less basic import
 lexical (variable updo %import-files)
@@ -33,7 +33,7 @@ define import-file [
     resolve-import-path const %import-path
 
     %import-files get
-    %import-path map-exists if [
+    %import-path dict-exists if [
         drop drop
     ] [
         drop drop
@@ -61,12 +61,12 @@ define import-file [
         %import-files get
         %import-path
         %on-import-file-finished get
-        map-set
+        dict-set
         %import-files set
 
     ]
 
-    %import-files get %import-path map-get swap drop swap drop eval
+    %import-files get %import-path dict-get swap drop swap drop eval
 ]
 
 lexical ()
@@ -74,13 +74,13 @@ define import [ upquote quote import-file uplevel ]
 
 lexical (%import-files)
 define import-forget [
-    %import-files get upquote resolve-import-path map-remove
+    %import-files get upquote resolve-import-path dict-remove
     %import-files set
 ]
 
 lexical (%import-files)
 define import-forget-all [
-    map-empty %import-files set
+    dict-empty %import-files set
 ]
 
 export-name load-eval-file

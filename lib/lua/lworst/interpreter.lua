@@ -160,10 +160,10 @@ function Interpreter:handle_error(stack, name, ...)
         enter_body(self, handler)
     else
         local irr_messages = {}
-        for _, v in ipairs(irritants) do
+        for v in irritants:iter() do
             table.insert(irr_messages, tostring(v))
         end
-        error(name .. " " .. table.concat(irr_messages, ", "), 0)
+        error(name .. ": " .. table.concat(irr_messages, ", "), 0)
     end
 end
 
@@ -173,7 +173,7 @@ function Interpreter:eval(stack, v, name)
     elseif type(v) == "function" then
         local ok, err = pcall(v, self, stack)
         if not ok then
-            if name then print("Error in", name, stack, err) end
+            print("Error in", name or "???", stack, err)
             if type(err) == "table" then
                 return self:handle_error(stack, err[1], unpack(err, 2))
             else

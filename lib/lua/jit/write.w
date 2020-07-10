@@ -2,14 +2,14 @@
 define lua-assignment->string [
     import list
 
-    quote var map-get const stmt-var drop
-    quote val map-get const stmt-val drop
+    quote var dict-get const stmt-var drop
+    quote val dict-get const stmt-val drop
     drop
 
     stmt-var
     quote declared
-    map-get const declared
-    #t map-set
+    dict-get const declared
+    #t dict-set
     drop
     
     [ declared if [] ["local "] stmt-var " = " stmt-val ] list-eval
@@ -33,11 +33,11 @@ define lua-expr->string [
                 "{" swap string-append
                 "}" string-append
             }
-            (map?) {
-                map-keys list-map [
+            (dict?) {
+                dict-keys list-map [
                     const k
                     k
-                    map-get const v
+                    dict-get const v
                     symbol? if [ ->string ] [
                         10 ->string/prec
                         "[" swap string-append
@@ -58,7 +58,7 @@ define lua-expr->string [
     define ->string/prec [
         const oprec
         lua-expr? if [
-            quote %expr map-get swap drop
+            quote %expr dict-get swap drop
             #t equal? if [ drop drop value->string ] [
                 drop const iprec
                 lua-expr-unwrap

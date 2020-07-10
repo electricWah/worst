@@ -62,7 +62,7 @@ define help [
     define show-tags [
         "Showing tags" interpreter-dump-stack drop
         ansi [
-            doc-tags map-keys
+            doc-tags dict-keys
             swap drop
             list-length ->string
             bold cyan fg print
@@ -74,7 +74,7 @@ define help [
     define print-tag [
         const tag
         ansi [
-            doc-tags tag map-get
+            doc-tags tag dict-get
             dig drop
             list-length ->string
             bold cyan fg print

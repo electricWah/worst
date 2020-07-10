@@ -153,41 +153,41 @@ define-racket-builtin current-context-remove-children
 
 export-name current-context-remove-children
 
-define-racket-builtin map?
+define-racket-builtin dict?
     (lambda (c s) (values c (cons (hash? (stack-top s)) s)))
-define-racket-builtin map-empty
+define-racket-builtin dict-empty
     (lambda (c s) (values c (cons (hash) s)))
-define-racket-builtin map-keys
+define-racket-builtin dict-keys
     (lambda (c s) (values c (cons (hash-keys (stack-top s hash?)) s)))
-define-racket-builtin map-exists
+define-racket-builtin dict-exists
     (lambda (c s)
       (let ([k (stack-top s)]
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-has-key? h k) s))))
-define-racket-builtin map-get
+define-racket-builtin dict-get
     (lambda (c s)
       (let ([k (stack-top s)]
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-ref h k #f) s))))
-define-racket-builtin map-set
+define-racket-builtin dict-set
     (lambda (c s)
       (let ([v (stack-top s)]
             [k (stack-top (cdr s))]
             [h (stack-top (cddr s) hash?)])
         (values c (cons (hash-set h k v) (cdddr s)))))
-define-racket-builtin map-remove
+define-racket-builtin dict-remove
     (lambda (c s)
       (let ([k (stack-top s)]
             [h (stack-top (cdr s) hash?)])
         (values c (cons (hash-remove h k) (cddr s)))))
 
-export-name map?
-export-name map-empty
-export-name map-exists
-export-name map-get
-export-name map-set
-export-name map-keys
-export-name map-remove
+export-name dict?
+export-name dict-empty
+export-name dict-exists
+export-name dict-get
+export-name dict-set
+export-name dict-keys
+export-name dict-remove
 
 ; Places - A place is a mutable storage location
 ; capable of storing exactly one item.

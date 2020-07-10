@@ -333,6 +333,11 @@ mod["eof-object?"] = function(i, s)
     i:stack_push(s, Port.Eof.is(v))
 end
 
+mod["place?"] = function(i, s)
+    local v = i:stack_ref(s, 1)
+    i:stack_push(s, Place.is(v))
+end
+
 mod["make-place"] = function(i, s)
     local v = i:stack_pop(s)
     local p = Place.new(v)

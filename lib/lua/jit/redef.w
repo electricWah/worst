@@ -76,7 +76,7 @@
 lua-eval->lua-function
 quote lua-function-wrap-definition
 definition-add
-export-name lua-function-wrap-definition
+; export-name lua-function-wrap-definition
 
 ; symbols must be injected because lua doesn't have access to them
 ; (technically it does, but only through require(), which may fail at runtime
@@ -94,13 +94,13 @@ export-name lua-function-wrap-definition
             const prec
             const v
 
-            map-empty
+            dict-empty
             expr-symbol
             prec 10 " or " 8 lua-binop
-            map-set
+            dict-set
 
             value-symbol
-            v map-set
+            v dict-set
         ]
         lua-eval->function-expr
     ]
@@ -114,9 +114,9 @@ const make-lua-expr
 make-lua-expr quote lua-expr?/lua definition-add
 make-lua-expr 1 lua-function-wrap-definition
 quote make-lua-expr definition-add
-export-name make-lua-expr
+; export-name make-lua-expr
 
-; ; define lua-expr? [ map? if [ quote %expr map-exists swap drop ] [ #f ] ]
+; ; define lua-expr? [ dict? if [ quote %expr dict-exists swap drop ] [ #f ] ]
 ; [
 ;     [
 ;         ; quote %expr

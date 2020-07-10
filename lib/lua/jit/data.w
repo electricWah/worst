@@ -7,19 +7,19 @@
 ;   list: stringified with precedence
 ; TODO look through here for other expressions and increment used count
 define make-lua-expr [
-    map-empty
-    quote %expr dig false? if [ drop 10 ] [] map-set
-    quote value dig map-set
+    dict-empty
+    quote %expr dig false? if [ drop 10 ] [] dict-set
+    quote value dig dict-set
 ]
 export-name make-lua-expr
 
-define lua-expr? [ map? if [ quote %expr map-exists swap drop ] [ #f ] ]
+define lua-expr? [ dict? if [ quote %expr dict-exists swap drop ] [ #f ] ]
 export-name lua-expr?
 
-define lua-expr-precedence [ quote %expr map-get swap drop ]
+define lua-expr-precedence [ quote %expr dict-get swap drop ]
 export-name lua-expr-precedence
 
-define lua-expr-unwrap [ quote value map-get bury drop drop ]
+define lua-expr-unwrap [ quote value dict-get bury drop drop ]
 export-name lua-expr-unwrap
 
 ; Assignments declare and/or set variables.
@@ -37,26 +37,26 @@ define make-lua-assignment [
 
     var
     quote assign-count
-    map-get
+    dict-get
 
     false? if [ drop 0 ] [ ]
     const assign-count
 
     assign-count
     1 add
-    map-set
+    dict-set
 
     drop
 
-    map-empty
-    quote %assignment assign-count map-set
-    quote var var map-set
-    quote val val map-set
+    dict-empty
+    quote %assignment assign-count dict-set
+    quote var var dict-set
+    quote val val dict-set
 ]
 export-name make-lua-assignment
 
 define lua-assignment? [
-    map? if [ quote %assignment map-exists swap drop ] [ #f ]
+    dict? if [ quote %assignment dict-exists swap drop ] [ #f ]
 ]
 export-name lua-assignment?
 

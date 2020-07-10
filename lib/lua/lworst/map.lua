@@ -3,8 +3,6 @@ local base = require("base")
 local List = require("list")
 local Type = base.Type
 
--- TODO don't metatable anything here - ["get" map-get] returns a function!
-
 local Map = Type.new("Map")
 function Map:__tostring()
     return "Map(" .. self:count() .. ")"

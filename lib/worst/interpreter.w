@@ -35,7 +35,7 @@ define ctx-empty [
         childs []
         parent #f
     ]
-    map-empty ctx-defs-set
+    dict-empty ctx-defs-set
 ]
 
 ; TODO destroy the below
@@ -43,7 +43,7 @@ define ctx-empty [
 ; define ctx-empty [
 ;     import list
 ;     list-quasiquote [
-;         ~[map-empty] ^[[] [] #f]
+;         ~[dict-empty] ^[[] [] #f]
 ;     ]
 ; ]
 ; export-name ctx-empty
@@ -71,8 +71,8 @@ define ctx-empty [
 ; 6 ctx-resolve if [ "got" ] [ "no 6" ]
 define ctx-resolve [
     const name
-    ctx-defs name map-exists if [
-        map-get
+    ctx-defs name dict-exists if [
+        dict-get
         bury drop drop
         #t
     ] [
@@ -91,7 +91,7 @@ define ctx-def-add [
     const name
     const val
 
-    ctx-defs name val map-set
+    ctx-defs name val dict-set
     ctx-defs-set
 ]
 export-name ctx-def-add
@@ -179,7 +179,7 @@ define-object-constructor make-interpreter [
     method defined? [
         const name
         %get ctx-defs swap drop
-        name map-exists
+        name dict-exists
         bury drop drop
     ]
 ]

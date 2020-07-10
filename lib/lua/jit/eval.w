@@ -61,10 +61,10 @@ define lua-eval-code [
     list-map [ lua-expr? if [] [ #t make-lua-expr ] ]
     const rets
 
-    map-empty
-    quote args %args place-get list-reverse swap drop map-set
-    quote statements %statements place-get list-reverse swap drop map-set
-    quote returns rets map-set
+    dict-empty
+    quote args %args place-get list-reverse swap drop dict-set
+    quote statements %statements place-get list-reverse swap drop dict-set
+    quote returns rets dict-set
 ]
 export-name lua-eval-code
 
@@ -76,9 +76,9 @@ define lua-eval-interpreter [
     
     lua-eval-code
 
-    quote statements map-get swap drop const statements
-    quote returns map-get swap drop const rets
-    quote args map-get swap drop const args
+    quote statements dict-get swap drop const statements
+    quote returns dict-get swap drop const rets
+    quote args dict-get swap drop const args
     drop
 
     [
@@ -124,10 +124,10 @@ define lua-eval->function-expr [
     import list
 
     lua-eval-code
-    quote statements map-get swap drop const statements
-    quote returns map-get swap drop const rets
-    quote args map-get swap drop
-    list-map [ quote declared #t map-set ]
+    quote statements dict-get swap drop const statements
+    quote returns dict-get swap drop const rets
+    quote args dict-get swap drop
+    list-map [ quote declared #t dict-set ]
     const args
     drop
 
@@ -163,10 +163,10 @@ define lua-eval->lua-function [
     import list
 
     lua-eval-code
-    quote statements map-get swap drop const statements
-    quote returns map-get swap drop const rets
-    quote args map-get swap drop
-    list-map [ quote declared #t map-set ]
+    quote statements dict-get swap drop const statements
+    quote returns dict-get swap drop const rets
+    quote args dict-get swap drop
+    list-map [ quote declared #t dict-set ]
     const args
     drop
 
