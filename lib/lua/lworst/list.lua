@@ -1,10 +1,113 @@
 
 local base = require("base")
 local Type = base.Type
+local ListRef = require("list_old")
 
--- Immutable lists with a shareable, immutable region and a mutable stack
+-- Immutable lists
+
+-- List contains
+-- - Data table
+-- - Top index
+-- Data table contains:
+-- - The data (duh)
+
+-- TODO if performance degrades due to shared pop/push and too much full_clone
+-- add a weak refs table in data pointing to self,
+-- and if self is a unique reference to the data, don't full_clone
+
+-- Pop: just decrement top
+-- Push:
+-- - if data[top + 1] is nil, just table.insert and increment top
+-- - otherwise do a complete clone
 
 local List = Type.new("list")
+
+function List.empty()
+    return setmetatable({ data = {}, top = 0 }, List)
+end
+
+function List:length() return self.top end
+function List:head() return self.data[self.top] end
+function List:index(n) return self.data[self.top - n] end
+
+function List:clone()
+    return setmetatable({
+        data = self.data,
+        top = self.top,
+    }, List)
+end
+
+function List:full_clone()
+    local l = List.empty()
+    for i = 1, self.top do
+        l.data[i] = self.data[i]
+    end
+    l.top = self.top
+    return l
+end
+
+function List:pop()
+    if self.top == 0 then return nil, nil end
+    local l = self:clone()
+    local v = l.data[l.top]
+    l.top = l.top - 1
+    return l, v
+end
+
+function List:push(v)
+    local l
+    if self.data[self.top + 1] ~= nil then
+        l = self:full_clone()
+    else
+        l = self:clone()
+    end
+    l.top = l.top + 1
+    l.data[l.top] = v
+    return l
+end
+
+function List.create(data)
+    if List.is(data) then
+        return data:clone()
+    elseif getmetatable(data) then
+        error("List.create: not a plain table: " .. base.to_string_debug(data))
+    else
+        local l = List.empty()
+        for i, v in ipairs(data) do
+            l = l:push(v)
+        end
+        l = l:reverse()
+        return l
+    end
+end
+
+function List:to_table()
+    local r = {}
+    for i = self.top, 1, -1 do
+        table.insert(r, self.data[i])
+    end
+    return r
+end
+
+function List:append(thee)
+    local l = thee
+    for i = 1, self.top do
+        l = l:push(self.data[i])
+    end
+    return l
+end
+
+function List:reverse()
+    local r = List.empty()
+    local s = self
+    while true do
+        local xs, v = s:pop()
+        if xs == nil then break end
+        s = xs
+        r = r:push(v)
+    end
+    return r
+end
 
 function List.to_string_terse(l)
     local acc = {}
@@ -13,7 +116,6 @@ function List.to_string_terse(l)
     end
     return "(" .. table.concat(acc, " ") .. ")"
 end
-
 List.__tostring = function(l) return List.to_string_terse(l) end
 
 function List.equal(a, b)
@@ -29,126 +131,6 @@ function List.equal(a, b)
     end
 end
 
--- List.__index = function(l, k)
---     if type(k) == "number" then
---         return l:index(k - 1)
---     else
---         return getmetatable(l)[k]
---     end
--- end
-
-List.__len = function(l) return l:length() end
-
-function List.create(src)
-    if List.is(src) then
-        return src:clone()
-    elseif getmetatable(src) ~= nil then
-        error("List.create: not a plain table: " .. base.to_string_debug(src))
-    else
-        return setmetatable({
-            shared = base.readonly(src),
-            sharedmax = #src + 1,
-            sharedi = 1,
-            stack = {},
-            stacklen = 0,
-        }, List)
-    end
-end
-
-function List:clone()
-    return setmetatable({
-        shared = self.shared,
-        sharedmax = self.sharedmax,
-        sharedi = self.sharedi,
-        stack = { unpack(self.stack) },
-        stacklen = self.stacklen,
-    }, List)
-end
-
-function List.empty() return List.create({}) end
-
-function List:length()
-    local sharedlen = self.sharedmax - self.sharedi
-    return sharedlen + self.stacklen
-end
-
-function List:push(v)
-    local new = self:clone()
-    table.insert(new.stack, v)
-    new.stacklen = new.stacklen + 1
-    return new
-end
-
-function List:head()
-    if self.stacklen > 0 then
-        return self.stack[self.stacklen]
-    else
-        return self.shared[self.sharedi]
-    end
-end
-
-function List:pop()
-    local new = self:clone()
-    if new.stacklen > 0 then
-        new.stacklen = new.stacklen - 1
-        return new, table.remove(new.stack)
-    elseif new.sharedi < new.sharedmax then
-        local r = new.shared[new.sharedi]
-        new.sharedi = new.sharedi + 1
-        return new, r
-    else
-        return nil, nil
-    end
-end
-
-function List:index(n)
-    if n < self.stacklen then
-        return self.stack[self.stacklen - n]
-    else
-        return self.shared[self.sharedi + n - self.stacklen]
-    end
-end
-
-function List:to_table()
-    if self.stacklen == 0 then
-        -- print("to_table 1")
-        return { unpack(self.shared, self.sharedi) }
-    else
-        -- print("to_table 2")
-        local r = {}
-        for i = self.stacklen, 1, -1 do
-            table.insert(r, self.stack[i])
-        end
-        for i = self.sharedi, self.sharedmax do
-            table.insert(r, self.shared[i])
-        end
-        return r
-    end
-end
-
-function List.append(a, b)
-    local ta = a:to_table()
-    local tb = b:to_table()
-    for i, v in ipairs(tb) do
-        -- print("insert", i, v)
-        table.insert(ta, v)
-    end
-    return List.create(ta)
-end
-
-function List:reverse()
-    local r = {}
-
-    for i = self.sharedmax - 1, self.sharedi, -1 do
-        table.insert(r, self.shared[i])
-    end
-    for i = 1, self.stacklen do
-        table.insert(r, self.stack[i])
-    end
-
-    return List.create(r)
-end
-
 function List:iter()
     function f(st, v)
         local s, v = st.s:pop()
@@ -160,4 +142,5 @@ function List:iter()
 end
 
 return List
+
 
