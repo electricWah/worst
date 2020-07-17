@@ -12,7 +12,7 @@ but any language will work if you'd like to follow along.
 As you read on, you will encounter documentation and source code for the
 core procedures, built-in library functions, and command-line interface
 of a working Worst interpreter, in roughly that order.
-@hyperlink["https://gitlab.com/worst-lang/worst/blob/master/worst.rkt"]{A
+@hyperlink["https://gitlab.com/worst-lang/worst/blob/trunk/worst.rkt"]{A
 single source file}
 holds this text, the interpreter itself, and a handful of tests.
 
