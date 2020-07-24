@@ -26,11 +26,16 @@ Interpreter.ERROR_HANDLER = "current-error-handler"
 -- if traversing into a parent, pop all in defs
 
 function frame_empty(name)
-    return { body = {}, childs = {}, defs = {}, name = name }
+    return { body = List.empty(), childs = {}, defs = {}, name = name }
 end
 
 function Interpreter.empty()
     return setmetatable({
+        data = {
+            -- little baby hack to allow defs access to types
+            Symbol = Symbol,
+            List = List,
+        },
         parents = {},
         frame = frame_empty(),
         defstacks = {}
@@ -50,12 +55,12 @@ function Interpreter.create(body)
 end
 
 function Interpreter:resolve(name)
-    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
     if self.frame.defs[name] ~= nil then
         return self.frame.defs[name]
+    else
+        local namestack = self.defstacks[name]
+        return namestack and namestack[#namestack]
     end
-    local namestack = self.defstacks[name]
-    return namestack and namestack[#namestack]
 end
 
 -- returns old frame
@@ -100,29 +105,34 @@ end
 
 function Interpreter:into_parent()
     local old_frame = enter_parent_frame(self)
-    if not old_frame then return false end
-    table.insert(self.frame.childs, old_frame)
+    if not old_frame then
+        return false
+    elseif old_frame.body:length() > 0 or #old_frame.childs > 0 then
+        table.insert(self.frame.childs, old_frame)
+    end
     return true
 end
 
 function Interpreter:define(name, def)
-    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
-    self.frame.defs[name] = def
+    if name == nil then
+        self:error("define(nil, def)")
+    elseif def == nil then
+        self:error("define(_, nil)", name)
+    else
+        self.frame.defs[name] = def
+    end
 end
 
 function Interpreter:definition_get(name)
-    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
     return self.frame.defs[name]
 end
 
 function Interpreter:definition_remove(name)
-    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
     self.frame.defs[name] = nil
 end
 
 function Interpreter:code_read()
     while true do
-        -- ctx->child-innermost
         while true do
             local child = table.remove(self.frame.childs)
             if child then
@@ -135,9 +145,7 @@ function Interpreter:code_read()
         local body = self:body_read()
         if body ~= nil then
             return body
-        end
-
-        if enter_parent_frame(self) == nil then
+        elseif enter_parent_frame(self) == nil then
             return nil
         end
     end
@@ -154,7 +162,6 @@ function Interpreter:handle_error(stack, name, ...)
         self:stack_push(stack, irritants)
         self:stack_push(stack, Symbol.new(name))
         handler(self, stack)
-        return true
     elseif List.is(handler) then
         -- print("handle_error", handler)
         enter_body(self, handler)
@@ -168,6 +175,16 @@ function Interpreter:handle_error(stack, name, ...)
 end
 
 function Interpreter:eval(stack, v, name)
+    -- if true then
+    --     local st = {}
+    --     for _,  p in ipairs(self.parents) do
+    --         table.insert(st, base.to_string_terse(p.name or "???"))
+    --     end
+    --     table.insert(st, base.to_string_terse(self.frame.name or "???"))
+    --     table.insert(st, base.to_string_terse(name or "???"))
+
+    --     io.stderr:write(table.concat(st, " "), "\n")
+    -- end
     if List.is(v) then
         enter_body(self, v, name)
     elseif type(v) == "function" then
@@ -177,10 +194,11 @@ function Interpreter:eval(stack, v, name)
             for _, p in ipairs(self.parents) do
                 print("...", p.name or "???")
             end
+            print("...", self.frame.name or "???")
             if type(err) == "table" then
-                return self:handle_error(stack, err[1], unpack(err, 2))
+                self:handle_error(stack, err[1], unpack(err, 2))
             else
-                return self:handle_error(stack, err)
+                self:handle_error(stack, err)
             end
         end
     else
@@ -190,28 +208,30 @@ end
 
 function Interpreter:call(stack, name)
     -- print("call", name)
-    -- if Symbol.is(name) then name = Symbol.unwrap(name) end
     local def = self:resolve(name)
     if def == nil then
-        return self:handle_error(stack, "undefined", name)
+        self:handle_error(stack, "undefined", name)
+    else
+        self:eval(stack, def, name)
     end
-    self:eval(stack, def, name)
 end
 
 function Interpreter:stack_push(stack, v)
-    if v == nil then error("stack_push(nil)") end
-    if type(v) == "table" and getmetatable(v) == nil then
+    if v == nil then
+        error("stack_push(nil)")
+    elseif type(v) == "table" and getmetatable(v) == nil then
         self:error("stack_push: unknown type", v)
+    else
+        stack:push(v)
     end
-    stack:push(v)
 end
 
 function Interpreter:stack_ref(stack, i, ty)
     local v = stack[#stack - (i - 1)]
-    if v == nil then self:error("stack-empty") end
-    if ty ~= nil and (Type.is(ty) and not ty.is(v)) and (type(v) ~= ty) then
-        -- print("Stack:", unpack(stack))
-        self:error("wrong-type", ty, v)
+    if v == nil then
+        self:error("stack-empty")
+    elseif ty ~= nil and not Type.is(ty, v) then
+        self:error("wrong-type", Type.name(ty), v)
     else
         return v
     end
@@ -219,29 +239,24 @@ end
 
 function Interpreter:stack_pop(stack, ty)
     local v = stack:pop()
-    if v == nil then self:error("stack-empty") end
-    if ty ~= nil then
-        if type(v) == ty then
-        elseif Type.is(ty) and ty.is(v) then
-        else
-            self:error("wrong-type", ty, v)
-        end
+    if v == nil then
+        self:error("stack-empty")
+    elseif ty ~= nil and not Type.is(ty, v) then
+        self:error("wrong-type", Type.name(ty), v)
+    else
+        return v
     end
-
-    return v
 end
 
 function Interpreter:step(stack)
     local code = self:code_read()
     if code == nil then
         return false
+    elseif Symbol.is(code) then
+        -- print(">", code)
+        self:call(stack, code)
     else
-        if Symbol.is(code) then
-            -- print(">", code)
-            self:call(stack, code)
-        else
-            self:stack_push(stack, code)
-        end
+        self:stack_push(stack, code)
     end
     return true
 end

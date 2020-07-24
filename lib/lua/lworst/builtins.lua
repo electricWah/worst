@@ -194,10 +194,9 @@ mod["env-get"] = function(i, s)
     i:stack_push(s, value)
 end
 
-local tdef = Type.any(List, "function")
 mod["definition-add"] = function(i, s)
     local name = i:stack_pop(s, Symbol)
-    local body = i:stack_pop(s, tdef)
+    local body = i:stack_pop(s, {List, "function"})
     i:define(name, body)
 end
 
@@ -276,7 +275,13 @@ end
 mod["string-join"] = function(i, s)
     local sep = i:stack_pop(s, "string")
     local strs = i:stack_pop(s, List)
-    i:stack_push(s, table.concat(strs:to_table(), sep))
+    local t = strs:to_table()
+    for _, v in ipairs(t) do
+        if not Type.is("string", v) then
+            i:error("wrong-type", "list of strings", strs)
+        end
+    end
+    i:stack_push(s, table.concat(t, sep))
 end
 
 mod["current-input-port"] = function(i, s)

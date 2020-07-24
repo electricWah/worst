@@ -5,8 +5,6 @@ Type.__tostring = function(t)
     return "Type(" .. t.name .. ")"
 end
 
-Type.is = function(v) return getmetatable(v) == Type end
-
 function Type.new(name)
     local t = setmetatable({ name = name }, Type)
     t.__index = t
@@ -14,29 +12,36 @@ function Type.new(name)
     return t
 end
 
-function Type.any(...)
-    local types = {...}
-    local names = {}
-    for _, t in ipairs(types) do
-        table.insert(names, t.name)
-    end
-    return setmetatable({
-        name = table.concat(names, "|"),
-        is = function(v)
-            for _, t in ipairs(types) do
-                if Type.is(t) then
-                    if t.is(v) then
-                        return true
-                    end
-                elseif type(t) == "string" then
-                    if type(v) == t then
-                        return true
-                    end
-                end
-            end
-            return false
+function Type.is(t, v)
+    if type(v) == t
+    or getmetatable(v) == t
+    or (type(t) == "table" and type(t.is) == "function" and t.is(v))
+    or (type(t) == "function" and t(v))
+    then return true end
+
+    if type(t) == "table" then
+        for _, t in ipairs(t) do
+            if Type.is(t, v) then return true end
         end
-    }, Type)
+    end
+
+    return false
+end
+
+function Type.name(t)
+    if type(t) == "string" then return t end
+
+    if type(t) == "table" then
+        local names = {}
+        for _, t in ipairs(t) do
+            table.insert(names, Type.name(t))
+        end
+        if #names > 0 then
+            return table.concat(names, " or ")
+        end
+    end
+
+    return tostring(t)
 end
 
 local Symbol = Type.new("symbol")
