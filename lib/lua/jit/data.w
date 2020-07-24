@@ -10,6 +10,7 @@ define make-lua-expr [
     dict-empty
     quote %expr dig false? if [ drop 10 ] [] dict-set
     quote value dig dict-set
+    quote declared #t dict-set
 ]
 export-name make-lua-expr
 
@@ -21,6 +22,12 @@ export-name lua-expr-precedence
 
 define lua-expr-unwrap [ quote value dict-get bury drop drop ]
 export-name lua-expr-unwrap
+
+define lua-expr-set-declared [ const decl quote declared decl dict-set ]
+export-name lua-expr-set-declared
+
+define lua-expr-declared? [ quote declared dict-get swap drop ]
+export-name lua-expr-declared?
 
 ; Assignments declare and/or set variables.
 ; They exist to reduce the amount of code generated,
@@ -35,21 +42,21 @@ define make-lua-assignment [
     const val
     const var
 
-    var
-    quote assign-count
-    dict-get
+    ; var
+    ; quote assign-count
+    ; dict-get
 
-    false? if [ drop 0 ] [ ]
-    const assign-count
+    ; false? if [ drop 0 ] [ ]
+    ; const assign-count
 
-    assign-count
-    1 add
-    dict-set
+    ; assign-count
+    ; 1 add
+    ; dict-set
 
-    drop
+    ; drop
 
     dict-empty
-    quote %assignment assign-count dict-set
+    quote %assignment #t dict-set
     quote var var dict-set
     quote val val dict-set
 ]

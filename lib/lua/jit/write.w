@@ -7,11 +7,15 @@ define lua-assignment->string [
     drop
 
     stmt-var
-    quote declared
-    dict-get const declared
-    #t dict-set
+    lua-expr-declared? const declared
+    #t lua-expr-set-declared
     drop
-    
+
+    ; quote declared
+    ; dict-get const declared
+    ; #t dict-set
+    ; drop
+
     [ declared if [] ["local "] stmt-var " = " stmt-val ] list-eval
     #f make-lua-expr
     lua-expr->string
@@ -52,13 +56,14 @@ define lua-expr->string [
                 "{" swap string-append
                 "}" string-append
             }
+            (string?) (to-string/debug swap drop)
             #t (->string)
         }
     ]
     define ->string/prec [
         const oprec
         lua-expr? if [
-            quote %expr dict-get swap drop
+            lua-expr-precedence
             #t equal? if [ drop drop value->string ] [
                 drop const iprec
                 lua-expr-unwrap
@@ -81,7 +86,7 @@ define lua-statement->string [
         (false?) { }
         (lua-expr?) { lua-expr->string }
         (lua-assignment?) { lua-assignment->string }
-        #t { ["lua-statement->string unexpected"] swap list-append abort }
+        #t { ["lua-statement->string unexpected"] swap list-push abort }
     }
 ]
 export-name lua-statement->string

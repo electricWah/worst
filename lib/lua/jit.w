@@ -16,9 +16,16 @@ import lua/jit/expr
 ; if, while, etc
 import lua/jit/controlflow
 
+; some wrappers to make things easier to work with
+import lua/jit/wrappers
+
 ; Redefining things in terms of themselves
 import lua/jit/redef
+; import-forget lua/jit/redef import lua/jit/redef
+; import-forget lua/jit/redef import lua/jit/redef
+; import-forget lua/jit/redef import lua/jit/redef
+; import-forget lua/jit/redef import lua/jit/redef
+; import-forget lua/jit/redef import lua/jit/redef
 
 ; vi: ft=scheme
-
 

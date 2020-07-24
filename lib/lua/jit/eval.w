@@ -127,7 +127,6 @@ define lua-eval->function-expr [
     quote statements dict-get swap drop const statements
     quote returns dict-get swap drop const rets
     quote args dict-get swap drop
-    list-map [ quote declared #t dict-set ]
     const args
     drop
 
@@ -166,7 +165,6 @@ define lua-eval->lua-function [
     quote statements dict-get swap drop const statements
     quote returns dict-get swap drop const rets
     quote args dict-get swap drop
-    list-map [ quote declared #t dict-set ]
     const args
     drop
 

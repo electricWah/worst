@@ -1,4 +1,38 @@
 
+[ with-interpreter i [ i read i push ] ]
+lua-eval->lua-function
+quote quote
+definition-add
+export-name quote
+
+[
+    with-interpreter i [
+        i into-parent
+        i read
+        i push
+    ]
+]
+lua-eval->lua-function
+quote upquote
+definition-add
+export-name upquote
+
+[
+    with-interpreter i [
+        i pop const c
+
+        [ with-interpreter ii [ c i push ] ]
+        lua-eval->function-expr
+
+        i read
+        i def-add
+    ]
+]
+lua-eval->lua-function
+quote const
+definition-add
+export-name const
+
 ; Turn a normal function into a definition
 ; func in-n lua-function-wrap-definition -> def
 ; stack_push_all(func(unpack(stack_pop(in_n))))
@@ -9,65 +43,32 @@
         const func
         [
             ; lua-eval-interpreter can't do dynamic stack lengths
-            2 lua-expect-values
-            const interp
-            const istack
+            with-interpreter interp [
+                ; local args = {}
+                [] lvar args
 
-            ; interp:stack_pop(istack)
-            define interp-stack-pop [
-                interp
-                quote stack_pop
-                [istack] list-eval
-                1
-                lua-method-call
-            ]
+                ; for i = 1, arglen, 1 do
+                lfor-range i 1 [arglen] 1 [
+                    ; 1 lua-expect-values drop ; drop i
 
-            ; local args = {}
-            [] quote args lua-expr->variable const args
+                    ; table.insert(args, interp:stack_pop()) end
+                    "table.insert" lfcall 0 (args interp pop)
+                ]
+                ; lua-for-iter
 
-            ; for i = 0, arglen, 1 do
-            1 arglen 1 [
-                1 lua-expect-values drop ; drop i
-
-                ; table.insert(args, interp:stack_pop()) end
-
-                quote table.insert
-                [args interp-stack-pop] list-eval
-                0
-                lua-funcall
-            ]
-            lua-for-iter
-
-            ; local rets = {func(unpack(args))}
-            [
-                ; func(unpack(args))
-                func
+                ; local rets = {func(unpack(args))}
                 [
-                    ; unpack(args)
-                    quote unpack [args] list-eval
-                    #t lua-funcall
+                    ; func(unpack(args))
+                    func lfcall #t ("unpack" lfcall #t (args))
                 ]
                 list-eval
-                #t lua-funcall
-            ]
-            list-eval
-            quote rets lua-expr->variable
-            const rets
+                lvar rets
 
-            ; for i, r in ipairs(rets) do interp:stack_push(r) end
-            quote ipairs [rets] list-eval #t lua-funcall
-            2
-            [
-                2 lua-expect-values
-                const ret
-                const i
-
-                interp
-                quote stack_push
-                [istack ret] list-eval
-                0 lua-method-call
+                ; for i, r in ipairs(rets) do interp:stack_push(r) end
+                lfor-in [i ret] ["ipairs" lfcall #t (rets)] [
+                    ret interp push
+                ]
             ]
-            lua-for-in
         ]
         lua-eval->function-expr
     ]
@@ -78,43 +79,137 @@ quote lua-function-wrap-definition
 definition-add
 ; export-name lua-function-wrap-definition
 
-; symbols must be injected because lua doesn't have access to them
-; (technically it does, but only through require(), which may fail at runtime
-;  if this is accidentally used outside of jit - so don't let it happen)
+
+; [
+;     with-interpreter interp [
+;         interp pop const prec
+;         interp pop const v
+
+;         dict-empty
+
+;         "value" interp ->symbol v dict-set
+
+;         "%expr" interp ->symbol
+;         prec 10 " or " 8 lua-binop
+;         dict-set
+;         ; TODO give this a metatable
+;     ]
+; ]
+; lua-eval->lua-function
+; quote make-lua-expr definition-add
+; export-name make-lua-expr
 
 [
-    [
-        ; quote %expr
-        2 lua-expect-values
-        const value-symbol
-        const expr-symbol
+    with-interpreter interp [
+        dict-empty
+        lvar metatable
+
         [
-            ; {[%expr] = prec, [value] = v}
-            2 lua-expect-values
-            const prec
-            const v
+            with-interpreter i [
+                i pop const prec
+                i pop const v
 
-            dict-empty
-            expr-symbol
-            prec 10 " or " 8 lua-binop
-            dict-set
+                dict-empty
 
-            value-symbol
-            v dict-set
+                quote prec
+                prec 10 " or " 8 lua-binop
+                dict-set
+
+                quote value
+                v dict-set
+
+                quote declared #t dict-set
+
+                const e
+
+                "setmetatable" lfcall 1 (e metatable)
+
+                i push
+            ]
         ]
         lua-eval->function-expr
+        "make-lua-expr" interp ->symbol
+        interp def-add
+
+        [
+            1 lua-expect-values const s
+            "getmetatable" lfcall 1 (s)
+            metatable
+            "==" 6 lua-binop
+        ]
+        lua-eval->function-expr
+        lvar isexpr
+
+        [
+            with-interpreter i [
+                1 i ref const s
+                isexpr lfcall 1 (s)
+                i push
+            ]
+        ]
+        lua-eval->function-expr
+        "lua-expr?" interp ->symbol
+        interp def-add
+
+        [
+            with-interpreter i [
+                metatable i pop/type
+                quote value lua-dot
+                i push
+            ]
+        ]
+        lua-eval->function-expr
+        "lua-expr-unwrap" interp ->symbol
+        interp def-add
+
+        [
+            with-interpreter i [
+                1 metatable i ref/type
+                quote prec lua-dot
+                i push
+            ]
+        ]
+        lua-eval->function-expr
+        "lua-expr-precedence" interp ->symbol
+        interp def-add
+
+        [
+            with-interpreter i [
+                1 metatable i ref/type
+                quote declared lua-dot
+                #t "==" 6 lua-binop
+                i push
+            ]
+        ]
+        lua-eval->function-expr
+        "lua-expr-declared?" interp ->symbol
+        interp def-add
+
+        [
+            with-interpreter i [
+                "boolean" #t make-lua-expr
+                i pop/type const d
+                metatable i pop/type
+                clone
+                quote declared lua-dot
+                d make-lua-assignment lua-emit-statement
+                i push
+            ]
+        ]
+        lua-eval->function-expr
+        "lua-expr-set-declared" interp ->symbol
+        interp def-add
+
     ]
-    lua-eval-interpreter
 ]
 lua-eval->lua-function
-quote %expr
-quote value
-dig eval
-const make-lua-expr
-make-lua-expr quote lua-expr?/lua definition-add
-make-lua-expr 1 lua-function-wrap-definition
-quote make-lua-expr definition-add
-; export-name make-lua-expr
+eval
+export-name lua-expr?
+export-name make-lua-expr
+export-name lua-expr-precedence
+export-name lua-expr-unwrap
+export-name lua-expr-declared?
+export-name lua-expr-set-declared
 
 ; ; define lua-expr? [ dict? if [ quote %expr dict-exists swap drop ] [ #f ] ]
 ; [
