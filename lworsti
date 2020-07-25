@@ -32,28 +32,23 @@ define if [
     eval
 ]
 
-; TODO add syntax-read here
-; it's in worst.rkt but not lworst.lua because lworst never expected
-; to be given anything but a source file to read, therefore it just reads this
-; TODO also simplify syntax-read? port-read-value can be overridden instead
-; and syntax-read is then just [ source-input-port port-read-value swap drop ]
+define while [
+    upquote quote %%cond definition-add
+    upquote quote %%while-body definition-add
+    [
+        %%cond if [%%while-body %%loop] [[]] current-context-set-code
+    ] const %%loop
+    %%loop current-context-set-code
+]
 
 define syntax-read [ source-input-port port-read-value swap drop ]
 
 ; path read-file -> list
 define read-file [
     open-input-file
-    define read-all [
-        ; tail-call
-        swap
-        port-read-value eof-object? if [
-            drop drop list-reverse
-        ] [
-            dig swap list-push
-            read-all
-        ]
-    ]
-    [] read-all
+    [] while [ swap port-read-value eof-object? not ] [ dig swap list-push ]
+    drop drop
+    list-reverse
 ]
 
 "WORST_LIBDIR" env-get swap drop

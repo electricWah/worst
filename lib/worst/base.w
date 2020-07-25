@@ -27,16 +27,6 @@ define tailcall [
     updo current-context-set-code
 ]
 
-define while [
-    upquote quote %%cond definition-add
-    upquote quote %%while-body definition-add
-    [
-        %%cond if [%%while-body %%loop] [[]] current-context-set-code
-    ] const %%loop
-    %%loop current-context-set-code
-]
-export-name while
-
 ; n do-times [body...]
 define do-times [
     upquote quote %%do-times-body definition-add
