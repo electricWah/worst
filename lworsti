@@ -1,7 +1,7 @@
 #!/bin/sh
 # profiling: -jp -jp=s -jp=l2 -jp=a
 # -jp=6 = 6 stack context, -jp=l6 = with line numbers
-exec env "LUA_PATH=${LUA_PATH};${WORST_LIBDIR-./lib}/lua/lworst/?.lua" luajit -jp=l2 -- ${WORST_LIBDIR-./lib}/lua/lworst.lua $0 $@
+exec env "LUA_PATH=${LUA_PATH};${WORST_LIBDIR-./lib}/lworst/?.lua" luajit -jp=l2 -- ${WORST_LIBDIR-./lib}/lworst/main.lua $0 $@
 !#
 
 [ quote quote quote uplevel uplevel ] quote upquote definition-add

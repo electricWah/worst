@@ -1,31 +1,18 @@
 
-; Compile Worst to Lua.
+; Worst->Lua with 
 
-; Expressions, assignments, and statements
-import lua/jit/data
+; Base codegen
+import lua/text
 
-; Writing to strings
-import lua/jit/write
-
-; Generating functions from lists
-import lua/jit/eval
-
-; Variables, binops, unops, indexing, function calls, etc
-import lua/jit/expr
-
-; if, while, etc
-import lua/jit/controlflow
-
-; some wrappers to make things easier to work with
-import lua/jit/wrappers
-
-; Redefining things in terms of themselves
+; Redefine functions in Lua to speed things up
 import lua/jit/redef
-; import-forget lua/jit/redef import lua/jit/redef
-; import-forget lua/jit/redef import lua/jit/redef
-; import-forget lua/jit/redef import lua/jit/redef
-; import-forget lua/jit/redef import lua/jit/redef
-; import-forget lua/jit/redef import lua/jit/redef
+
+; Make the whole text gen thing in Lua
+; or at least anything that uses words that will be used in regular code
+
+; Words like add, and, if, etc., to make writing functions identical
+
+; Compile definitions completely without needing any special words
 
 ; vi: ft=scheme
 
