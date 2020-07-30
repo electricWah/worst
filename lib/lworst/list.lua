@@ -89,24 +89,19 @@ function List:to_table()
     return r
 end
 
-function List:append(thee)
-    local l = thee
-    for i = 1, self.top do
-        l = l:push(self.data[i])
-    end
-    return l
-end
-
 function List:reverse()
     local r = List.empty()
-    local s = self
-    while true do
-        local xs, v = s:pop()
-        if xs == nil then break end
-        s = xs
+    for v in self:iter() do
         r = r:push(v)
     end
     return r
+end
+
+function List:append(thee)
+    for v in self:reverse():iter() do
+        thee = thee:push(v)
+    end
+    return thee
 end
 
 function List.to_string_terse(l)
