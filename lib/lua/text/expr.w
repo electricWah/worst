@@ -68,7 +68,6 @@ export-name lua-index
 ; single-value version
 ; expr args #t lua-funcall -> expr(args)
 define lua-funcall [
-    import list
     const rcount
     const args
     const func

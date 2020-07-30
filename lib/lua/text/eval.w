@@ -72,8 +72,6 @@ export-name lua-eval-code
 ; All args and returns use the given stack, which is isolated within body.
 ; You can reference expressions by name (const) or push/pop the given stack.
 define lua-eval-interpreter [
-    import list
-    
     lua-eval-code
 
     quote statements dict-get swap drop const statements
@@ -121,8 +119,6 @@ export-name lua-eval-interpreter
 ; For use within lua-eval
 ; body -> function(args) stmts; return ret, ... end
 define lua-eval->function-expr [
-    import list
-
     lua-eval-code
     quote statements dict-get swap drop const statements
     quote returns dict-get swap drop const rets
@@ -159,8 +155,6 @@ export-name lua-eval->function-expr
 ; Compiles eval into a lua function ("chunk")
 ; body -> local args = ...; stmts; return ret, ... -> lua-load-string
 define lua-eval->lua-function [
-    import list
-
     lua-eval-code
     quote statements dict-get swap drop const statements
     quote returns dict-get swap drop const rets

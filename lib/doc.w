@@ -27,7 +27,6 @@ dict %tag-docs
 
 lexical (%docs %tag-docs)
 define documentation-set [
-    import list
     const body
     const name
     name body %docs set

@@ -14,7 +14,6 @@ define define-object-constructor [
     ; 12 n set"
     ; ]
     import syntax/variable
-    import list
 
     upquote const dname
 

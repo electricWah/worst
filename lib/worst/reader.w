@@ -32,7 +32,6 @@ export-name reader-empty
 
 ; reader str reader-read-string -> reader
 define reader-read-string [
-    import list
     swap
     1 list-ref!
     dig string-append
@@ -49,7 +48,6 @@ define reader-next [
     import syntax/cond
     import syntax/assign
     import syntax/variable
-    import list
 
     list-iterate [] => [input-idx input-str datum state nest-data nest-info]
     input-idx variable input-idx

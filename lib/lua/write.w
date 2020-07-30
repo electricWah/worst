@@ -36,7 +36,6 @@
 define lua-write [
     import syntax/variable
     import syntax/cond
-    import list
 
     define list-csv->string [
         list-length cond [

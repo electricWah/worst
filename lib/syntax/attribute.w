@@ -5,7 +5,6 @@
 ; Attributes are definitions you can use to augment the next define form.
 
 define define-attribute [
-    import list
     import syntax/variable
 
     upquote const attr-name
@@ -74,7 +73,6 @@ export-name define
 define-attribute lexical [
     args (names)
     before [
-        import list
         swap
         names symbol? if [call] []
         ; interpreter-dump-stack

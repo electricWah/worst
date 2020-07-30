@@ -1,7 +1,5 @@
 
 define lua-assignment->string [
-    import list
-
     quote var dict-get const stmt-var drop
     quote val dict-get const stmt-val drop
     drop
@@ -23,7 +21,6 @@ define lua-assignment->string [
 export-name lua-assignment->string
 
 define lua-expr->string [
-    import list
     import syntax/case
     define value->string [
         case {

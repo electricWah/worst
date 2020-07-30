@@ -17,7 +17,7 @@
 import syntax/attribute
 
 dict-empty
- quote has [ swap dict-exists dig drop ] dict-set
+quote has [ swap dict-exists dig drop ] dict-set
 quote get [ swap dict-get dig drop ] dict-set
 quote get! [ swap dict-get bury drop drop ] dict-set
 quote set [ bury dict-set drop ] dict-set

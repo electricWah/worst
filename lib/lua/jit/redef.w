@@ -20,10 +20,8 @@ export-name upquote
 [
     with-interpreter i [
         i pop const c
-
         [ with-interpreter ii [ c i push ] ]
         lua-eval->function-expr
-
         i read
         i def-add
     ]
@@ -78,7 +76,6 @@ lua-eval->lua-function
 quote lua-function-wrap-definition
 definition-add
 ; export-name lua-function-wrap-definition
-
 
 ; [
 ;     with-interpreter interp [

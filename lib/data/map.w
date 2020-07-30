@@ -25,7 +25,6 @@ export-name pairs->map
 
 ; map map->pairs -> [k1 v1 k2 v2 ...]
 define map->pairs [
-    import list
     map-keys
     [] swap list-iterate [
         swap const acc

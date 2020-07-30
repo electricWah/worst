@@ -19,6 +19,8 @@ import lua/text/controlflow
 ; some wrappers to make things easier to work with
 import lua/text/wrappers
 
+export-all
+
 ; vi: ft=scheme
 
 

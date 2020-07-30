@@ -1,5 +1,5 @@
 
-; Worst->Lua with 
+; Worst->Lua
 
 ; Base codegen
 import lua/text
@@ -13,6 +13,8 @@ import lua/jit/redef
 ; Words like add, and, if, etc., to make writing functions identical
 
 ; Compile definitions completely without needing any special words
+
+; export-all
 
 ; vi: ft=scheme
 

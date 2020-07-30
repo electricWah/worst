@@ -131,6 +131,8 @@ function Interpreter:definition_remove(name)
     self.frame.defs[name] = nil
 end
 
+function Interpreter:definitions() return self.frame.defs end
+
 function Interpreter:code_read()
     while true do
         while true do

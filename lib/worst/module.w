@@ -3,7 +3,6 @@
 
 import syntax/variable
 import syntax/attribute
-import syntax/assign
 
 lexical (syntax-read)
 lexical-alias quote %%quote
@@ -25,48 +24,64 @@ define load-eval-file [
     run
 ]
 
-dict-empty variable %import-files
+dict-empty const %import-files
 
 ; Less basic import
 lexical (variable updo %import-files)
 define import-file [
     resolve-import-path const %import-path
 
-    %import-files get
+    %import-files
     %import-path dict-exists if [
         drop drop
     ] [
         drop drop
 
-        [] variable %on-import-file-finished
+        dict-empty const %exports
 
         ; TODO allow export before definition
         define export-as [
             const newname const defname
-            %on-import-file-finished get
-            [ quote definition-add quote uplevel uplevel ] list-append
-            newname list-push
-            quote quote list-push
-            defname definition-resolve swap drop list-push
-            quote quote list-push
-            %on-import-file-finished set
+            defname definition-resolve const defn drop
+            %exports newname defn dict-set drop
         ]
 
         ; TODO make this an attribute
         define export-name [ upquote clone export-as ]
 
+        define export-all [
+            updo current-context-definitions
+            map-keys swap drop
+            while [list-empty? not] [
+                list-pop clone
+                export-as
+            ]
+            drop
+        ]
+
         %import-path read-file eval
         ; %import-path load-eval-file ; TODO make this work again
 
-        %import-files get
-        %import-path
-        %on-import-file-finished get
-        dict-set
-        %import-files set
-
+        []
+        %exports dict-keys list-iterate [
+            const k
+            k dict-get const v
+            drop
+            [
+                quote quote v quote quote k
+                [quote definition-add quote uplevel uplevel] list-iterate []
+            ] list-eval
+            swap bury list-append
+            swap
+        ]
+        drop
+        %import-files %import-path dig dict-set
+        drop
     ]
 
-    %import-files get %import-path dict-get swap drop swap drop eval
+    %import-files %import-path dict-get
+    bury drop drop
+    eval
 ]
 
 lexical ()

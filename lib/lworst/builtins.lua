@@ -412,13 +412,13 @@ mod["current-context-clear"] = function(i, s)
     i:set_body(List.empty())
 end
 
--- mod["current-context-definitions"] = function(i, s)
---     local m = Map.empty()
---     for k, v in pairs(i.defs) do
---         m:set(Symbol.new(k), base.clone(v))
---     end
---     i:stack_push(s, m)
--- end
+mod["current-context-definitions"] = function(i, s)
+    local m = Map.empty()
+    for k, v in pairs(i:definitions()) do
+        m = Map.set(m, k, base.clone(v))
+    end
+    i:stack_push(s, m)
+end
 
 -- string lua-load-string -> function #t
 --                        -> error    #f

@@ -12,8 +12,8 @@ documentation [
     tags [help repl]
 ]
 define help [
-    import list
     import doc
+    import data/list
     import syntax/cond
     import syntax/variable
 
