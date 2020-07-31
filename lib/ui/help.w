@@ -1,6 +1,4 @@
 
-import doc
-
 documentation [
     title "Show information on a topic"
     ; description "It's help."
@@ -12,11 +10,6 @@ documentation [
     tags [help repl]
 ]
 define help [
-    import doc
-    import data/list
-    import syntax/cond
-    import syntax/variable
-
     "Help topic? (try: help)" upquote const topic drop
 
     define write-help [
@@ -60,7 +53,6 @@ define help [
     ]
 
     define show-tags [
-        "Showing tags" interpreter-dump-stack drop
         ansi [
             doc-tags dict-keys
             swap drop
@@ -89,13 +81,20 @@ define help [
     topic equals? tags if [
         drop show-tags
     ] [
-        #f variable used
-        has-documentation? if [ write-help used <- #t ] [ drop ]
+        import syntax/variable
+        #f make-place const used
+        has-documentation? if [
+            write-help
+            used #t place-set drop
+        ] [ drop ]
 
-        topic doc-tag? if [ print-tag used <- #t ] []
+        topic doc-tag? if [
+            print-tag
+            used #t place-set drop
+        ] []
 
         drop
-        used get if [
+        used place-get swap drop if [
         ] [
             ansi [
                 red fg "No such topic found.\n" print reset

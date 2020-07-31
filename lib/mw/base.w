@@ -1,5 +1,5 @@
 
-import dict
+import syntax/dict
 ; import mw/mdefn
 
 ; module {
@@ -23,8 +23,8 @@ dict %mw-imports
 
 lexical (%mw-imports export-name import list-iterate if)
 define module [
-    import dict
     import syntax/variable
+    import syntax/dict
 
     ; %mw-imports: cache dict (path -> dict (symbol -> def))
     ; %exports: list of symbols this module will be exporting.

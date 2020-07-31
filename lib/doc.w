@@ -17,31 +17,22 @@
 ;   ... any more...
 ; ]
 
-import syntax/attribute
-import syntax/variable
-import syntax/assign
-import dict
+dict-empty const %docs
+dict-empty const %tags
 
-dict %docs
-dict %tag-docs
-
-lexical (%docs %tag-docs)
+lexical (%docs %tags)
 define documentation-set [
     const body
     const name
-    name body %docs set
+    %docs name body dict-set drop
     name doc-eval [
         define tags [
             upquote list-iterate [
                 const tag
-                tag %tag-docs has if [
-                    %tag-docs get
-                    name list-push
-                    %tag-docs set
-                ] [
-                    [] name list-push
-                    %tag-docs set
-                ]
+                %tags tag dict-get false? if [drop []] []
+                name list-push
+                dict-set
+                drop
             ]
         ]
     ]
@@ -53,9 +44,8 @@ lexical (%docs)
 define doc-eval [
     const name
     upquote const defs
-    name %docs has if [
-        %docs get!
-        defs swap list-append
+    %docs name dict-get bury drop drop false? if [] [
+        const docs
         define title [upquote drop]
         define description [upquote drop]
         define usage [upquote drop]
@@ -65,8 +55,8 @@ define doc-eval [
         define see-also [upquote drop]
         define internal []
         define undocumented []
-        eval
-    ] [ drop drop ]
+        defs docs list-append eval
+    ]
 ]
 
 define-attribute documentation [
@@ -80,16 +70,16 @@ define-attribute documentation [
 
 
 lexical (%docs)
-define has-documentation? [ %docs has ]
+define has-documentation? [ %docs swap dict-exists dig drop ]
 
 lexical (%docs)
-define documented-names [ %docs keys ]
+define documented-names [ %docs dict-keys swap drop ]
 
-lexical (%tag-docs)
-define doc-tags [ %tag-docs ->map ]
+lexical (%tags)
+define doc-tags [ %tags ]
 
-lexical (%tag-docs)
-define doc-tag? [ %tag-docs has ]
+lexical (%tags)
+define doc-tag? [ %tags swap dict-exists dig drop ]
 
 export-name doc-for
 export-name doc-eval
