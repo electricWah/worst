@@ -22,18 +22,17 @@ dict-empty const %tags
 
 lexical (%docs %tags)
 define documentation-set [
+    import data/map
     const body
     const name
     %docs name body dict-set drop
-    name doc-eval [
-        define tags [
-            upquote list-iterate [
-                const tag
-                %tags tag dict-get false? if [drop []] []
-                name list-push
-                dict-set
-                drop
-            ]
+    body pairs->map quote tags map-get bury drop drop false? if [drop] [
+        list-iterate [
+            const tag
+            %tags tag dict-get false? if [drop []] []
+            name list-push
+            dict-set
+            drop
         ]
     ]
 ]
@@ -41,21 +40,32 @@ define documentation-set [
 define doc-for [ upquote upquote documentation-set ]
 
 lexical (%docs)
+; doc-eval [
+;   key [program] ...
+; ]
 define doc-eval [
+    import data/map
     const name
-    upquote const defs
-    %docs name dict-get bury drop drop false? if [] [
-        const docs
-        define title [upquote drop]
-        define description [upquote drop]
-        define usage [upquote drop]
-        define example [upquote drop]
-        define section [upquote drop]
-        define tags [upquote drop]
-        define see-also [upquote drop]
-        define internal []
-        define undocumented []
-        defs docs list-append eval
+    upquote pairs->map const defs
+    %docs name dict-get
+    bury drop drop
+    false? if [] [
+        ; const docs
+        ; iterate pairwise over doc defs
+        #f ; key
+        swap list-iterate [
+            swap false? if [
+                ; use as key
+                drop
+            ] [
+                const key
+                defs key map-get bury drop drop
+                false? if [ drop drop ] [ eval ]
+                #f ; put blank key back
+            ]
+        ]
+        drop
+        #t
     ]
 ]
 

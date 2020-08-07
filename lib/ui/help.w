@@ -13,42 +13,51 @@ define help [
     "Help topic? (try: help)" upquote const topic drop
 
     define write-help [
-        ansi [ doc-eval [
-            define title [
-                "\n" print
-                bold topic ->string print
-                reset " - " print
-                upquote print
-                "\n" print
+        ansi [
+            doc-eval [
+                title [
+                    const v
+                    "\n" print
+                    bold topic ->string print
+                    reset " - " print
+                    v print
+                    "\n" print
+                ]
+                usage [
+                    const v
+                    "Usage: " print
+                    yellow fg v print
+                    reset "\n" print
+                ]
+                description [
+                    const v
+                    "\n  " print
+                    v print
+                    "\n\n" print
+                ]
+                example [
+                    "Example: " print
+                    bright yellow fg
+                    string? if [ print ] [
+                        list-iterate [ "\n    " print print ]
+                    ]
+                    reset "\n" print
+                ]
+                see-also [
+                    const v
+                    "See also: " print
+                    bright cyan fg v ->string print
+                    reset "\n" print
+                ]
+                tags [
+                    const taglist
+                    "Tags: " print taglist ->string print "\n" print
+                ]
+                undocumented [ drop red fg "Undocumented.\n" print ]
+                internal [ drop "For internal use.\n" print ]
             ]
-            define usage [
-                "Usage: " print
-                yellow fg upquote print
-                reset "\n" print
-            ]
-            define description [
-                "\n  " print
-                upquote print
-                "\n\n" print
-            ]
-            define example [
-                "Example: " print
-                bright yellow fg upquote print
-                reset "\n" print
-            ]
-            define see-also [
-                "See also: " print
-                bright cyan fg upquote ->string print
-                reset "\n" print
-            ]
-            define section [ upquote drop ]
-            define tags [
-                upquote const taglist
-                "Tags: " print taglist ->string print "\n" print
-            ]
-            define undocumented [ red fg "Undocumented.\n" print ]
-            define internal [ "For internal use.\n" print ]
-        ] ]
+            if [] []
+        ]
         "\n" print
     ]
 

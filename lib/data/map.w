@@ -1,13 +1,13 @@
 
 ; Map syntax
 
-; map . k -> map-get
-define . [ upquote map-get swap drop ]
-export-name .
+; ; map . k -> map-get
+; define . [ upquote map-get swap drop ]
+; export-name .
 
-; map v .= k v -> map-set
-define .= [ upquote upquote map-set ]
-export-name .=
+; ; map v .= k v -> map-set
+; define .= [ upquote upquote map-set ]
+; export-name .=
 
 ; [ k1 v1 k2 v2 ... ] pairs->map -> map
 define pairs->map [

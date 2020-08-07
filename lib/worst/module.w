@@ -89,8 +89,8 @@ define import [ upquote quote import-file uplevel ]
 
 lexical (%import-files)
 define import-forget [
-    %import-files get upquote resolve-import-path dict-remove
-    %import-files set
+    upquote resolve-import-path const path
+    %import-files path dict-remove drop
 ]
 
 lexical (%import-files)

@@ -84,6 +84,12 @@ define lfor-in [
 ]
 export-name lfor-in
 
+define lextvar [
+    const name
+    [] name list-push #f make-lua-expr
+]
+export-name lextvar
+
 ; with-interpreter iname [
 ;   iname pop -> v
 ;   n iname ref -> v

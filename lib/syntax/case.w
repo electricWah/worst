@@ -6,6 +6,13 @@
 ;   #t { default }
 ; }
 
+documentation [
+    title "A syntax block remeniscent of if-elseif-else chains"
+    usage "case { (-> bool) { if true } ... #t { default } }"
+    example
+    "5 case ((equals? 6) (\"It's 6\") (equals? 5) (\"Five!\") #t (\"???\"))"
+    tags (syntax)
+]
 define case [
     upquote
     while (list-empty? not) {

@@ -152,9 +152,9 @@ define lua-eval->function-expr [
 ]
 export-name lua-eval->function-expr
 
-; Compiles eval into a lua function ("chunk")
-; body -> local args = ...; stmts; return ret, ... -> lua-load-string
-define lua-eval->lua-function [
+; Writes given body into a "chunk" string
+; body -> local args = ...; stmts; return ret, ...
+define lua-eval->chunk-string [
     lua-eval-code
     quote statements dict-get swap drop const statements
     quote returns dict-get swap drop const rets
@@ -180,8 +180,12 @@ define lua-eval->lua-function [
 
     list-choose [lua-statement->string]
     "\n" string-join
+]
+export-name lua-eval->chunk-string
 
-    interpreter-dump-stack
+; Basically lua-eval->chunk-string -> lua-load-string
+define lua-eval->lua-function [
+    lua-eval->chunk-string
     lua-load-string if [] [
         ["lua-eval->lua-function failure"] swap list-push abort
     ]

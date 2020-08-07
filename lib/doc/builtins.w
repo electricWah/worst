@@ -101,7 +101,7 @@ doc-for bury [
 ; these aren't builtins
 
 define undocumented [
-    upquote [undocumented] documentation-set
+    upquote [undocumented #t] documentation-set
 ]
 
 undocumented builtin-quote
@@ -113,7 +113,6 @@ doc-for WORST_LIBDIR [
     title "Location of import library"
     description "Copied from the environment variable of the same name;
     import looks here to load files."
-    internal
     see-also import
     section modules
     tags [internal definition]
