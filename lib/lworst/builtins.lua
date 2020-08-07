@@ -302,6 +302,12 @@ mod["open-input-file"] = function(i, s)
     i:stack_push(s, f)
 end
 
+mod["open-output-file"] = function(i, s)
+    local path = i:stack_pop(s, "string")
+    local f = Port.open_output_file(path)
+    i:stack_push(s, f)
+end
+
 mod["port-read-value"] = function(i, s)
     local port = i:stack_ref(s, 1, Port.InputPort)
     local v = Reader.read_next(port)
@@ -331,6 +337,11 @@ mod["port-write-string"] = function(i, s)
     local v = i:stack_pop(s, String)
     local port = i:stack_ref(s, 1, Port.OutputPort)
     port:write_string(v)
+end
+
+mod["port-close"] = function(i, s)
+    local port = i:stack_pop(s, { Port.InputPort, Port.OutputPort })
+    port:close()
 end
 
 mod["eof-object?"] = function(i, s)
