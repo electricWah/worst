@@ -1,6 +1,5 @@
 
 local base = require("base")
-local Stack = base.Stack
 local Symbol = base.Symbol
 
 local Interpreter = require("interpreter")
@@ -25,10 +24,7 @@ function run(args)
         interp:define(Symbol.new(name), def)
     end
 
-    local stack = Stack.empty()
-    while interp:step(stack) do
-        -- print("Stack: ", unpack(stack))
-    end
+    while interp:step() do end
 end
 
 run(arg)

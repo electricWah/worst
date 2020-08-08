@@ -81,19 +81,18 @@ define lua-eval-interpreter [
 
     [
         quote interp_ const lua-eval-code:var-name
-        2 lua-expect-values
+        1 lua-expect-values
     ] eval
     const interp
-    const istack
 
-    ; args -> local arg = interp:stack_pop(istack)
+    ; args -> local arg = interp:stack_pop()
     args
     list-iterate [
         const arg
         ; obj name args retcount lua-method-call -> obj:name(args)
         interp
         quote stack_pop
-        [istack] list-eval
+        [] list-eval
         1 lua-method-call
         arg swap
         make-lua-assignment
@@ -103,14 +102,14 @@ define lua-eval-interpreter [
     statements
     list-iterate [lua-emit-statement]
 
-    ; returns -> interp:stack_push(istack, ret)
+    ; returns -> interp:stack_push(ret)
     rets
     list-iterate [
         const r
         ; obj name args retcount lua-method-call -> obj:name(args)
         interp
         quote stack_push
-        [istack r] list-eval
+        [r] list-eval
         0 lua-method-call
     ]
 ]

@@ -100,28 +100,26 @@ export-name lextvar
 define with-interpreter [
     upquote const %iname
     upquote const %body
-    2 lua-expect-values
+    1 lua-expect-values
     const %interp
-    const %istack
-
     [
-        define pop [ %interp lmcall stack_pop 1 (%istack) ]
+        define pop [ %interp lmcall stack_pop 1 () ]
         define pop/type [
             const ty
-            %interp lmcall stack_pop 1 (%istack ty)
+            %interp lmcall stack_pop 1 (ty)
         ]
         define push [
             const v
-            %interp lmcall stack_push 0 (%istack v)
+            %interp lmcall stack_push 0 (v)
         ]
         define ref [
             1 lua-expect-values const n
-            %interp lmcall stack_ref 1 (%istack n)
+            %interp lmcall stack_ref 1 (n)
         ]
         define ref/type [
             const ty
             1 lua-expect-values const n
-            %interp lmcall stack_ref 1 (%istack n ty)
+            %interp lmcall stack_ref 1 (n ty)
         ]
         define ->symbol [
             1 lua-expect-values
@@ -146,7 +144,7 @@ define with-interpreter [
         define into-parent [ %interp lmcall into_parent 0 () ]
         define call-symbol [
             const s
-            %interp lmcall call (%istack s)
+            %interp lmcall call (s)
         ]
         upquote call
     ]

@@ -38,7 +38,8 @@ function Interpreter.empty()
         },
         parents = {},
         frame = frame_empty(),
-        defstacks = {}
+        defstacks = {},
+        stack = Stack.empty(),
     }, Interpreter)
 end
 
@@ -157,15 +158,14 @@ function Interpreter:error(name, ...)
     error(Error({name, ...}), 0)
 end
 
-function Interpreter:handle_error(stack, name, ...)
+function Interpreter:handle_error(name, ...)
     local irritants = List.create({...})
     local handler = self:resolve(Interpreter.ERROR_HANDLER)
     if type(handler) == "function" then
-        self:stack_push(stack, irritants)
-        self:stack_push(stack, Symbol.new(name))
-        handler(self, stack)
+        self:stack_push(irritants)
+        self:stack_push(Symbol.new(name))
+        handler(self, self.stack)
     elseif List.is(handler) then
-        -- print("handle_error", handler)
         enter_body(self, handler)
     else
         local irr_messages = {}
@@ -176,7 +176,7 @@ function Interpreter:handle_error(stack, name, ...)
     end
 end
 
-function Interpreter:eval(stack, v, name)
+function Interpreter:eval(v, name)
     -- if true then
     --     local st = {}
     --     for _,  p in ipairs(self.parents) do
@@ -190,46 +190,46 @@ function Interpreter:eval(stack, v, name)
     if List.is(v) then
         enter_body(self, v, name)
     elseif type(v) == "function" then
-        local ok, err = pcall(v, self, stack)
+        local ok, err = pcall(v, self)
         if not ok then
-            print("Error in", name or "???", stack, err)
+            print("Error in", name or "???", self.stack, err)
             for _, p in ipairs(self.parents) do
                 print("...", p.name or "???")
             end
             print("...", self.frame.name or "???")
             if type(err) == "table" then
-                self:handle_error(stack, err[1], unpack(err, 2))
+                self:handle_error(err[1], unpack(err, 2))
             else
-                self:handle_error(stack, err)
+                self:handle_error(err)
             end
         end
     else
-        self:stack_push(stack, v)
+        self:stack_push(v)
     end
 end
 
-function Interpreter:call(stack, name)
+function Interpreter:call(name)
     -- print("call", name)
     local def = self:resolve(name)
     if def == nil then
-        self:handle_error(stack, "undefined", name)
+        self:handle_error("undefined", name)
     else
-        self:eval(stack, def, name)
+        self:eval(def, name)
     end
 end
 
-function Interpreter:stack_push(stack, v)
+function Interpreter:stack_push(v)
     if v == nil then
         error("stack_push(nil)")
     elseif type(v) == "table" and getmetatable(v) == nil then
         self:error("stack_push: unknown type", v)
     else
-        stack:push(v)
+        self.stack:push(v)
     end
 end
 
-function Interpreter:stack_ref(stack, i, ty)
-    local v = stack[#stack - (i - 1)]
+function Interpreter:stack_ref(i, ty)
+    local v = self.stack[#self.stack - (i - 1)]
     if v == nil then
         self:error("stack-empty")
     elseif ty ~= nil and not Type.is(ty, v) then
@@ -239,8 +239,8 @@ function Interpreter:stack_ref(stack, i, ty)
     end
 end
 
-function Interpreter:stack_pop(stack, ty)
-    local v = stack:pop()
+function Interpreter:stack_pop(ty)
+    local v = self.stack:pop()
     if v == nil then
         self:error("stack-empty")
     elseif ty ~= nil and not Type.is(ty, v) then
@@ -250,15 +250,34 @@ function Interpreter:stack_pop(stack, ty)
     end
 end
 
-function Interpreter:step(stack)
+function Interpreter:stack_length()
+    return self.stack:length()
+end
+
+function Interpreter:stack_get()
+    local l = List.empty()
+    for _, v in ipairs(self.stack) do
+        l = l:push(v)
+    end
+    return l
+end
+
+function Interpreter:stack_set(l)
+    while self.stack:pop() ~= nil do end
+    for v in l:reverse():iter() do
+        self:stack_push(v)
+    end
+end
+
+function Interpreter:step()
     local code = self:code_read()
     if code == nil then
         return false
     elseif Symbol.is(code) then
         -- print(">", code)
-        self:call(stack, code)
+        self:call(code)
     else
-        self:stack_push(stack, code)
+        self:stack_push(code)
     end
     return true
 end
