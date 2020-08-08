@@ -123,20 +123,20 @@ function OutputPort:write_string(s)
 end
 
 mod.open_input_file = function(path)
-    local fh, err = io.open(path, "rb")
-    if fh == nil then
-        Error.raise("open-input-file", err)
+    local fh, err = io.open(path, "r")
+    if not fh then
+        return nil, err
     else
-        return InputPort.file(fh)
+        return InputPort.file(fh), nil
     end
 end
 
 mod.open_output_file = function(path)
-    local fh, err = io.open(path, "wb")
-    if fh == nil then
-        Error.raise("open-output-file", err)
+    local fh, err = io.open(path, "w")
+    if not fh then
+        return nil, err
     else
-        return OutputPort.file(fh)
+        return OutputPort.file(fh), nil
     end
 end
 

@@ -298,13 +298,19 @@ end
 
 mod["open-input-file"] = function(i, s)
     local path = i:stack_pop(s, "string")
-    local f = Port.open_input_file(path)
+    local f, err = Port.open_input_file(path)
+    if not f then
+        i:error("open-input-file", f, err)
+    end
     i:stack_push(s, f)
 end
 
 mod["open-output-file"] = function(i, s)
     local path = i:stack_pop(s, "string")
-    local f = Port.open_output_file(path)
+    local f, err = Port.open_output_file(path)
+    if not f then
+        i:error("open-output-file", f, err)
+    end
     i:stack_push(s, f)
 end
 
