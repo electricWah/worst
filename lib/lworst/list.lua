@@ -1,7 +1,6 @@
 
 local base = require("base")
 local Type = base.Type
-local ListRef = require("list_old")
 
 -- Immutable lists
 

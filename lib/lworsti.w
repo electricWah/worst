@@ -1,8 +1,3 @@
-#!/bin/sh
-# profiling: -jp -jp=s -jp=l2 -jp=a
-# -jp=6 = 6 stack context, -jp=l6 = with line numbers
-exec env "LUA_PATH=${LUA_PATH};${WORST_LIBDIR-./lib}/lworst/?.lua" luajit -- ${WORST_LIBDIR-./lib}/lworst/main.lua $0 $@
-!#
 
 [ quote quote quote uplevel uplevel ] quote upquote definition-add
 
@@ -51,7 +46,7 @@ define read-file [
 ]
 
 "WORST_LIBDIR" env-get swap drop
-"./lib" swap or bury drop drop
+"%/lib" swap or bury drop drop
 const WORST_LIBDIR
 
 ; module-name resolve-import-path
@@ -96,4 +91,5 @@ import ui
 worst-repl
 
 ; vi: ft=scheme
+
 

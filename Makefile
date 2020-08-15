@@ -1,4 +1,12 @@
 
+build: bundle
+	cp -r $< $@
+	$(MAKE) -C $@ setup
+
+lworsti: build
+	$(MAKE) -C $< $@
+	cp $</$@ $@
+
 rworst: worst.rkt
 	@# workaround for bug in racket 7.2
 	raco make $<

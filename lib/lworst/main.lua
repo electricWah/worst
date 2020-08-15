@@ -6,9 +6,10 @@ local Interpreter = require("interpreter")
 
 local reader = require("reader")
 
-function run(args)
+function run_file(arg)
 
-    local script = io.input(args[1]):read("*a")
+    local scriptfile = io.open(arg) or error("could not open script: " .. arg)
+    local script = scriptfile:read("*a")
     local r = reader.StringReader.new(script)
 
     local body = {}
@@ -27,5 +28,5 @@ function run(args)
     while interp:step() do end
 end
 
-run(arg)
+run_file(arg[1])
 

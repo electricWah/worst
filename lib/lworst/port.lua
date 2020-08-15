@@ -1,4 +1,5 @@
 
+local io = require "io"
 local base = require("base")
 local Error = base.Error
 local Type = base.Type
@@ -15,7 +16,6 @@ mod.EOF = EOF
 local InputPort = Type.new("input-port")
 mod.InputPort = InputPort
 function InputPort.file(fh)
-    fh:setvbuf("line")
     return setmetatable({
         fh = fh,
         mode = "file",
@@ -27,7 +27,6 @@ end
 local STDIN = nil
 
 function InputPort.stdin()
-    io.stdin:setvbuf("line")
     if not STDIN then
         STDIN = setmetatable({
             fh = io.stdin,
