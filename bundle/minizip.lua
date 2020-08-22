@@ -1,21 +1,14 @@
 
--- Interface to Info-ZIP minizip, assuming it is statically available.
-
 local ffi = require "ffi"
 
 ffi.cdef [[
-
-enum {
-    ZIP_CASE_DEFAULT = 0,
-    ZIP_CASE_SENSITIVE = 1,
-    ZIP_CASE_INSENSITIVE = 2
-};
 
 typedef void * unzFile;
 
 unzFile unzOpen(const char *path);
 
 // 0 or -100 for not found
+// case sensitivity: 0 = same as OS, 1 = sensitive, 2 = insensitive
 int unzLocateFile (unzFile file, const char *szFileName, int iCaseSensitivity);
 
 // 0 or error
@@ -50,7 +43,7 @@ function zipfile.open(zippath, path, mode)
     local zf = ffi.C.unzOpen(zippath)
     if not zf or zf == null then return nil end
     zf = ffi.gc(zf, gc_zipfile)
-    local r = ffi.C.unzLocateFile(zf, path, ffi.C.ZIP_CASE_DEFAULT)
+    local r = ffi.C.unzLocateFile(zf, path, 0)
     if r < 0 then return nil, r end
     r = ffi.C.unzOpenCurrentFile(zf)
     if r < 0 then return nil, r end
@@ -65,6 +58,7 @@ function zipentry:close() gc_zipfile(self.zipfile) end
 -- function zipentry:seek() end
 -- function zipentry:setvbuf() end
 -- function zipentry:write() end
+-- function zipentry:lines() end
 
 -- Read data from the zipfile
 function zipentry_read_cbuffer(ze, size)
@@ -95,7 +89,6 @@ function zipentry_read_cbuffer_large(ze, size, acc)
         end
     end
     local r = table.concat(acc)
-    -- print("lorge", string.format("%q", r))
     return r
 end
 
@@ -136,7 +129,6 @@ function zipentry:read(fmt)
         return zipentry_read_buffer(self, math.huge)
     elseif fmt == "*l" then
         local r, err = zipentry_read_line(self)
-        -- print(fmt, string.format("%q", r))
         return r, err
     elseif type(fmt) == "number" then
         if fmt < 0 then error("invalid fmt " .. fmt) end
@@ -144,8 +136,6 @@ function zipentry:read(fmt)
     end
     error("format not implemented: " .. fmt)
 end
-
--- function zipentry:lines() end
 
 return zipfile
 

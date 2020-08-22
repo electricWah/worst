@@ -26,7 +26,6 @@ local mod = {}
 
 function mod.run(thisfile, arg, ...)
     zipio.zip_file = thisfile
-    -- print(thisfile, arg, ...)
 
     local scriptfile, err = io.open(arg)
     if not scriptfile then

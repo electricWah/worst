@@ -1,30 +1,14 @@
 
-# building a bundled binary:
-# luarocks install luastatic
-# statically link minizip
-# move lworsti to lib/lworsti.w and turn lworsti into basic shell script
-# luarocks install amalg
-# amalg bundle_main.lua minizip.lua {...everything else in lib} > bundle_all.lua
-# luajit -b bundle_all.lua lwbundle.o
-# luastatic binary using bundle.lua, minizip.a, and lwbundle.o
-# ^ DONE
-# turn WORST_LIBDIR into WORST_PATH
-# bundle.lua:
-# - write FFI wrapper for minizip
-# - overloads io.open with zip.openfile if mode = "r"
-# - set env WORST_LIBPATH = WORST_LIBPATH:$0:$0/lib/worst
-#   both to load files from inside the zipped binary
-# - run interpreter reading lib/lworsti.w
-# ^ DONE
-# zip file containing:
-#	lib
-#	lib/lua		lua_modules/lib/lua/ -- but not if linked in
-#	lib/worst	lib/ -- including the lworsti entry point script
-#	bin/lworsti	a copy of the original binary for further bundling
-# ^ DONE
-# concat the binary with the zip
+# build tools: luarocks install luastatic amalg
+# concat all lua: amalg ../lib/**.lua bundle.lua minizip.lua > lworsti.lua
+# jit compile: luajit -b lworsti.lua > lworsti.o
+# make entrypoint: luastatic bundle_entrypoint.lua > $^.luastatic.c
+# compile: cc entrypoint.luastatic.c lworsti.o minizip.a luajit.a > bundle_raw
+# zip assets: zip ../lib/**.w bundle_raw > libworst.zip
+# combine into final binary: cat bundle_raw libworst.zip > lworsti
 
-LUA_ROCKS=
+# Possible future features:
+# include additional luarocks packages or static libraries as build arguments
 
 MINIZIP_L=-Wl,--whole-archive $(shell pkg-config --libs --static minizip) -Wl,--no-whole-archive
 LUAJIT_L=$(shell pkg-config --libs-only-L luajit) -lm -ldl -l:libluajit-5.1.a
