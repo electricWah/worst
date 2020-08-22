@@ -46,7 +46,7 @@ define read-file [
 ]
 
 "WORST_LIBDIR" env-get swap drop
-"%/lib" swap or bury drop drop
+false? if [drop "%/lib"] []
 const WORST_LIBDIR
 
 ; module-name resolve-import-path
