@@ -50,17 +50,30 @@ define read-file [
     list-reverse
 ]
 
-"WORST_LIBDIR" env-get swap drop
-false? if [drop "%/lib"] []
-const WORST_LIBDIR
+"WORST_LIBPATH" env-get swap drop
+false? if [drop ""] []
+"[^:]+" string-global-matches
+list-reverse "%/lib" list-push list-reverse
+const WORST_LIBPATH
 
 ; module-name resolve-import-path
-; uses WORST_LIBDIR
+; uses WORST_LIBPATH
 define resolve-import-path [
-    ->string
-    WORST_LIBDIR "/" string-append
-    swap string-append
-    ".w" string-append
+    ->string const p
+    WORST_LIBPATH
+    while [list-empty? not] [
+        list-pop
+        "/" string-append p string-append ".w" string-append
+        const path
+
+        path open-input-file
+        false? if [drop drop] [
+            port-close
+            drop
+            path [] ; exit loop and return path
+        ]
+    ]
+    drop ; drop remaining WORST_LIBPATH
 ]
 
 ; Very basic import/export

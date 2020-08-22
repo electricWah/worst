@@ -30,7 +30,7 @@ dict-empty const %import-files
 ; Less basic import
 lexical (variable updo %import-files)
 define import-file [
-    resolve-import-path const %import-path
+    const %import-path
 
     %import-files
     %import-path dict-exists if [
@@ -60,7 +60,9 @@ define import-file [
             drop
         ]
 
-        %import-path read-file eval
+        %import-path
+        resolve-import-path
+        read-file eval
         ; %import-path load-eval-file ; TODO make this work again
 
         []
@@ -90,7 +92,7 @@ define import [ upquote quote import-file uplevel ]
 
 lexical (%import-files)
 define import-forget [
-    upquote resolve-import-path const path
+    upquote const path
     %import-files path dict-remove drop
 ]
 

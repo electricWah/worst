@@ -277,6 +277,16 @@ mod["string-join"] = function(i)
     i:stack_push(table.concat(t, sep))
 end
 
+mod["string-global-matches"] = function(i)
+    local pat = i:stack_pop("string")
+    local str = i:stack_pop("string")
+    local t = {}
+    for c in string.gmatch(str, pat) do
+        table.insert(t, c)
+    end
+    i:stack_push(List.create(t))
+end
+
 mod["current-input-port"] = function(i)
     i:stack_push(Port.stdin())
 end
@@ -295,8 +305,8 @@ mod["open-input-file"] = function(i)
     if f then
         i:stack_push(f)
     else
-        i:stack_push(false)
         i:stack_push(err)
+        i:stack_push(false)
     end
 end
 
@@ -306,8 +316,8 @@ mod["open-output-file"] = function(i)
     if f then
         i:stack_push(f)
     else
-        i:stack_push(false)
         i:stack_push(err)
+        i:stack_push(false)
     end
 end
 
