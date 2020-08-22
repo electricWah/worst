@@ -293,7 +293,7 @@ mod["open-input-file"] = function(i)
     local path = i:stack_pop("string")
     local f, err = Port.open_input_file(path)
     if not f then
-        i:error("open-input-file", f, err)
+        i:error("open-input-file", path, err)
     end
     i:stack_push(f)
 end
@@ -302,7 +302,7 @@ mod["open-output-file"] = function(i)
     local path = i:stack_pop("string")
     local f, err = Port.open_output_file(path)
     if not f then
-        i:error("open-output-file", f, err)
+        i:error("open-output-file", path, err)
     end
     i:stack_push(f)
 end

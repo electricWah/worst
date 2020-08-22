@@ -184,7 +184,6 @@ function Interpreter:eval(v, name)
     --     end
     --     table.insert(st, base.to_string_terse(self.frame.name or "???"))
     --     table.insert(st, base.to_string_terse(name or "???"))
-
     --     io.stderr:write(table.concat(st, " "), "\n")
     -- end
     if List.is(v) then
@@ -197,7 +196,7 @@ function Interpreter:eval(v, name)
                 print("...", p.name or "???")
             end
             print("...", self.frame.name or "???")
-            if type(err) == "table" then
+            if Type.is(Error, err) then
                 self:handle_error(err[1], unpack(err, 2))
             else
                 self:handle_error(err)
