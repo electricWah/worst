@@ -1,4 +1,9 @@
 
+; Entry point
+; - adds some necessary definitions and basic module loading
+; - loads enough other modules to be useful
+; - starts a REPL
+
 [ quote quote quote uplevel uplevel ] quote upquote definition-add
 
 [ ; define name [def...]
@@ -39,7 +44,7 @@ define syntax-read [ source-input-port port-read-value swap drop ]
 
 ; path read-file -> list
 define read-file [
-    open-input-file
+    open-input-file false? if [ drop [] swap list-push abort ] []
     [] while [ swap port-read-value eof-object? not ] [ dig swap list-push ]
     drop drop
     list-reverse
@@ -52,12 +57,10 @@ const WORST_LIBDIR
 ; module-name resolve-import-path
 ; uses WORST_LIBDIR
 define resolve-import-path [
-    symbol? if [
-        ->string
-        WORST_LIBDIR "/" string-append
-        swap string-append
-        ".w" string-append
-    ] [ "resolve-import-path: invalid" abort ]
+    ->string
+    WORST_LIBDIR "/" string-append
+    swap string-append
+    ".w" string-append
 ]
 
 ; Very basic import/export

@@ -19,7 +19,8 @@ define load-eval-file [
         %%quote definition-exists uplevel
         swap drop
     ]
-    open-input-file [] swap list-push
+    open-input-file false? if [ drop [] swap list-push abort ] []
+    [] swap list-push
     %%quote source-input-port definition-add
     run
 ]
