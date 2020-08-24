@@ -67,7 +67,9 @@ define worst-repl-prompt [
         "worst " print
 
         reset cyan fg
-        interpreter-stack current-output-port swap port-write-value drop
+        interpreter-stack list-reverse
+        current-output-port swap
+        port-write-value drop
 
         bold yellow fg
         " > " print
