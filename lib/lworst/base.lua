@@ -96,6 +96,7 @@ function to_string_terse(a)
     local r = nil
     if can_to_string_terse(a) then r = a:to_string_terse() end
     if not r then r = to_string_format(a, 'terse') end
+    if not r and type(a) == "string" then r = string.format("%q", a) end
     if not r then r = tostring(a) end
     return r or false
 end
