@@ -1,14 +1,20 @@
 
-local base = require("base")
+local io = require "io"
+local base = require "base"
+local reader = require "reader"
+local builtins = require "builtins"
+local Interpreter = require"interpreter"
+
+local List = require "list"
 local Symbol = base.Symbol
 
-local Interpreter = require("interpreter")
+local mod = {}
 
-local reader = require("reader")
-
-function run_file(arg)
-
-    local scriptfile = io.open(arg) or error("could not open script: " .. arg)
+function mod.run_file(path, ...)
+    local scriptfile, err = io.open(path)
+    if not scriptfile then
+        error("could not open script: " .. path .. " " .. tostring(err))
+    end
     local script = scriptfile:read("*a")
     local r = reader.StringReader.new(script)
 
@@ -21,12 +27,17 @@ function run_file(arg)
 
     local interp = Interpreter.create(body)
 
-    for name, def in pairs(require("builtins")) do
+    for name, def in pairs(builtins) do
         interp:define(Symbol.new(name), def)
     end
+
+    local arglist = List.create({...})
+    interp:define(Symbol.new("command-line-arguments"), function(i)
+        i:stack_push(arglist)
+    end)
 
     while interp:step() do end
 end
 
-run_file(arg[1])
+return mod
 

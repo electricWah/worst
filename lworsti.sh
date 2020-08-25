@@ -4,5 +4,5 @@
 export WORST_LIBPATH="$WORST_LIBPATH:./lib"
 export WORST_SRCPATH="${WORST_SRCPATH-./lib}"
 export LUA_PATH="${LUA_PATH};${WORST_SRCPATH}/lworst/?.lua"
-exec luajit -- ${WORST_SRCPATH}/lworst/main.lua ${WORST_SRCPATH}/lworsti.w $@
+exec luajit -- ${WORST_SRCPATH}/lworst/lworsti.lua ${WORST_SRCPATH}/lworsti.w $0 $@
 

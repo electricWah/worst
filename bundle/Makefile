@@ -16,7 +16,7 @@ CCLIBS=$(MINIZIP_L) $(LUAJIT_L)
 
 LUA_PATH:=$(LUA_PATH);./?.lua;../lib/lworst/?.lua
 
-LWSRCMODULES=base interpreter builtins reader list map port
+LWSRCMODULES=base interpreter builtins reader list map port main
 LWSRCFILES=$(LWSRCMODULES:%=../lib/lworst/%.lua)
 
 .PHONY: all
