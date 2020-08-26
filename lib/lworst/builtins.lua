@@ -124,9 +124,20 @@ mod["add"] = function(i)
     i:stack_push(a + b)
 end
 
+mod["mul"] = function(i)
+    local a = i:stack_pop("number")
+    local b = i:stack_pop("number")
+    i:stack_push(a * b)
+end
+
 mod["negate"] = function(i)
     local a = i:stack_pop("number")
     i:stack_push(-a)
+end
+
+mod["recip"] = function(i)
+    local a = i:stack_pop("number")
+    i:stack_push(1 / a)
 end
 
 mod["ascending?"] = function(i)

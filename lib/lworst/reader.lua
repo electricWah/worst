@@ -99,19 +99,6 @@ function mod.read_next(reader)
         return Char.of_int(tonumber(string.sub(s, 3), 8))
     end
 
-    function char_named(s)
-        local lut = {
-            ["#\\newline"] = "\n",
-        }
-        if lut[s] then
-            reader:drop(string.len(s))
-            return Char.of_str(lut[s])
-        else
-            return nil, true
-            -- error("unrecognised character: " .. s)
-        end
-    end
-
     function char_single(s)
         reader:drop(2)
         return Char.of_str(reader:take(1))
@@ -155,8 +142,8 @@ function mod.read_next(reader)
         {"^[%)%}%]]", end_list},
         {"^#[tf]", boolean},
         {"^#\\[0-7][0-7][0-7]", char_octal},
-        {"^#\\[%l-]+", char_named},
         {"^#\\.", char_single},
+        {"^[%d]+%.[%d]+", base10_number},
         {"^[%d]+", base10_number},
         {"^[^%s%(%)%[%]%{%}\"]+", symbol},
     }

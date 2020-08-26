@@ -104,7 +104,7 @@ define read-eval-loop [
 
     define port-drop-newline [
         port-peek-char
-        #\newline equal?
+        #\012 equal?
         bury drop drop
         %%quote port-drop-char when
     ]
@@ -142,7 +142,7 @@ define worst-repl [
     define source-input-port [ current-input-port ]
     define syntax-read [
         source-input-port port-has-char? if [
-            port-peek-char equals? #\newline swap drop if [
+            port-peek-char equals? #\012 swap drop if [
                 port-read-char drop
                 #t
             ] [ #f ]
