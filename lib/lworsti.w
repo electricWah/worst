@@ -100,11 +100,20 @@ import worst/module
 ; TODO fix: without this, documentation attribute does nothing, for e.g. help
 import syntax/attribute
 
-; Interactive
 import doc
-import ui
 
-worst-repl
+; Interactive if given no arguments
+command-line-arguments
+list-pop drop ; first is $0
+list-empty? if [
+    drop
+    import ui
+    worst-repl
+] [
+    ; Read and eval first arg as file
+    list-pop swap drop
+    read-file eval
+]
 
 ; vi: ft=scheme
 
