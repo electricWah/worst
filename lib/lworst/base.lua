@@ -92,22 +92,28 @@ function to_string_format(a, fmt)
     return false
 end
 
+local tostring_types = {}
+tostring_types["string"] = function(a)
+    return string.format("%q", a)
+end
+tostring_types["boolean"] = function(a)
+    if a then return "#t" else return "#f" end
+end
+
+function to_string_fallback(a)
+    local t = tostring_types[type(a)]
+    if t then return t(a) end
+    return tostring(a)
+end
+
 function to_string_terse(a)
-    local r = nil
-    if can_to_string_terse(a) then r = a:to_string_terse() end
-    if not r then r = to_string_format(a, 'terse') end
-    if not r and type(a) == "string" then r = string.format("%q", a) end
-    if not r then r = tostring(a) end
-    return r or false
+    if can_to_string_terse(a) then return a:to_string_terse() end
+    return to_string_format(a, 'terse') or to_string_fallback(a)
 end
 
 function to_string_debug(a)
-    local r = nil
-    if can_to_string_debug(a) then r = a:to_string_debug() end
-    if not r then r = to_string_format(a, 'debug') end
-    if not r and type(a) == "string" then r = string.format("%q", a) end
-    if not r then r = tostring(a) end
-    return r or false
+    if can_to_string_debug(a) then return a:to_string_debug() end
+    return to_string_format(a, 'debug') or to_string_fallback(a)
 end
 
 local Char = Type.new("char")
