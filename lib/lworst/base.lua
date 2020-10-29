@@ -78,6 +78,10 @@ function clone(a)
     end
 end
 
+function can_call(a)
+    return can(a, '__call') or type(a) == "function"
+end
+
 function can_destroy(a) return can(a, 'destroy') end
 function destroy(a) if can_destroy(a) then a:destroy() end end
 
@@ -159,7 +163,7 @@ local Stack = Type.new("stack")
 Stack.__tostring = function(s)
     local vals = {}
     for _, v in ipairs(s) do
-        table.insert(vals, tostring(v))
+        table.insert(vals, to_string_debug(v))
     end
     return "Stack(" .. table.concat(vals, " ") .. ")"
 end
@@ -220,6 +224,7 @@ return {
     clone = clone,
     destroy = destroy,
     equal = equal,
+    can_call = can_call,
     to_string_format = to_string_format,
     to_string_terse = to_string_terse,
     to_string_debug = to_string_debug,

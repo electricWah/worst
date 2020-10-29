@@ -176,6 +176,16 @@ function Interpreter:handle_error(name, ...)
     end
 end
 
+-- current is at the front
+function Interpreter:call_stack()
+    local st = List.empty()
+    for _,  p in ipairs(self.parents) do
+        st = List.push(st, p.name or false)
+    end
+    st = List.push(st, self.frame.name or false)
+    return st
+end
+
 function Interpreter:eval(v, name)
     -- if true then
     --     local st = {}
@@ -188,7 +198,7 @@ function Interpreter:eval(v, name)
     -- end
     if List.is(v) then
         enter_body(self, v, name)
-    elseif type(v) == "function" then
+    elseif base.can_call(v) then
         local ok, err = pcall(v, self)
         if not ok then
             print("Error in", name or "???", self.stack, err)

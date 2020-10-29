@@ -7,6 +7,7 @@ let
     luajitPackages.luarocks
     pkgsStatic.minizip
     pkg-config
+    watchexec
   ];
   p = { }:
     pkgs.stdenv.mkDerivation rec {

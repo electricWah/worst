@@ -9,6 +9,17 @@
 ; define .= [ upquote upquote map-set ]
 ; export-name .=
 
+; a b map-merge -> map
+; for k, v in b do a[k] = b
+define map-merge [
+    const b
+    b map-keys swap drop list-iterate [
+        b swap map-get dig drop
+        map-set
+    ]
+]
+export-name map-merge
+
 ; [ k1 v1 k2 v2 ... ] pairs->map -> map
 define pairs->map [
     map-empty swap

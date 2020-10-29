@@ -21,17 +21,27 @@ export-name min
 define updo [ upquote quote uplevel uplevel ]
 export-name updo
 
-define tailcall [
-    upquote
-    definition-resolve
-    updo current-context-set-code
+; n iteri [ n -> body ... ]
+; do body n times with 0 .. n on the stack
+define iteri [
+    const %%iteri-maxn
+    upquote quote %%iteri-body definition-add
+
+    0
+    while [%%iteri-maxn ascending? bury drop swap] [
+        const %%iteri-n
+        %%iteri-n %%iteri-body
+        %%iteri-n 1 add
+    ]
+    drop
 ]
+export-name iteri
 
 ; n do-times [body...]
 define do-times [
     upquote quote %%do-times-body definition-add
 
-    while [0 swap greater-than bury swap drop swap] [
+    while [0 swap ascending? bury swap drop swap] [
         -1 add const %%do-n
         %%do-times-body
         %%do-n
@@ -94,8 +104,6 @@ define define-gensym [
     name definition-copy-up
 ]
 export-name define-gensym
-
-; TODO gensym
 
 define interpreter-stack-swap [
     const new

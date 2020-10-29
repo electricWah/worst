@@ -102,6 +102,10 @@ mod["or"] = function(i)
     i:stack_push(b or a)
 end
 
+mod["number?"] = function(i)
+    i:stack_push(type(i:stack_ref(1)) == "number")
+end
+
 mod["string?"] = function(i)
     i:stack_push(type(i:stack_ref(1)) == "string")
 end
@@ -255,6 +259,10 @@ end
 
 mod["interpreter-dump-stack"] = function(i)
     print(unpack(i.stack))
+end
+
+mod["interpreter-call-stack"] = function(i)
+    i:stack_push(i:call_stack())
 end
 
 mod["interpreter-stack"] = function(i)
