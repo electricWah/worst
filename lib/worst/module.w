@@ -62,6 +62,7 @@ define import-file [
 
         %import-path
         resolve-import-path
+        false? if [ ["module not found"] %import-path list-push abort ] []
         read-file eval
         ; %import-path load-eval-file ; TODO make this work again
 

@@ -60,6 +60,7 @@ const WORST_LIBPATH
 ; uses WORST_LIBPATH
 define resolve-import-path [
     ->string const p
+    #f ; not-found
     WORST_LIBPATH
     while [list-empty? not] [
         list-pop
@@ -70,7 +71,7 @@ define resolve-import-path [
         false? if [drop drop] [
             port-close
             drop
-            path [] ; exit loop and return path
+            drop path [] ; exit loop and return path instead of not-found
         ]
     ]
     drop ; drop remaining WORST_LIBPATH
