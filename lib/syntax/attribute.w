@@ -14,7 +14,7 @@ define define-attribute [
 
     [[]] variable %args
 
-    define args [ ;upquote %args set]
+    define args [
         [[]]
         upquote list-iterate [
             const arg
@@ -33,22 +33,26 @@ define define-attribute [
 
     %args get
 
-    ; %before get
-
-    ; interpreter-dump-stack
-
-    ; %args get list-reverse list-iterate [
-    ;     [const uplevel evaluate quote]
-    ;     swap list-push
-    ;     list-reverse
-    ;     swap list-append
-    ; ]
-
     [list-append] %before get list-push list-append
 
-    [quote %before-define updo definition-get swap drop [] or bury drop drop
+    [
+        quote %before-define updo definition-get swap drop [] or bury drop drop
         list-append
         quote %before-define updo definition-add
+    ]
+    list-append
+
+    [
+        quote %current-attributes updo definition-get
+        swap drop [] or bury drop drop
+    ]
+    list-append
+    [ quote quote attr-name ]
+    list-eval
+    list-append
+    [
+        list-push
+        quote %current-attributes updo definition-add
     ]
     list-append
 
@@ -60,6 +64,7 @@ define definition-add+attributes [
     quote %before-define updo definition-get
     swap drop false? if [drop []] [] eval
     quote %before-define updo definition-remove
+    quote %current-attributes updo definition-remove
     updo definition-add
 ]
 export-name definition-add+attributes
