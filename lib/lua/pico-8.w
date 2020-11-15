@@ -24,8 +24,15 @@ define pico-8 [
 
     define init [
         upquote const %_initbody
-        [ export-as "_init" define _init ]
+        [ define _init ]
         [] %_initbody list-push list-append
+        eval
+    ]
+
+    define draw [
+        upquote const %_drawbody
+        [ define _draw ]
+        [] %_drawbody list-push list-append
         eval
     ]
 
@@ -44,8 +51,8 @@ define pico-8 [
     const cart
 
     [
-        cart open-output-file
-        const current-output-port
+        ; cart open-output-file
+        ; const current-output-port
 
         "pico-8 cartridge\n" print
         "version 29\n" print
@@ -53,7 +60,7 @@ define pico-8 [
         code print
         "\n" print
 
-        current-output-port port-close
+        ; current-output-port port-close
     ] eval
 ]
 export-name pico-8

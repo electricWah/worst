@@ -54,7 +54,8 @@ import meta/cil/mode
 ; Loops (necessary to be lua-specific?)
 import meta/cil/lua/cf
 
-; 
+import meta/cil/lua/function
+import meta/cil/lua/declare
 import meta/cil/lua/redef
 
 export-all

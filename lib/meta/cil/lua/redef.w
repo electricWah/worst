@@ -13,30 +13,6 @@
 ; compiled function (not necessary?)
 ; compiled interp builtin function
 
-; define add [ quote + binop ]
-; define compileme [ 1 2 add ]
-; function compileme()
-;   -> add says "not emitted yet" and compiles into
-;       function add(a, b) return a + b end
-;   and emits in parent
-
-; function add(a, b) { a + b }
-; function compileme() { add(1, 2) }
-
-
-; further work:
-; requires some kind of compilation state e.g.
-; function compile_me(st)
-;   real_deps = []
-;   for d in my_deps do
-;       real_deps[d] = st:com(d)
-;   local state = st:new_inner_state()
-;   state:emit("function()...")
-;   state:emit("local x = " .. real_deps["foo"] .. "(0)")
-; end
-; which replaces the ad-hoc dynamic cil/ functions
-; and can just output whatever it wants, really
-
 define-attribute cil/lua-builtin [
     before [ swap cil/eval-interpreter->builtin swap ]
 ]
@@ -124,16 +100,27 @@ define iteri [
 ]
 export-name iteri
 
-; TODO iteri
+cil/escaping-emit-mode
+lexical (define)
+define define [
+    interpreter-dump-stack
+    upquote const %dname
+    upquote const %dbody
 
-; define extern
+    %dbody
+    %dname ->string
+    cil/lua-function-def
+    const %function
 
-; define foo [ body ]
-; cil/override-eval-mode
-; define define [
-;     upquote const %dname
-;     upquote const %dbody
-; ]
+    cil/escaping-emit-mode
+    lexical (%function)
+    define d [ %function cil/lua-function-call ]
+    interpreter-dump-stack
+
+    quote d %dname definition-rename
+    %dname definition-copy-up
+]
+export-name define
 
 ; vi: ft=scheme
 
