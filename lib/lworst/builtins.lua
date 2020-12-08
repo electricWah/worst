@@ -1,7 +1,6 @@
 
 local base = require("base")
 local Symbol = base.Symbol
-local Char = base.Char
 local Place = base.Place
 local Clone = base.Clone
 local Interpreter = require("interpreter")
@@ -306,6 +305,17 @@ mod["string-global-matches"] = function(i)
     i:stack_push(List.create(t))
 end
 
+mod["string-ref"] = function(i)
+    local n = i:stack_ref(1, "number")
+    local v = i:stack_ref(2, "string")
+    if n >= 0 and n == math.floor(n) and n < string.len(v) then
+        i:stack_push(string.sub(v, n + 1, n + 1))
+    else
+        i:stack_push(false)
+    end
+
+end
+
 mod["current-input-port"] = function(i)
     i:stack_push(Port.stdin())
 end
@@ -357,12 +367,23 @@ end
 
 mod["port-peek-char"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    i:stack_push(Char.of_str(port:peek()))
+    i:stack_push(port:peek())
 end
 
 mod["port-read-char"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    i:stack_push(Char.of_str(port:take(1)))
+    i:stack_push(port:take(1))
+end
+
+mod["port-read-line"] = function(i)
+    local port = i:stack_ref(1, Port.InputPort)
+    local s = port:match("[^\n]+\n?")
+    if s == nil then
+        i:stack_push(false)
+    else
+        port:take(string.len(s))
+        i:stack_push(s)
+    end
 end
 
 mod["port-write-string"] = function(i)

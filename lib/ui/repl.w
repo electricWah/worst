@@ -37,7 +37,7 @@ define input-line-editor [
     define peek-char [ current-input-port port-peek-char swap drop ]
     define has-char? [ current-input-port port-has-char? swap drop ]
     define read-escape-sequence [
-        peek-char equals? #\133 if [
+        peek-char equals? "[" if [
             drop read-char drop
             read-char
         ] [
@@ -45,7 +45,7 @@ define input-line-editor [
         ]
     ]
     with-stty ["raw" "-echo" "-brkint"] [ read-char ]
-    equals? #\033 if [
+    equals? "\x1b" if [
         drop has-char? if [
             read-escape-sequence
         ] [
@@ -104,7 +104,7 @@ define read-eval-loop [
 
     define port-drop-newline [
         port-peek-char
-        #\012 equal?
+        "\x0a" equal?
         bury drop drop
         %%quote port-drop-char when
     ]

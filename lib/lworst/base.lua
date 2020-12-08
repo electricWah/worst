@@ -120,25 +120,6 @@ function to_string_debug(a)
     return to_string_format(a, 'debug') or to_string_fallback(a)
 end
 
-local Char = Type.new("char")
-function Char.of_str(s)
-    return setmetatable({s = s}, Char)
-end
-function Char.of_int(v)
-    return Char.of_str(string.char(v))
-end
-
-function Char.equal(a, b)
-    return Char.is(a) and Char.is(b) and a.s == b.s
-end
-
-function Char.to_string_terse(c) return "#\\" .. c.s end
-function Char.to_string_debug(c) return "Char(" .. c.s .. ")" end
-
-Char.__tostring = function(s) return Char.to_string_terse(s) end
-
-function Char.unwrap(v) return v.v end
-
 local Error = {}
 Error.__index = Error
 Error.__tostring = function(e)
@@ -219,7 +200,6 @@ end
 return {
     Error = Error,
     Symbol = Symbol,
-    Char = Char,
     Type = Type,
     clone = clone,
     destroy = destroy,

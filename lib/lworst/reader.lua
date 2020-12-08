@@ -2,7 +2,6 @@
 local base = require("base")
 local List = require("list")
 local Symbol = base.Symbol
-local Char = base.Char
 
 local mod = {}
 
@@ -76,6 +75,10 @@ function mod.read_next(reader)
             ["n"] = "\n",
             ["e"] = "\027",
         })
+        str = string.gsub(str, "\\(x%x+)", function(v)
+            return string.char(tonumber(string.sub(v, 2), 16))
+        end)
+
         return str
     end
 
@@ -92,16 +95,6 @@ function mod.read_next(reader)
     function base10_number(s)
         reader:drop(string.len(s))
         return tonumber(s)
-    end
-
-    function char_octal(s)
-        reader:drop(string.len(s))
-        return Char.of_int(tonumber(string.sub(s, 3), 8))
-    end
-
-    function char_single(s)
-        reader:drop(2)
-        return Char.of_str(reader:take(1))
     end
 
     local list_kinds = {
@@ -141,8 +134,6 @@ function mod.read_next(reader)
         {"^[%(%{%[]", start_list},
         {"^[%)%}%]]", end_list},
         {"^#[tf]", boolean},
-        {"^#\\[0-7][0-7][0-7]", char_octal},
-        {"^#\\.", char_single},
         {"^[%d]+%.[%d]+", base10_number},
         {"^[%d]+", base10_number},
         {"^[^%s%(%)%[%]%{%}\"]+", symbol},
