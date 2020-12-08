@@ -38,6 +38,14 @@ function InputPort.stdin()
     return STDIN
 end
 
+function InputPort.string(s)
+    return setmetatable({
+        mode = "string",
+        buf = s,
+        bufi = 1,
+    }, InputPort)
+end
+
 InputPort.__tostring = function(p)
     return "InputPort(" .. p.mode .. ")"
 end
@@ -58,6 +66,7 @@ end
 
 function InputPort:is_eof()
     if self:buffer_size() == 0 then
+        if self.mode == "string" then return true end
         local more = self.fh:read()
         if more == nil then return true end
         self.buf = string.sub(self.buf, self.bufi) .. more .. "\n"
@@ -90,7 +99,7 @@ function InputPort:match(pat)
     return string.match(self.buf, pat, self.bufi)
 end
 
-function InputPort:close() self.fh:close() end
+function InputPort:close() if self.fh then self.fh:close() end end
 
 local OutputPort = Type.new("output-port")
 mod.OutputPort = OutputPort

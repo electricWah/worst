@@ -350,6 +350,11 @@ mod["open-output-file"] = function(i)
     end
 end
 
+mod["open-input-string"] = function(i)
+    local s = i:stack_pop("string")
+    i:stack_push(Port.InputPort.string(s))
+end
+
 mod["port-read-value"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
     local v = Reader.read_next(port)
