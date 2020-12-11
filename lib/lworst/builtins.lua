@@ -143,6 +143,12 @@ mod["recip"] = function(i)
     i:stack_push(1 / a)
 end
 
+mod["modulo"] = function(i)
+    local a = i:stack_pop("number")
+    local b = i:stack_pop("number")
+    i:stack_push(math.fmod(b, a))
+end
+
 mod["ascending?"] = function(i)
     local a = i:stack_ref(1, "number")
     local b = i:stack_ref(2, "number")
@@ -195,11 +201,12 @@ end
 
 mod["list-ref"] = function(i)
     local n = i:stack_ref(1, "number")
-    if n < 0 and n ~= math.floor(n) then i:error("nonnegative-integer", n) end
     local l = i:stack_ref(2, List)
-    if n >= l:length() then i:error("out-of-range", n, l:length()) end
-
-    i:stack_push(l[n])
+    if n >= 0 and n == math.floor(n) and n < l:length() then
+        i:stack_push(l:index(n))
+    else
+        i:stack_push(false)
+    end
 end
 
 mod["env-get"] = function(i)
@@ -305,6 +312,19 @@ mod["string-global-matches"] = function(i)
     i:stack_push(List.create(t))
 end
 
+mod["string-split"] = function(i)
+    local n = i:stack_pop("number")
+    local v = i:stack_pop("string")
+    if n >= 0 and n == math.floor(n) and n <= string.len(v) then
+        local pre = string.sub(v, 1, n)
+        local post = string.sub(v, n + 1)
+        i:stack_push(pre)
+        i:stack_push(post)
+    else
+        i:stack_push(false)
+    end
+end
+
 mod["string-ref"] = function(i)
     local n = i:stack_ref(1, "number")
     local v = i:stack_ref(2, "string")
@@ -313,7 +333,11 @@ mod["string-ref"] = function(i)
     else
         i:stack_push(false)
     end
+end
 
+mod["string-length"] = function(i)
+    local s = i:stack_ref(1, "string")
+    i:stack_push(string.len(s))
 end
 
 mod["current-input-port"] = function(i)
@@ -382,7 +406,7 @@ end
 
 mod["port-read-line"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    local s = port:match("[^\n]+\n?")
+    local s = port:match("[^\n]*\n?")
     if s == nil then
         i:stack_push(false)
     else
