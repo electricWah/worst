@@ -1,4 +1,121 @@
 
+; ... cond [ ift -> ... ] [ iff -> ... ] cil/lua-if-then-else -> ...
+define cil/lua-if-then-else [
+    const %iff
+    const %ift
+
+    import data/map
+
+    ; eval condition and save output point for declaring inputs/outputs
+    [ cil/new-id-name ifc cil/expect-value ] eval
+    const %ifc
+
+    cil/new-id-name ift
+    %ift cil/eval-fragment
+    const %tstmts
+    list-length const %tilen
+    const %tins
+    list-length const %tolen
+    const %touts
+
+
+    cil/new-id-name iff
+    %iff %tins cil/eval-fragment+args
+    const %fstmts
+    list-length const %filen
+    const %fins
+    list-length const %folen
+    const %fouts
+
+    %tilen negate %tolen add const tarity
+    %filen negate %folen add const farity
+
+    tarity farity equal? if [ drop drop ] [
+        interpreter-dump-stack
+        ("true and false arms have different arity") abort
+    ]
+
+    ; how many variables will be needed?
+    %tilen %tolen %filen %folen max max max
+    const arglen
+    ; grab the max expected inputs
+    %tilen %filen ascending? bury drop drop if [%fins] [%tins]
+    const input-vars
+    input-vars list-map [cil/expect-value/orvar]
+    const input-values
+
+    ; if there are more outputs than inputs, declare those
+    %tilen %filen max negate arglen add 0 max
+    list-imake [drop cil/new-id-name ifout cil/new-id #t cil/make-expr]
+    const extra-outputs
+
+    ; since extra-outputs are only in addition to inputs,
+    ; append them to get the full list of used variables
+    extra-outputs input-vars list-append const ifargs
+
+    ; output generated code
+    [] extra-outputs #t cil/emit-assignment
+
+    ; remove 'local varN = varN'
+    ; [a1 a2 ...] [b1 b2 ...] -> [[a1 b1] [a2 b2] ...] where aN != bN
+    []
+    input-values input-vars
+    list-iterate [
+        interpreter-dump-stack
+        const var
+        list-pop const val
+        const vals
+        var val equal? bury drop drop if [ ] [
+            [var val] list-eval list-push
+        ]
+        vals
+        interpreter-dump-stack
+    ]
+    drop
+
+    ; [[a1 b1] ...] => [a1 ...] [b1 ...]
+    [] [] dig
+    list-iterate [
+        list-pop const var
+        list-pop const val
+        drop
+        swap val list-push
+        swap var list-push
+    ]
+
+    #t cil/emit-assignment
+
+    ["if " %ifc cil/expr->string " then"] list-eval cil/emit-statement
+
+    cil/do-indent [
+        %tstmts list-iterate [cil/emit-statement]
+        ifargs %tolen list-split swap drop
+        %touts swap
+        #f cil/emit-assignment
+    ]
+
+    ; TODO don't emit else if false does nothing
+    ["else"] cil/emit-statement
+
+    cil/do-indent [
+        %fstmts list-iterate [cil/emit-statement]
+        ifargs %folen list-split swap drop
+        %fouts swap
+        #f cil/emit-assignment
+    ]
+
+    ["end"] cil/emit-statement
+
+    ; leave all possible outputs on the stack
+
+    ifargs
+    %tolen %folen max
+    list-split swap drop
+    list-iterate []
+
+]
+export-name cil/lua-if-then-else
+
 ; stack... [ stack... -> stack... bool ] cil/lua-loop -> stack...
 define cil/lua-loop [
     const %wbody
@@ -24,6 +141,7 @@ define cil/lua-loop [
     cil/enter-new-emit-state
 
     %wbody cil/eval-fragment
+    const wstmts
     list-length const wilen
     const wargs
     list-length const wolen

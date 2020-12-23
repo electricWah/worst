@@ -11,15 +11,15 @@ define cil/eval-interpreter->builtin [
     [
         [ cil/new-id-name interp cil/expect-value ] eval
         const %interp
-        define %interp-stack-pop [
+        define cil/interp-stack-pop [
             [ %interp :* stack_pop 1 () ] cil/lua-expr
         ]
-        define %interp-stack-push [
+        define cil/interp-stack-push [
             cil/expect-value
             const v
             [ %interp :* stack_push 0 (v) ] cil/lua-expr
         ]
-        define %interp-quote [
+        define cil/interp-quote [
             [ %interp :* body_read 1 () ] cil/lua-expr
         ]
 
@@ -27,15 +27,15 @@ define cil/eval-interpreter->builtin [
         define cil/expect-value [
             ; interpreter-call-stack interpreter-dump-stack drop
             interpreter-stack-length equals? 0 swap drop if [
-                %interp-stack-pop
+                cil/interp-stack-pop
             ] []
         ]
-        %interp-body cil/eval
-        interpreter-stack list-iterate [ %interp-stack-push ]
+        %interp-body eval
+        interpreter-stack list-iterate [ cil/interp-stack-push ]
         [] interpreter-stack-set
     ]
     cil/eval-program->string
-    ; interpreter-dump-stack
+    interpreter-dump-stack
     lua-load-string if [ ] [
         ("cil/eval-interpreter->builtin: could not compile")
         swap list-push

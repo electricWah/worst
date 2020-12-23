@@ -30,95 +30,6 @@ define cil/eval-program [
 
     define %cil/indentation-value ["    "]
 
-    ; Emit levels mirror the interpreter eval stack
-    ; - emitted statements usually go in the current level
-    ; - you can go up levels in order to emit before the current level is done
-    ; - ending a level re-emits everything into the parent
-    ; this is so compilation can emit prerequisites before the current level
-    ; e.g. inputs to an if/else statement,
-    ; or a function call to something that hasn't been defined yet
-    cil/make-emit-state make-place const %cil/emit-state
-
-    ; Extra bits for the emit state
-    define cil/emit-statement [
-        const stmt
-        %cil/emit-state place-get
-
-        cil/indentation place-get swap drop
-        list-imake [drop %cil/indentation-value]
-
-        stmt
-        list-append
-        cil/emit-state-emit-statement
-        place-set drop
-    ]
-
-    ; enter a fresh state
-    define cil/enter-new-emit-state [
-        %cil/emit-state place-get
-        cil/emit-state-enter-child
-        place-set drop
-    ]
-
-    ; leave the current state and return the statements
-    define cil/leave-emit-state [
-        %cil/emit-state place-get
-        cil/emit-state-leave-child
-        place-set drop
-    ]
-
-    define cil/do-emit-state [
-        cil/enter-new-emit-state
-        upquote eval
-        cil/leave-emit-state
-    ]
-
-    ; cil/emit-state-do-uplevel [ body ]
-    ; do body in the context of the parent emit state
-    define cil/emit-state-do-uplevel [
-        upquote const %esubody
-        %cil/emit-state place-get
-        cil/emit-state-parent
-        dig swap place-set drop
-
-        #f cil/emit-state-set-parent
-        const %uplevelstate
-
-        %esubody eval
-
-        %cil/emit-state place-get
-        %uplevelstate swap cil/emit-state-set-parent
-        place-set drop
-    ]
-    
-    %eval-body eval
-
-    %cil/emit-state place-get
-    cil/emit-state-statements
-    bury drop drop
-]
-export-name cil/eval-program
-
-; [ body ... ] cil/eval-fragment -> outputs inputs
-; Only call this within eval-program.
-define cil/eval-fragment [
-    const %body
-
-    [] make-place const %args
-
-    define cil/expect-value [
-        interpreter-stack-length equals? 0 swap drop if [
-            cil/new-id #t cil/make-expr
-            const v
-            %args place-get v list-push place-set drop
-            v
-        ] []
-    ]
-
-    define cil/expect-values [
-        list-imake [drop cil/expect-value] list-iterate []
-    ]
-
     ; list-eval but reading from the stack first
     define cil/list-eval [
         const %cil/list-eval-body
@@ -140,6 +51,58 @@ define cil/eval-fragment [
         list-reverse list-iterate []
         r
     ]
+    
+    %eval-body eval
+]
+export-name cil/eval-program
+
+; [ body ... ] [ inputs ] cil/eval-fragment+args -> outputs inputs
+; [ body ... ] cil/eval-fragment -> outputs inputs
+; Only call this within eval-program.
+define cil/eval-fragment+args [
+    make-place const %inputs
+    const %body
+
+    [] make-place const %args
+
+    define cil/expect-value/generate [
+        interpreter-stack-length equals? 0 swap drop if [
+            %inputs place-get equals? [] if [
+                drop drop
+                cil/expect-value-generator
+            ] [
+                list-pop bury place-set drop
+            ]
+            const v
+            %args place-get v list-push place-set drop
+            v
+        ] []
+    ]
+
+    define cil/expect-value/orvar [
+        const %expectvar
+        define cil/expect-value-generator [%expectvar]
+        cil/expect-value/generate
+    ]
+
+    define cil/expect-value [
+        define cil/expect-value-generator [cil/new-id #t cil/make-expr]
+        cil/expect-value/generate
+    ]
+
+    define cil/expect-values [
+        list-imake [drop cil/expect-value] list-iterate []
+    ]
+
+    [] make-place const %stmts
+
+    define cil/emit-statement [
+        cil/indentation place-get swap drop
+        list-imake [drop %cil/indentation-value]
+        swap list-append
+        const stmt
+        %stmts place-get stmt list-push place-set drop
+    ]
 
     [] interpreter-stack-swap const %stack
     %body eval
@@ -149,7 +112,10 @@ define cil/eval-fragment [
 
     rets
     %args place-get swap drop list-reverse
+    %stmts place-get swap drop list-reverse
 ]
+export-name cil/eval-fragment+args
+define cil/eval-fragment [ [] cil/eval-fragment+args ]
 export-name cil/eval-fragment
 
 ; vi: ft=scheme

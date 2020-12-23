@@ -1,5 +1,9 @@
 
-; define-attribute cil/luagen []
+; define data types
+; eval-program
+;  set up gensym, emit-state
+;  eval-fragment
+;   user code
 
 ; Data types: expressions, variables, etc
 import cil/luagen/data
@@ -20,6 +24,9 @@ import cil/luagen/expr
 
 ; Primitive control structures such as if, loop, etc
 import cil/luagen/control
+
+; Function definitions
+import cil/luagen/function
 
 export-all
 

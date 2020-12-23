@@ -41,8 +41,8 @@ export-name iteri
 define do-times [
     upquote quote %%do-times-body definition-add
 
-    while [0 swap ascending? bury swap drop swap] [
-        -1 add const %%do-n
+    while [1 negate add 0 swap ascending? bury swap drop swap] [
+        const %%do-n
         %%do-times-body
         %%do-n
     ]

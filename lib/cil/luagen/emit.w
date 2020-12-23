@@ -45,8 +45,7 @@ define cil/emit-assignment [
     const names
     const vals
 
-    names list-length equals? 0
-    bury drop drop
+    names list-empty? swap drop
     if [[]] [
         [
             new? if ["local "] []
@@ -90,9 +89,11 @@ define cil/eval-program->string [
             ] list-eval
         ]
     ] list-eval
-    list-map [ "" string-join ]
+    list-map [
+        ; list-map [ string? if [] [cil/expr->string] ]
+        "" string-join
+    ]
     "\n" string-join
-
 ]
 export-name cil/eval-program->string
 
