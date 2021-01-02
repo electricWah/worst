@@ -113,5 +113,24 @@ define-attribute lexical-alias [
 ]
 export-name lexical-alias
 
+; don't override the define if already defined
+define-attribute weakly [
+    ; You are not expected to like this code
+    before [
+        definition-resolve not if [ ] [ drop quote %%weakly-defined ]
+    ]
+]
+export-name weakly
+
+define-attribute modifying-body [
+    args (%modifier)
+    before [
+        const %name
+        %modifier eval
+        %name
+    ]
+]
+export-name modifying-body
+
 ; vi: ft=scheme
 
