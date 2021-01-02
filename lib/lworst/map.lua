@@ -7,10 +7,23 @@ local Type = base.Type
 -- could do something more complex with reference counting
 -- but currently just clone-on-modify
 
+local MapMeta = Type.new("MapMeta")
+
+function MapMeta:__tostring()
+    return "MapMeta<" .. self.name .. ">"
+end
+
 local Map = Type.new("Map")
 
+Map.Meta = {}
+Map.Meta.tostring_key = setmetatable({ name = "tostring-key" }, MapMeta)
+
 function Map:__tostring()
-    return "Map(" .. self:count() .. ")"
+    local tsk = self:get(Map.Meta.tostring_key)
+    if tsk then return tsk
+    else
+        return "Map(" .. self:count() .. ")"
+    end
 end
 
 function Map.empty()

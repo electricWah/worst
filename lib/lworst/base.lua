@@ -17,6 +17,7 @@ function Type.is(t, v)
     or getmetatable(v) == t
     or (type(t) == "table" and type(t.is) == "function" and t.is(v))
     or (type(t) == "function" and t(v))
+    or (type(t) ~= "string" and t == v)
     then return true end
 
     if type(t) == "table" then

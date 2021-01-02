@@ -496,6 +496,17 @@ mod["map-keys"] = function(i)
     i:stack_push(m:keys())
 end
 
+mod["map-set-string"] = function(i)
+    local s = i:stack_pop({"string", false})
+    local m = i:stack_pop(Map)
+    if s then
+        m = m:set(Map.Meta.tostring_key, s)
+    else
+        m = m:remove(Map.Meta.tostring_key)
+    end
+    i:stack_push(m)
+end
+
 mod["current-context-set-code"] = function(i)
     local body = i:stack_pop(List)
     i:set_body(body)
