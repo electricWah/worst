@@ -64,10 +64,7 @@ define cil/emit-assignment [
 ]
 export-name cil/emit-assignment
 
-; body eval-chunk->string -> actual real lua
-define cil/eval-program->string [
-    [cil/eval-fragment]
-    cil/eval-program
+define cil/eval->string [
     const stmts
     const args
     const rets
@@ -94,6 +91,12 @@ define cil/eval-program->string [
         "" string-join
     ]
     "\n" string-join
+]
+export-name cil/eval->string
+
+; Convenience wrapper
+define cil/eval-program->string [
+    cil/eval cil/eval->string
 ]
 export-name cil/eval-program->string
 

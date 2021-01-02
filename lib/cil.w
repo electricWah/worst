@@ -8,6 +8,7 @@
 
 ; Generate Lua code using regular Worst
 import cil/luagen
+; not necessary if cil/bootstrap does this instead
 
 ; TODO this next
 ; Use cil/luagen to reimplement cil/luagen as Lua

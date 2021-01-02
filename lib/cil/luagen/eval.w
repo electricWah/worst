@@ -1,34 +1,44 @@
 
 ; Evaluating chunks of code.
 
-; [ code ... ] cil/eval-program
-; Don't try to call this inside itself or combine two textual chunks in any way
-; as it sets up indentation, gensym, etc. and there will be problems.
-define cil/eval-program [
+; Evaluating code results in its input variables, output values,
+; and the list of statements it emitted.
+
+define cil/eval+args [
+
+    make-place const %eval-inputs
     const %eval-body
-    0 make-place const cil/gensym-place
-    define %cil/new-id-name [ quote arg ]
+
+    modifying-body (0 make-place list-push)
+    weakly define %cil/gensym []
+
+    modifying-body (drop [quote arg])
+    weakly define %cil/new-id-name []
+
+    modifying-body ("    " list-push)
+    weakly define %cil/indentation-value []
+
+    modifying-body (0 make-place list-push)
+    weakly define %cil/indentation []
+
+    define cil/set-new-id-name [
+        const %cil/new-id-name
+        quote %cil/new-id-name definition-copy-up
+    ]
+    define cil/new-id-name [ upquote updo cil/set-new-id-name ]
     define cil/new-id [
-        cil/gensym-place place-get
+        %cil/gensym place-get
         1 add const n
         n place-set drop
         %cil/new-id-name ->string n ->string
         string-append string->symbol
     ]
-    define cil/new-id-name [
-        [quote] upquote list-push list-reverse
-        quote %cil/new-id-name
-        updo definition-add
-    ]
-    
-    0 make-place const cil/indentation
-    define cil/indent> [ cil/indentation place-get 1 add place-set drop ]
-    define cil/indent< [ cil/indentation place-get 1 negate add place-set drop ]
+
+    define cil/indent> [ %cil/indentation place-get 1 add place-set drop ]
+    define cil/indent< [ %cil/indentation place-get 1 negate add place-set drop ]
 
     define cil/do-indent [ cil/indent> upquote eval cil/indent< ]
     define cil/do-unindent [ cil/indent< upquote eval cil/indent> ]
-
-    define %cil/indentation-value ["    "]
 
     ; list-eval but reading from the stack first
     define cil/list-eval [
@@ -46,28 +56,18 @@ define cil/eval-program [
             ] []
         ]
         %cil/list-eval-body list-eval
-        list-reverse const r
+        const r
         %cil/list-eval-stack place-get swap drop
         list-reverse list-iterate []
         r
     ]
-    
-    %eval-body eval
-]
-export-name cil/eval-program
 
-; [ body ... ] [ inputs ] cil/eval-fragment+args -> outputs inputs
-; [ body ... ] cil/eval-fragment -> outputs inputs
-; Only call this within eval-program.
-define cil/eval-fragment+args [
-    make-place const %inputs
-    const %body
 
     [] make-place const %args
 
     define cil/expect-value/generate [
         interpreter-stack-length equals? 0 swap drop if [
-            %inputs place-get equals? [] if [
+            %eval-inputs place-get equals? [] if [
                 drop drop
                 cil/expect-value-generator
             ] [
@@ -97,26 +97,25 @@ define cil/eval-fragment+args [
     [] make-place const %stmts
 
     define cil/emit-statement [
-        cil/indentation place-get swap drop
-        list-imake [drop %cil/indentation-value]
-        swap list-append
+        %cil/indentation place-get swap drop
+        do-times [%cil/indentation-value list-push]
         const stmt
         %stmts place-get stmt list-push place-set drop
     ]
 
-    [] interpreter-stack-swap const %stack
-    %body eval
-    %stack interpreter-stack-swap
-    list-reverse
-    const rets
+    define cil/comment [ const c [ "-- " c ] list-eval cil/emit-statement ]
 
-    rets
+    [] interpreter-stack-swap const %stack
+
+    %eval-body eval
+
+    %stack interpreter-stack-swap list-reverse
     %args place-get swap drop list-reverse
     %stmts place-get swap drop list-reverse
 ]
-export-name cil/eval-fragment+args
-define cil/eval-fragment [ [] cil/eval-fragment+args ]
-export-name cil/eval-fragment
+export-name cil/eval+args
+define cil/eval [ [] cil/eval+args ]
+export-name cil/eval
 
 ; vi: ft=scheme
 

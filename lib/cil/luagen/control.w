@@ -11,7 +11,7 @@ define cil/lua-if-then-else [
     const %ifc
 
     cil/new-id-name ift
-    %ift cil/eval-fragment
+    %ift cil/eval
     const %tstmts
     list-length const %tilen
     const %tins
@@ -20,7 +20,7 @@ define cil/lua-if-then-else [
 
 
     cil/new-id-name iff
-    %iff %tins cil/eval-fragment+args
+    %iff %tins cil/eval+args
     const %fstmts
     list-length const %filen
     const %fins
@@ -140,7 +140,7 @@ define cil/lua-loop [
     cil/indent>
     cil/enter-new-emit-state
 
-    %wbody cil/eval-fragment
+    %wbody cil/eval
     const wstmts
     list-length const wilen
     const wargs

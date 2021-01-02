@@ -19,6 +19,7 @@
 ; and = && 
 ; or = ||
 ; a[b] = a -> [b]
+; a.b = a -> b
 ; f() = f . ()
 
 ; also f .* n () and obj :* method n ()
@@ -30,10 +31,15 @@ define cil/lua-expr [
     define ... [ quote ... #t cil/make-expr ]
 
     define -> [
-        upquote const key-expr
         cil/expect-value const obj
-        key-expr eval const key
-        [ obj "[" key "]" ] list-eval
+        upquote
+        symbol? if [
+            ->string const key
+            [ obj "." key ] list-eval
+        ] [
+            eval const key
+            [ obj "[" key "]" ] list-eval
+        ]
         0 cil/make-expr
     ]
 
@@ -76,12 +82,14 @@ define cil/lua-expr [
         upquote const %margs
 
         %margs cil/list-eval
+
         const margs
 
         [
             %obj ":" %mname "("
-                margs list-map [cil/expr->string]
-                "," list-join
+                margs
+                list-map [cil/expr->string]
+                ", " list-join
                 list-iterate []
             ")"
         ]
@@ -100,7 +108,7 @@ define cil/lua-expr [
         [
             %f "("
                 fargs list-map [cil/expr->string]
-                "," list-join
+                ", " list-join
                 list-iterate []
             ")"
         ]
