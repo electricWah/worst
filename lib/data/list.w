@@ -87,7 +87,7 @@ export-name list-join
 ; Remove the first N elements from the list and put them in their own list
 ; [ v0 ... vN vN+1 ... vM ] n list-split -> [ vN+1 ... vM ] [ v0 ... vN ]
 define list-split [
-    [] bury 1 add do-times [ list-pop bury swap dig list-push swap ]
+    [] bury do-times [ list-pop bury swap dig list-push swap ]
     swap list-reverse
 ]
 export-name list-split
