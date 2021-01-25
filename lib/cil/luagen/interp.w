@@ -26,12 +26,29 @@ define cil/interpreter-eval [
             [ %interp :* stack_ref 1 (idx t) ] cil/lua-expr
         ]
         define cil/interp-stack-push [
-            cil/expect-value
-            const v
+            cil/expect-value const v
             [ %interp :* stack_push 0 (v) ] cil/lua-expr
         ]
         define cil/interp-quote [
             [ %interp :* body_read 1 () ] cil/lua-expr
+        ]
+
+        define cil/interp-into-parent [
+            [ %interp :* into_parent 1 () ] cil/lua-expr
+        ]
+
+        define cil/interp-error [
+            cil/expect-value const v
+            [ %interp :* error 0 (v) ] cil/lua-expr
+        ]
+
+        define cil/interp-eval [
+            cil/expect-value const v
+            [ %interp :* eval 0 (v) ] cil/lua-expr
+        ]
+        define cil/interp-call [
+            cil/expect-value const v
+            [ %interp :* call 0 (v) ] cil/lua-expr
         ]
 
         define cil/interp-string->symbol [

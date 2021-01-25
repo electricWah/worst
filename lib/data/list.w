@@ -84,6 +84,18 @@ define list-join [
 ]
 export-name list-join
 
+; [list] list-partition [el -> bool] -> [el : #f] [el : #t]
+define list-partition [
+    upquote quote %%partition definition-add
+    [] [] dig
+    list-iterate [
+        %%partition if [bury swap dig list-push swap] [list-push]
+    ]
+    list-reverse swap
+    list-reverse
+]
+export-name list-partition
+
 ; Remove the first N elements from the list and put them in their own list
 ; [ v0 ... vN vN+1 ... vM ] n list-split -> [ vN+1 ... vM ] [ v0 ... vN ]
 define list-split [
@@ -115,6 +127,60 @@ define list-imake [
     list-reverse
 ]
 export-name list-imake
+
+; Sort a list using a mapping function and greater-than for its output
+; this should be a general sort and also keep original order
+; [v0 v1 ...] list-psort [v -> m] [m0 m1 -> m0>m1] -> [v0 v1 but sorted ...]
+define list-psort [
+    upquote quote %%list-psort-proj definition-add
+    upquote quote %%list-psort-comp definition-add
+    const %input-list
+
+    ; not so fast method: first map over input to get proj -> elems
+    map-empty
+    %input-list list-iterate [
+        const %v
+        %v %%list-psort-proj
+        map-get false? if [ drop [] ] []
+        %v list-push map-set
+    ]
+    const %rlookup
+
+    ; then sort the reverse lookup
+    ; quicksort: take first element, split by comparator, [<= x] + x + [> x]
+    define %%sort [
+        list-empty? if [] [
+            list-pop
+            const %x
+            list-partition [%x %%list-psort-comp swap drop]
+            %%sort
+            swap %%sort
+            %x list-push
+            list-append
+        ]
+    ]
+    %rlookup map-keys swap drop
+    %%sort
+    list-reverse
+    
+    ; now the keys are sorted, extract the values again
+    [] ; acc
+    swap
+    list-iterate [
+        %rlookup swap map-get bury drop drop
+        list-iterate [list-push]
+    ]
+]
+export-name list-psort
+
+
+; Sort a list using a given greater-than comparison function
+; [v0 v1 ...] list-gtsort [a b -> a b {b > a?}] -> [v0 v1 but sorted ...]
+define list-gtsort [
+    upquote quote %%list-gtsort-body definition-add
+    list-psort [] [%%list-gtsort-body]
+]
+export-name list-gtsort
 
 ; vi: ft=scheme
 

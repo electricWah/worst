@@ -547,6 +547,22 @@ mod["lua-load-string"] = function(i)
     end
 end
 
+-- string lua-import-module ->       #t
+--                          -> error #f
+mod["lua-import-module"] = function(i)
+    local p = i:stack_pop("string")
+    local ok, m = pcall(require, p)
+    if ok then
+        for k, v in pairs(require(p)) do
+            i:define(Symbol.new(k), v)
+        end
+        i:stack_push(true)
+    else
+        i:stack_push(m)
+        i:stack_push(false)
+    end
+end
+
 mod[Interpreter.ERROR_HANDLER] = function(i)
     local v = i:stack_pop(Symbol)
     local irritants = i:stack_pop(List)

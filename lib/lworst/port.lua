@@ -9,6 +9,7 @@ local mod = {}
 local Mode = Type.new("mode")
 
 local Eof = Type.new("eof")
+function Eof.__tostring() return "<EOF>" end
 local EOF = setmetatable({}, Eof)
 mod.Eof = Eof
 mod.EOF = EOF

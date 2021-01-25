@@ -15,7 +15,7 @@ documentation [
 ]
 
 define pico-8 [
-    import meta/cil
+    import cil
     import data/map
 
     upquote const %p8body
@@ -41,7 +41,7 @@ define pico-8 [
     [
         import lua/pico-8/builtins
         %p8body
-        cil/chunk->string
+        cil/eval-program->string
     ] eval
     const code
 

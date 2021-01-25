@@ -8,6 +8,10 @@ let
     pkgsStatic.minizip
     pkg-config
     watchexec
+    flamegraph
+    python39Packages.gprof2dot
+    graphviz
+    linuxPackages.perf
   ];
   p = { }:
     pkgs.stdenv.mkDerivation rec {

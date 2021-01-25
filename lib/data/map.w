@@ -18,7 +18,6 @@ define map-merge [
         map-set
     ]
 ]
-export-name map-merge
 
 ; [ k1 v1 k2 v2 ... ] pairs->map -> map
 define pairs->map [
@@ -32,7 +31,6 @@ define pairs->map [
     }
     drop
 ]
-export-name pairs->map
 
 ; map map->pairs -> [k1 v1 k2 v2 ...]
 define map->pairs [
@@ -46,7 +44,32 @@ define map->pairs [
     ]
     swap drop
 ]
-export-name map->pairs
+
+; map map-iterate [ k v -> ...] -> ...
+define map-iterate [
+    upquote quote %map-iterate-body definition-add
+    const %map-iterate-map
+    %map-iterate-map map-keys swap drop
+    list-iterate [
+        %map-iterate-map swap map-get dig drop
+        %map-iterate-body
+    ]
+]
+
+; if the value exists already, replace it using the given code
+; otherwise just map-set
+; map k v map-replace [ map k v v-existing -> map ]
+define map-replace [
+    upquote quote %%map-upsert definition-add
+    const %v
+    map-exists if [
+        map-get %v swap %%map-upsert
+    ] [
+        %v map-set
+    ]
+]
+
+export-all
 
 ; vi: ft=scheme
 
