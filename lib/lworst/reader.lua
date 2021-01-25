@@ -73,6 +73,7 @@ function mod.read_next(reader)
         str = string.gsub(str, "\\(.)", {
             ["\""] = "\"",
             ["n"] = "\n",
+            ["t"] = "\t",
             ["e"] = "\027",
         })
         str = string.gsub(str, "\\(x%x+)", function(v)

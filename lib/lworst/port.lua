@@ -106,15 +106,20 @@ mod.OutputPort = OutputPort
 
 local STDOUT = nil
 
-function OutputPort.stdout()
-    if not STDOUT then
-        STDOUT = setmetatable({
-            fh = io.stdout,
-            mode = "stdout"
-        }, OutputPort)
+function std_output_port(name)
+    local port = nil
+    return function()
+        if not port then
+            port = setmetatable({
+                fh = io[name],
+                mode = name
+            }, OutputPort)
+        end
+        return port
     end
-    return STDOUT
 end
+OutputPort.stdout = std_output_port("stdout")
+OutputPort.stderr = std_output_port("stderr")
 
 function OutputPort.file(fh)
     local p = setmetatable({

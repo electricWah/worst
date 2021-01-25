@@ -29,7 +29,11 @@ define define-attribute [
     [] variable %before
     define before [ upquote %before set ]
 
-    attr-body eval
+    [
+        [ upquote upquote swap updo definition-add ]
+        quote define definition-add
+        attr-body eval
+    ] eval
 
     %args get
 
@@ -61,13 +65,22 @@ define define-attribute [
 export-name define-attribute
 
 define definition-add+attributes [
-    quote %before-define updo definition-get
-    swap drop false? if [drop []] [] eval
-    quote %before-define updo definition-remove
+    quote %before-define definition-resolve
+    false? if [drop []] []
+    swap updo definition-remove
+    eval
     quote %current-attributes updo definition-remove
     updo definition-add
 ]
 export-name definition-add+attributes
+
+define default-attributes [
+    upquote
+    [ quote %before-define definition-copy-up ]
+    list-append eval
+    quote %before-define definition-copy-up
+]
+export-name default-attributes
 
 define define [
     upquote upquote swap

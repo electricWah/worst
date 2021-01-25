@@ -1,4 +1,5 @@
 
+local os = require("os")
 local base = require("base")
 local List = require("list")
 local Error = base.Error
@@ -186,19 +187,57 @@ function Interpreter:call_stack()
     return st
 end
 
-function Interpreter:eval(v, name)
-    -- if true then
-    --     local st = {}
-    --     for _,  p in ipairs(self.parents) do
-    --         table.insert(st, base.to_string_terse(p.name or "???"))
-    --     end
-    --     table.insert(st, base.to_string_terse(self.frame.name or "???"))
-    --     table.insert(st, base.to_string_terse(name or "???"))
-    --     io.stderr:write(table.concat(st, " "), "\n")
+function Interpreter:set_trace_port(p) self.trace_port = p end
+
+function start_eval_trace(i, name)
+    local out = i.trace_port
+    if not out then return end
+    local t = os.clock()
+
+    local unknown = Symbol.new("???")
+    local prefix = " worst`"
+
+    local st = {}
+    function write_st(name)
+        if name then
+            table.insert(st, prefix .. base.to_string_terse(name or unknown))
+        end
+    end
+
+    write_st(name)
+    write_st(i.frame.name)
+    for pt = #i.parents, 1, -1 do
+        local p = i.parents[pt]
+        write_st(p.name)
+    end
+
+    -- for _,  p in ipairs(i.parents) do
+    --     write_st(p.name)
     -- end
+    -- write_st(i.frame.name)
+    -- write_st(name)
+
+    local trace = table.concat(st, "\n")
+    return out, trace, t
+end
+
+function write_eval_trace(out, trace, t0)
+    if not out then return end
+
+    local t = os.clock()
+
+    -- convert to float for some more precise rounding than just floor
+    local ns = math.floor(tonumber(string.format("%f", ((t - t0) * 1000000))))
+
+    out:write_string(trace .. "\n" .. tostring(ns) .. "\n\n")
+end
+
+function Interpreter:eval(v, name)
+    -- local out, trace, t = start_eval_trace(self, name)
     if List.is(v) then
         enter_body(self, v, name)
     elseif base.can_call(v) then
+        local out, trace, t = start_eval_trace(self, name)
         local ok, err = pcall(v, self)
         if not ok then
             print("Error in", name or "???", self.stack, err)
@@ -212,9 +251,11 @@ function Interpreter:eval(v, name)
                 self:handle_error(err)
             end
         end
+        write_eval_trace(out, trace, t)
     else
         self:stack_push(v)
     end
+    -- write_eval_trace(out, trace, t)
 end
 
 function Interpreter:call(name)

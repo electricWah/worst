@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+f=$1
+fl=$f.flame
+
+# cat $f | tr ' ' ';' | awk  '{ print $0, "1"; }' > $f.flame
+
+stackcollapse.pl $f > $fl
+flamegraph.pl --colors hot --hash --countname "ns" $fl > $f.svg
+flamegraph.pl --colors hot --hash --countname "ns" --reverse $fl > $f.rev.svg
+
+gprof2dot -f dtrace $f -o $f.dot
+dot $f.dot -o $f.dot.svg -T svg
+

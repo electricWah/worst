@@ -284,6 +284,15 @@ mod["interpreter-stack-length"] = function(i)
     i:stack_push(i:stack_length())
 end
 
+mod["interpreter-cpu-time"] = function(i)
+    i:stack_push(require("os").clock())
+end
+
+mod["interpreter-set-trace-port"] = function(i)
+    local p = i:stack_pop({ Port.OutputPort, false })
+    i:set_trace_port(p)
+end
+
 mod["string-append"] = function(i)
     local b = i:stack_pop("string")
     local a = i:stack_pop("string")
