@@ -5,70 +5,95 @@ local Symbol = base.Symbol
 
 local mod = {}
 
-local StringReader = {}
-mod.StringReader = StringReader
-StringReader.__index = StringReader
-function StringReader.new(s)
-    return setmetatable({s = s, i = 1}, StringReader)
-end
+function mod.read_next(port)
 
-function StringReader:is_eof()
-    return self.i >= string.len(self.s)
-end
-
-function StringReader:drop(n)
-    self.i = self.i + n
-end
-
-function StringReader:take(n)
-    if self.i >= string.len(self.s) then return nil end
-    local s = self.i
-    self.i = self.i + n
-    return string.sub(self.s, s, s + n - 1)
-end
-
-function StringReader:peek()
-    if self.i >= string.len(self.s) then return nil end
-    return string.sub(self.s, self.i, self.i)
-end
-
-function StringReader:match(pat)
-    return string.match(self.s, pat, self.i)
-end
-
-function mod.read_next(reader)
-
-    function whitespace(m)
-        reader:drop(string.len(m))
-        return nil
+    function whitespace(p)
+        local consumed = false
+        while true do
+            local l = p:peek("*L")
+            if not l then break end
+            local s, e = string.find(l, "^%s+")
+            if e then
+                assert(p:seek("cur", e))
+                consumed = true
+            else
+                break
+            end
+        end
+        return consumed
     end
 
-    -- #! -> .+ !#
-    function shebang_comment()
-        local bang = false
-        while true do
-            local c = reader:take(1)
-            if c == "#" and bang then return nil end
-            bang = (c == "!")
+    function semi_comment(p)
+        if p:peek(1) == ";" then
+            p:read("*L")
+            return true
+        else
+            return false
         end
     end
 
-    function semi_comment(n)
-        reader:drop(string.len(n))
-        return nil
+    function shebang_comment(p)
+        if p:peek(1) ~= "#" or p:peek(2) ~= "#!" then return false end
+        p:seek("cur", 2)
+
+        while true do
+            local l = p:peek("*L")
+            if not l then break end
+            local s, e = string.find(l, "!#")
+            if e then
+                assert(p:seek("cur", e))
+                break
+            else
+                p:seek("cur", string.len(l))
+            end
+        end
+        return true
     end
 
-    function dquote_string()
-        reader:drop(1)
-        local str = ""
-        local esc = false
-        while true do
-            local c = reader:take(1)
-            if c == nil then error("unmatched \" string") end
-            if c == "\"" and not esc then break end
-            esc = (c == "\\")
-            str = str .. c
+    function symbol(p)
+        local l = p:peek("*L")
+        if not l then return nil end
+        local s, e = string.find(l, "^[^%s%(%)%[%]%{%}\"]+")
+        if e then
+            return Symbol.new(p:read(e))
         end
+    end
+
+    function dquote_string(p)
+        if p:peek(1) ~= "\"" then return end
+
+        p:seek("cur", 1)
+        local buf = {}
+
+        -- look for " not preceded by \
+        while true do
+            local l = p:peek("*L")
+            if not l then return nil end
+
+            local escaping = false
+            local ss
+            for si = 1, string.len(l) do
+                local c = string.sub(l, si, si)
+                if escaping then
+                    escaping = false
+                elseif c == "\\" then
+                    escaping = true
+                elseif c == "\"" then
+                    ss = si
+                    break
+                end
+            end
+            if ss then
+                -- found an unescaped "
+                table.insert(buf, p:read(ss - 1))
+                p:seek("cur", 1)
+                break
+            else
+                table.insert(buf, p:read("*L"))
+            end
+        end
+        
+        local str = table.concat(buf)
 
         str = string.gsub(str, "\\(.)", {
             ["\""] = "\"",
@@ -83,86 +108,80 @@ function mod.read_next(reader)
         return str
     end
 
-    function symbol(s)
-        reader:drop(string.len(s))
-        return Symbol.new(s)
+    function boolean(p)
+        local s = p:peek(2)
+        if s == "#t" then
+            p:seek("cur", 2)
+            return true
+        elseif s == "#f" then
+            p:seek("cur", 2)
+            return false
+        end
     end
 
-    function boolean(s)
-        reader:drop(2)
-        return (s == "#t")
-    end
+    function base10_number(p)
+        local l = p:peek("*L")
+        if not l then return end
 
-    function base10_number(s)
-        reader:drop(string.len(s))
-        return tonumber(s)
+        local s, e = string.find(l, "^%d+%.%d+")
+        if e then
+            p:seek("cur", e)
+            return tonumber(string.sub(l, 1, e))
+        end
+
+        s, e = string.find(l, "^%d+")
+        if e then
+            p:seek("cur", e)
+            return tonumber(string.sub(l, 1, e))
+        end
+
     end
 
     local list_kinds = {
-        ["("] = { list = true, kind = "()", start = true },
-        [")"] = { list = true, kind = "()", start = false },
-        ["{"] = { list = true, kind = "{}", start = true },
-        ["}"] = { list = true, kind = "{}", start = false },
-        ["["] = { list = true, kind = "[]", start = true },
-        ["]"] = { list = true, kind = "[]", start = false },
+        ["("] = { kind = "()", start = true },
+        [")"] = { kind = "()", start = false },
+        ["{"] = { kind = "{}", start = true },
+        ["}"] = { kind = "{}", start = false },
+        ["["] = { kind = "[]", start = true },
+        ["]"] = { kind = "[]", start = false },
     }
+    for k, v in pairs(list_kinds) do v.char = k end
     function is_list_start(v)
-        return type(v) == "table" and v.list and v.start
+        return type(v) == "table" and list_kinds[v.char] == v and v.start
     end
     function is_list_end(v)
-        return type(v) == "table" and v.list and not v.start
+        return type(v) == "table" and list_kinds[v.char] == v and not v.start
     end
 
-    function start_list(ty)
-        local kind = list_kinds[ty]
-        if not kind then error("not a list delimiter: ", ty) end
-        reader:drop(1)
-        return kind
+    function list_delimiter(p)
+        local c = p:peek(1)
+        local l = list_kinds[c]
+        if l then
+            assert(p:seek("cur", 1))
+            return l
+        end
     end
 
-    function end_list(ty)
-        local kind = list_kinds[ty]
-        if not kind then error("not a list delimiter: ", ty) end
-        reader:drop(1)
-        return kind
-    end
-
-    local match_lut = {
-        {"^%s+", whitespace},
-        {"^#!", shebang_comment},
-        {"^;[^\n]*", semi_comment},
-        {"^\"", dquote_string},
-        {"^[%(%{%[]", start_list},
-        {"^[%)%}%]]", end_list},
-        {"^#[tf]", boolean},
-        {"^[%d]+%.[%d]+", base10_number},
-        {"^[%d]+", base10_number},
-        {"^[^%s%(%)%[%]%{%}\"]+", symbol},
+    local matchers = {
+        boolean,
+        list_delimiter,
+        dquote_string,
+        base10_number,
+        symbol,
     }
 
+    function read_blanks(p)
+        while whitespace(p) or semi_comment(p) or shebang_comment(p) do end
+    end
+
     function read_token()
-        local match_i = 1
-        while true do
-            if reader:is_eof() then return nil end
-            local match = match_lut[match_i]
-            if not match then error("unknown syntax") end
-            local pat, f = unpack(match)
-            local m = reader:match(pat)
-            -- print("token", pat, string.format("%q", m))
-            if m ~= nil then
-                if not f then error("unimplemented: " .. pat) end
-                local v, unconsumed = f(m)
-                if v ~= nil then
-                    return v
-                elseif unconsumed then
-                    match_i = match_i + 1
-                else
-                    match_i = 1
-                end
-            else
-                match_i = match_i + 1
-            end
+        if not port:read(0) then return nil end
+        for i, matcher in ipairs(matchers) do
+            read_blanks(port)
+            local r = matcher(port)
+            if r ~= nil then return r end
         end
+        return nil
     end
 
     function valuify_token(tok)
@@ -184,12 +203,10 @@ function mod.read_next(reader)
             end
         end
 
-        if tok == nil then
-            return nil
-        elseif is_list_start(tok) then
+        if is_list_start(tok) then
             return read_until_list_end(tok.kind)
         elseif is_list_end(tok) then
-            error("unmatched closing " .. ty)
+            error("unmatched closing " .. tok.kind)
         else
             return tok
         end

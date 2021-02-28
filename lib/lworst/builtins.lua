@@ -400,26 +400,25 @@ end
 
 mod["port-has-data"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    i:stack_push(port:buffer_size() > 0)
+    i:stack_push(port:has_buffered_data())
 end
 
 mod["port-peek-char"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    i:stack_push(port:peek())
+    i:stack_push(port:peek(1))
 end
 
 mod["port-read-char"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    i:stack_push(port:take(1))
+    i:stack_push(port:read(1))
 end
 
 mod["port-read-line"] = function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    local s = port:match("[^\n]*\n?")
+    local s = port:read("*L")
     if s == nil then
         i:stack_push(false)
     else
-        port:take(string.len(s))
         i:stack_push(s)
     end
 end

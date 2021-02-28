@@ -12,6 +12,10 @@ rworst: worst.rkt
 	raco make $<
 	raco exe --gui -o $@ $<
 
+.PHONY: tests
+tests:
+	@LUA_PATH="${LUA_PATH};./lib/lworst/?.lua;./test/?.lua" luajit test/main.lua
+
 .PHONY: deps
 deps:
 	raco pkg install hyper-literate

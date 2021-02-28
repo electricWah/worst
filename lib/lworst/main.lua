@@ -1,6 +1,7 @@
 
 local io = require "io"
 local base = require "base"
+local port = require "port"
 local reader = require "reader"
 local builtins = require "builtins"
 local Interpreter = require"interpreter"
@@ -11,12 +12,10 @@ local Symbol = base.Symbol
 local mod = {}
 
 function mod.run_file(path, ...)
-    local scriptfile, err = io.open(path)
-    if not scriptfile then
+    local r, err = port.open_input_file(path)
+    if err then
         error("could not open script: " .. path .. " " .. tostring(err))
     end
-    local script = scriptfile:read("*a")
-    local r = reader.StringReader.new(script)
 
     local body = {}
     while true do
