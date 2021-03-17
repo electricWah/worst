@@ -80,5 +80,16 @@ function Map:keys()
     return List.create(l)
 end
 
+function Map:iter()
+    local s = self
+    function f(st, v)
+        local k, v = next(s.data, st.k)
+        if k == nil then return nil end
+        st.k = k
+        return k, v
+    end
+    return f, {s=self}, self
+end
+
 return Map
 

@@ -278,12 +278,21 @@ function Interpreter:stack_push(v)
     end
 end
 
+function Interpreter:assert_type(v, ty)
+    if not Type.is(ty, v) then
+        self:error("wrong-type", Type.name(ty), v)
+        return nil
+    else
+        return v
+    end
+end
+
 function Interpreter:stack_ref(i, ty)
     local v = self.stack[#self.stack - (i - 1)]
     if v == nil then
         self:error("stack-empty")
-    elseif ty ~= nil and not Type.is(ty, v) then
-        self:error("wrong-type", Type.name(ty), v)
+    elseif ty ~= nil then
+        return self:assert_type(v, ty)
     else
         return v
     end
@@ -293,8 +302,8 @@ function Interpreter:stack_pop(ty)
     local v = self.stack:pop()
     if v == nil then
         self:error("stack-empty")
-    elseif ty ~= nil and not Type.is(ty, v) then
-        self:error("wrong-type", Type.name(ty), v)
+    elseif ty ~= nil then
+        return self:assert_type(v, ty)
     else
         return v
     end

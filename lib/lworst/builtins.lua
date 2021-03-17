@@ -532,32 +532,25 @@ mod["current-context-definitions"] = function(i)
     i:stack_push(m)
 end
 
--- string lua-load-string -> function #t
+-- Should be a map of symbols to definitions
+mod["current-context-define-all"] = function(i)
+    local m = i:stack_pop(Map)
+    for k, v in m:iter() do
+        local ks = i:assert_type(k, Symbol)
+        local vs = i:assert_type(v, {List, "function"})
+        i:define(ks, vs)
+    end
+end
+
+-- string lua-load-string -> function
 --                        -> error    #f
 mod["lua-load-string"] = function(i)
     local src = i:stack_pop("string")
     local r, err = load(src)
     if r then
         i:stack_push(r)
-        i:stack_push(true)
     else
         i:stack_push(err)
-        i:stack_push(false)
-    end
-end
-
--- string lua-import-module ->       #t
---                          -> error #f
-mod["lua-import-module"] = function(i)
-    local p = i:stack_pop("string")
-    local ok, m = pcall(require, p)
-    if ok then
-        for k, v in pairs(require(p)) do
-            i:define(Symbol.new(k), v)
-        end
-        i:stack_push(true)
-    else
-        i:stack_push(m)
         i:stack_push(false)
     end
 end

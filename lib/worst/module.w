@@ -1,7 +1,6 @@
 
 ; Import and export. Loaded automatically by worsti
 
-import syntax/variable
 import syntax/attribute
 
 lexical (syntax-read)
@@ -28,13 +27,13 @@ define load-eval-file [
 dict-empty const %import-files
 
 ; Less basic import
-lexical (variable updo %import-files)
+lexical (%import-files)
 define import-file [
     const %import-path
 
     %import-files
     %import-path dict-exists if [
-        drop drop
+        dict-get bury drop drop
     ] [
         drop drop
 
@@ -51,7 +50,7 @@ define import-file [
         define export-name [ upquote clone export-as ]
 
         define export-all [
-            updo current-context-definitions
+            quote current-context-definitions uplevel
             map-keys swap drop
             while [list-empty? not] [
                 list-pop clone
@@ -66,29 +65,14 @@ define import-file [
         read-file eval
         ; %import-path load-eval-file ; TODO make this work again
 
-        []
-        %exports dict-keys list-iterate [
-            const k
-            k dict-get const v
-            drop
-            [
-                quote quote v quote quote k
-                [quote definition-add quote uplevel uplevel] list-iterate []
-            ] list-eval
-            swap bury list-append
-            swap
-        ]
-        drop
-        %import-files %import-path dig dict-set
-        drop
+        %exports dict->map clone
+        %import-files %import-path
+        dig dict-set drop
     ]
 
-    %import-files %import-path dict-get
-    bury drop drop
-    eval
+    quote current-context-define-all uplevel
 ]
 
-lexical ()
 define import [ upquote quote import-file uplevel ]
 
 lexical (%import-files)
