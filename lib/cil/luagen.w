@@ -10,6 +10,7 @@ import cil/luagen/data
 
 ; Set up an evaluation state including gensym, emit stack, and indentation
 ; and evaluate code within it
+import cil/luagen/eval-state
 import cil/luagen/eval
 
 ; Turn expressions and statements into Lua code

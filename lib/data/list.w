@@ -173,7 +173,6 @@ define list-psort [
 ]
 export-name list-psort
 
-
 ; Sort a list using a given greater-than comparison function
 ; [v0 v1 ...] list-gtsort [a b -> a b {b > a?}] -> [v0 v1 but sorted ...]
 define list-gtsort [

@@ -32,11 +32,6 @@ end
 
 function Interpreter.empty()
     return setmetatable({
-        data = {
-            -- little baby hack to allow defs access to types
-            Symbol = Symbol,
-            List = List,
-        },
         parents = {},
         frame = frame_empty(),
         defstacks = {},

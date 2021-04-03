@@ -27,7 +27,7 @@ define if [
     ; cond true false => false true cond
     swap dig
     quote swap when drop
-    eval
+    quote eval uplevel
 ]
 
 ; while [-> bool] [body ...]
@@ -56,6 +56,10 @@ false? if [drop ""] []
 list-reverse "%/lib" list-push list-reverse
 const WORST_LIBPATH
 
+define import-path->file-name [
+    "/" string-append p string-append ".w" string-append
+]
+
 ; module-name resolve-import-path
 ; uses WORST_LIBPATH
 define resolve-import-path [
@@ -63,9 +67,7 @@ define resolve-import-path [
     #f ; not-found
     WORST_LIBPATH
     while [list-empty? not] [
-        list-pop
-        "/" string-append p string-append ".w" string-append
-        const path
+        list-pop import-path->file-name const path
 
         path open-input-file
         false? if [drop drop] [

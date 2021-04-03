@@ -26,10 +26,13 @@ function Map:__tostring()
     end
 end
 
-function Map.empty()
-    return setmetatable({ data = {} }, Map)
+function Map.new(src)
+    return setmetatable({ data = src }, Map)
 end
 
+function Map.empty()
+    return Map.new({})
+end
 
 function Map:clone()
     local data = {}

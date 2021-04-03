@@ -1,6 +1,7 @@
 
 ; Emitting code (or at least turning it into strings)
 
+weakly
 define cil/expr->string [
     import syntax/case
     define value->string [

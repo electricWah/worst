@@ -6,6 +6,9 @@
 
 ; Write Worst programs that can turn themselves into other languages.
 
+; Import .w.lua modules
+import cil/bootstrap/lua-import
+
 ; Generate Lua code using regular Worst
 import cil/luagen
 ; not necessary if cil/bootstrap does this instead

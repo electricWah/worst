@@ -8,6 +8,8 @@
 
 ; import cil/bootstrap/data
 
+import cil/bootstrap/init
+
 import cil/bootstrap/builtins
 
 import cil/bootstrap/eval

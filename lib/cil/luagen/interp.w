@@ -90,17 +90,5 @@ export-name cil/interpreter-eval
 ; ]
 ; export-name cil/interpreter-function
 
-define cil/eval-interpreter->builtin [
-    cil/interpreter-eval
-    cil/eval->string
-    interpreter-dump-stack
-    lua-load-string if [ ] [
-        ("cil/eval-interpreter->builtin: could not compile")
-        swap list-push
-        abort
-    ]
-]
-export-name cil/eval-interpreter->builtin
-
 ; vi: ft=scheme
 

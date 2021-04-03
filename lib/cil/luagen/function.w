@@ -38,8 +38,8 @@ define cil/eval->function-def [
 
     %fname string->symbol #t cil/make-expr
 
-    [ "cil/lua-function-value<" %fname ">" ] list-eval "" string-join
-    cil/set-expr-tostring
+    ; [ "cil/lua-function-value<" %fname ">" ] list-eval "" string-join
+    ; cil/set-expr-tostring
 
     args olen cil/set-expr-callable
 ]

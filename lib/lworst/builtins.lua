@@ -423,6 +423,16 @@ mod["port-read-line"] = function(i)
     end
 end
 
+mod["port-read-all"] = function(i)
+    local port = i:stack_ref(1, Port.InputPort)
+    local s = port:read("*a")
+    if s == nil then
+        i:stack_push(false)
+    else
+        i:stack_push(s)
+    end
+end
+
 mod["port-write-string"] = function(i)
     local v = i:stack_pop(String)
     local port = i:stack_ref(1, Port.OutputPort)

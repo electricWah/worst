@@ -6,6 +6,8 @@
 
 define cil/eval+args [
 
+    cil/eval-state-setup
+
     make-place const %eval-inputs
     const %eval-body
 
@@ -14,12 +16,6 @@ define cil/eval+args [
 
     modifying-body (drop [quote arg])
     weakly define %cil/new-id-name []
-
-    modifying-body ("    " list-push)
-    weakly define %cil/indentation-value []
-
-    modifying-body (0 make-place list-push)
-    weakly define %cil/indentation []
 
     define cil/set-new-id-name [
         const %cil/new-id-name
@@ -33,9 +29,6 @@ define cil/eval+args [
         %cil/new-id-name ->string n ->string
         string-append string->symbol
     ]
-
-    define cil/indent> [ %cil/indentation place-get 1 add place-set drop ]
-    define cil/indent< [ %cil/indentation place-get 1 negate add place-set drop ]
 
     define cil/do-indent [ cil/indent> upquote eval cil/indent< ]
     define cil/do-unindent [ cil/indent< upquote eval cil/indent> ]
@@ -94,14 +87,6 @@ define cil/eval+args [
         list-imake [drop cil/expect-value] list-iterate []
     ]
 
-    [] make-place const %stmts
-
-    define cil/emit-statement [
-        %cil/indentation place-get swap drop
-        do-times [%cil/indentation-value list-push]
-        const stmt
-        %stmts place-get stmt list-push place-set drop
-    ]
 
     define cil/comment [ const c [ "-- " c ] list-eval cil/emit-statement ]
 
@@ -111,7 +96,7 @@ define cil/eval+args [
 
     %stack interpreter-stack-swap list-reverse
     %args place-get swap drop list-reverse
-    %stmts place-get swap drop list-reverse
+    %cil/statements
 ]
 export-name cil/eval+args
 define cil/eval [ [] cil/eval+args ]
