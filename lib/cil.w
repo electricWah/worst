@@ -7,16 +7,17 @@
 ; Write Worst programs that can turn themselves into other languages.
 
 ; Import .w.lua modules
-import cil/bootstrap/lua-import
+import cil/lua-import
+
+; Base types for Lua things to use, e.g. Expr, EvalContext
+import cil/base
 
 ; Generate Lua code using regular Worst
-import cil/luagen
-; not necessary if cil/bootstrap does this instead
+; import cil/luagen
 
-; TODO this next
 ; Use cil/luagen to reimplement cil/luagen as Lua
-; With some clever attribute usage and cil/redef, it could be quite readable.
-import cil/bootstrap
+; and avoid dynamic redefinition issues
+; import cil/bootstrap
 
 ; cil/target/lua (and other languages)
 ;   which defines specifically how to output things as the target code

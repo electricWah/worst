@@ -263,6 +263,30 @@ function Interpreter:call(name)
     end
 end
 
+-- Helper functions to evaluate Worst from within Lua followed by some more Lua.
+function continuation_setup(i, k)
+    local name = Symbol.new("k")
+    -- step into a new context ready to uplevel k
+    i:eval(List.create { name }, name)
+    -- step back up to eval k()
+    i:define(name, function(i)
+        i:into_parent()
+        i:eval(k)
+    end)
+    -- finally go back up for the next part
+    i:into_parent()
+end
+
+function Interpreter:eval_then(body, k)
+    continuation_setup(self, k)
+    self:eval(body)
+end
+
+function Interpreter:call_then(name, k)
+    continuation_setup(self, k)
+    self:call(name)
+end
+
 function Interpreter:stack_push(v)
     if v == nil then
         error("stack_push(nil)")

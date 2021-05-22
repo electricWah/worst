@@ -13,6 +13,7 @@ function Type.new(name)
 end
 
 function Type.is(t, v)
+    if t == nil then error("Type.is(nil, " .. tostring(v) .. ")") end
     if type(v) == t
     or getmetatable(v) == t
     or (type(t) == "table" and type(t.is) == "function" and t.is(v))
@@ -183,19 +184,47 @@ function Place:set(v)
     self.v = v
 end
 
-local Readonly = Type.new("readonly")
-function Readonly.__newindex(t, k, v)
-    error("attempt to assign to readonly table: "
-        .. tostring(t) .. "[" .. tostring(k) .. "] = " .. to_string_debug(v))
+function concat_with(t, f, sep)
+    local a = {}
+    for _, v in ipairs(t) do
+        table.insert(a, f(v))
+    end
+    return table.concat(a, sep)
 end
 
-function readonly(t)
-    local mt = getmetatable(t) 
-    if mt == Readonly then return t end
-    if mt ~= nil then
-        error("readonly: already has metatable: " .. to_string_debug(t))
+function contract_expect_types(context, types, values)
+    for i, v in ipairs(values) do
+        local t = types[i]
+        if t ~= true and not Type.is(t, v) then
+            error(context .. " type mismatch: expected {"
+                .. concat_with(types, Type.name, ", ")
+                .. "} but got {"
+                .. concat_with(values, to_string_debug, ", ")
+                .. "}")
+        end
     end
-    return setmetatable(t, Readonly)
+end
+
+function contract(itypes, otypes, body)
+    return function(...)
+        local inputs = { ... }
+        if #inputs ~= #itypes then
+            error("input argument mismatch: expected "
+                .. tostring(#itypes)
+                .. " but got "
+                .. tostring(#inputs))
+        end
+        if itypes ~= true then
+            contract_expect_types("input", itypes, inputs)
+        end
+        if otypes == true then
+            return body(...)
+        else
+            local outputs = { body(inputs) }
+            contract_expect_types("output", otypes, outputs)
+            return unpack(outputs)
+        end
+    end
 end
 
 return {
@@ -211,7 +240,6 @@ return {
     to_string_debug = to_string_debug,
     Stack = Stack,
     Place = Place,
-    readonly = readonly,
-    Readonly = Readonly,
+    contract = contract,
 }
 

@@ -26,10 +26,18 @@ define import-file [
 
         ; TODO what if one of these fails?
         resolve-import-path false? if [] [
+            const filepath
+            filepath
             open-input-file false? if [] [
                 port-read-all false? if [] [
                     swap drop
-                    lua-load-string false? if [ ] [ ]
+                    lua-load-string
+                    false? if [
+                        drop
+                        [] swap list-push
+                        filepath list-push
+                        abort
+                    ] [ ]
                 ]
             ]
         ]

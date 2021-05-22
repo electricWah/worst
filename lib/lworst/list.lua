@@ -29,6 +29,8 @@ function List:length() return self.top end
 function List:head() return self.data[self.top] end
 function List:index(n) return self.data[self.top - n] end
 
+function List.len(t) if List.is(t) then return t:length() else return #t end end
+
 function List:clone()
     return setmetatable({
         data = self.data,
@@ -79,11 +81,13 @@ function List.create(data)
         return l
     end
 end
+function List.new(data) return List.create(data) end
 
-function List:to_table()
+function List.to_table(t)
+    if not List.is(t) then return t end
     local r = {}
-    for i = self.top, 1, -1 do
-        table.insert(r, self.data[i])
+    for i = t.top, 1, -1 do
+        table.insert(r, t.data[i])
     end
     return r
 end
@@ -133,6 +137,19 @@ function List:iter()
         return v
     end
     return f, {s=self}, self
+end
+
+-- ipairs over a list or table
+function List.ipairs(t)
+    if List.is(t) then
+        function f(t, i)
+            if i >= t:length() then return nil end
+            return i + 1, t:index(i)
+        end
+        return f, t, 0
+    else
+        return ipairs(t)
+    end
 end
 
 return List

@@ -1,3 +1,0 @@
-
-; vi: ft=scheme
-
