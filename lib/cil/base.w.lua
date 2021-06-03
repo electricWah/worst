@@ -1,4 +1,6 @@
 
+local i = ...
+
 local base = require("base")
 local Type = base.Type
 local List = require("list")
@@ -27,6 +29,7 @@ end
 mod.Expr = Expr
 
 local EvalContext = Type.new("cil/eval-context")
+local EVAL_CONTEXT = S"%cil/eval-context"
 function EvalContext.new(inputs)
     return setmetatable({
         global = {
@@ -49,44 +52,35 @@ function subcontext(ctx, inputs)
 end
 
 function EvalContext.expect(i, body)
-    i:call_then(S"%cil/eval-context", function(i)
-        local ctx = i:stack_pop(EvalContext)
-        return body(i, ctx)
-    end)
-end
-
-function context_definitions(i)
-    -- if new then
-    --     i:define(S"cil/indent>", function() ectx:indent() end)
-    --     i:define(S"cil/indent<", function() ectx:unindent() end)
-    --     i:define(S"cil/new-id", function(i)
-    --         i:stack_push(ectx:new_id())
-    --     end)
-    -- end
-    -- i:define(S"cil/emit-statement", function(i)
-    --     ectx:emit_statement(stmt)
-    -- end)
-    i:define(S"cil/expect-value", function(i)
-        EvalContext.expect(i, function(i, ctx)
-            i:stack_push(ctx:expect_value(i))
+    if body == nil then
+        local ectx = i:resolve(EVAL_CONTEXT)
+        if not ectx then error("Not in eval context") end
+        local ctx = ectx(i)
+        return i:stack_pop(EvalContext)
+    else
+        i:call_then(EVAL_CONTEXT, function(i)
+            local ctx = i:stack_pop(EvalContext)
+            return body(i, ctx)
         end)
-    end)
+    end
 end
 
 -- Ensure there is an eval-context for function body(i, new, ectx) to use
 function EvalContext.open(i, inputs, body)
-    if i:resolve(S"%cil/eval-context") then
+    function define_ctx(i, ctx)
+        i:define(EVAL_CONTEXT, function(i) i:stack_push(ctx) end)
+    end
+    if i:resolve(EVAL_CONTEXT) then
         EvalContext.expect(i, function(i, parent)
             ctx = subcontext(parent, inputs)
-            i:define(S"%cil/eval-context", List.new { ctx })
+            define_ctx(i, ctx)
             i:eval_then(function(i) body(i, ctx) end, function(i)
-                i:define(S"%cil/eval-context", List.new { parent })
+                define_ctx(i, parent)
             end)
         end)
     else
         local ctx = EvalContext.new(inputs)
-        i:define(S"%cil/eval-context", List.new { ctx })
-        context_definitions(i)
+        define_ctx(i, ctx)
         return body(i, ctx)
     end
 end
@@ -148,4 +142,39 @@ function EvalContext:indent() self.global.indent = self.global.indent + 1 end
 function EvalContext:unindent() self.global.indent = self.global.indent - 1 end
 
 mod.EvalContext = EvalContext
+
+function mod.expect_value(i)
+    local ctx = EvalContext.expect(i)
+    return ctx:expect_value(i)
+end
+i:define(S"cil/expect-value", function(i)
+    i:stack_push(mod.expect_value(i))
+end)
+
+--     i:define(S"cil/indent>", function() ectx:indent() end)
+--     i:define(S"cil/indent<", function() ectx:unindent() end)
+--     i:define(S"cil/new-id", function(i)
+--         i:stack_push(ectx:new_id())
+--     end)
+-- end
+-- i:define(S"cil/emit-statement", function(i)
+--     ectx:emit_statement(stmt)
+-- end)
+
+function mod.expect_values_list(i, n)
+    local ctx = EvalContext.expect(i)
+    local l = {}
+    for _ = 1, n do
+        table.insert(l, ctx:expect_value(i))
+    end
+    i:stack_push(List.new(l):reverse())
+    -- while #l > 0 do
+    --     i:stack_push(table.remove(l))
+    -- end
+end
+i:define(S"cil/expect-values/list", function(i)
+    local n = i:stack_pop("number")
+    mod.expect_values_list(i, n)
+end)
+
 

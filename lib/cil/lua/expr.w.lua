@@ -9,8 +9,11 @@ local List = require("list")
 
 local cil = require("cil/base")
 local Expr = cil.Expr
+local EvalContext = cil.EvalContext
 
 local S = base.Symbol.new
+
+local luabase = require("cil/lua/base")
 
 local mod = {}
 package.loaded["cil/lua/expr"] = mod
@@ -35,9 +38,9 @@ end
 function mod.index(a, b)
     -- this may not string properly without exprify?
     if base.Symbol.is(b) then
-        return Expr.new(List.new{ a, ".", b }, 0)
+        return Expr.new(List.new{ a, ".", b }, 10)
     else
-        return Expr.new(List.new{ a, "[", b, "]" }, 0)
+        return Expr.new(List.new{ a, "[", b, "]" }, 10)
     end
 end
 
@@ -47,7 +50,7 @@ function mulrets(ectx, n, v, name)
         return v
     elseif n == 0 then
         -- no return values at all
-        ectx:emit_statement(v)
+        ectx:emit_statement({luabase.value_tostring_prec(v)})
     else
         -- local r1, r2, ...rN = v
         -- return r1, r2, ...rN
@@ -129,7 +132,7 @@ addinfix2op(6, "==")
 addinfix2op(7, "and")
 addinfix2op(8, "or")
 
-i:define(S"cil/lua-builtin", function(i)
+i:define(S"cil/lua-expression", function(i)
     local name = i:stack_pop("string")
     local op = mod.lua[name]
     local arity = mod.arity[name]
@@ -148,4 +151,39 @@ i:define(S"cil/lua-builtin", function(i)
         i:error("bad-arity", name)
     end
 end)
+
+i:define(S"cil/lua-function-call", function(i)
+    local rcount = i:stack_pop({"number", true})
+    local name = i:stack_pop()
+    local args = i:stack_pop(List)
+
+    EvalContext.expect(i, function(i, ectx)
+        local rets = { mod.function_call(ectx, name, rcount, args) }
+        for _, r in ipairs(rets) do
+            i:stack_push(r)
+        end
+    end)
+end)
+
+i:define(S"cil/lua-method-call", function(i)
+    local rcount = i:stack_pop({"number", true})
+    local method = i:stack_pop("string")
+    local obj = i:stack_pop()
+    local args = i:stack_pop(List)
+
+    EvalContext.expect(i, function(i, ectx)
+        local rets = { mod.method_call(ectx, obj, method, rcount, args) }
+        for _, r in ipairs(rets) do
+            i:stack_push(r)
+        end
+    end)
+end)
+
+i:define(S"cil/lua-index", function(i)
+    local index = i:stack_pop()
+    local dex = i:stack_pop()
+    i:stack_push(mod.index(dex, index))
+end)
+
+
 

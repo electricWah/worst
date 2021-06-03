@@ -11,6 +11,7 @@ local S = base.Symbol.new
 local mod = {}
 package.loaded["cil/lua/base"] = mod
 
+local value_tostring_prec
 local function value_tostring(v)
     if Type.is(Expr, v) then
         return value_tostring(v.value)
@@ -22,8 +23,8 @@ local function value_tostring(v)
         if v then return "true" else return "false" end
     elseif Type.is(List, v) then
         local t = {}
-        for k in v:iter() do
-            table.insert(t, value_tostring_prec(v))
+        for vv in v:iter() do
+            table.insert(t, value_tostring_prec(vv))
         end
         return "{" .. table.concat(t, ", ") .. "}"
     else
@@ -31,7 +32,7 @@ local function value_tostring(v)
     end
 end
 
-local function value_tostring_prec(v, prec)
+value_tostring_prec = function(v, prec)
     prec = prec or 10
     if Type.is(Expr, v) and v:is_compound() then
         local t = {}
@@ -69,6 +70,7 @@ end
 mod.unique_pairs = unique_pairs
 
 function csv_into(acc, t)
+    if List.len(t) == 0 then return end
     for _, n in List.ipairs(t) do
         table.insert(acc, value_tostring_prec(n))
         table.insert(acc, ", ")

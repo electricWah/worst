@@ -14,12 +14,11 @@ local luaexpr = require("cil/lua/expr")
 
 local S = base.Symbol.new
 
-i:define(S"cil/lua-if-then-else", function(i)
-    EvalContext.expect(i, function(i, ectx)
-        local iftbody = i:stack_pop(List)
-        local iffbody = i:stack_pop(List)
+local mod = {}
+package.loaded["cil/lua/control"] = mod
 
-        local ifcond = i:stack_pop()
+function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
+    EvalContext.expect(i, function(i, ectx)
 
         EvalContext.eval(i, iftbody, List.new{}, function(i, toutputs, tinputs, tstmts)
             local tilen = tinputs:length()
@@ -82,7 +81,7 @@ i:define(S"cil/lua-if-then-else", function(i)
                     tstmts, fstmts = fstmts, tstmts
                 end
 
-                ectx:emit_statement(List.new{
+                ectx:emit_statement({
                     "if ", luabase.value_tostring_prec(ifcond), " then"
                 })
 
@@ -92,13 +91,13 @@ i:define(S"cil/lua-if-then-else", function(i)
 
                 -- Convert "else end" into nothing
                 if #fstmts > 0 then
-                    ectx:emit_statement(List.new{"else"})
+                    ectx:emit_statement({"else"})
                     ectx:indent()
                     for _, s in ipairs(fstmts) do ectx:emit_statement(s) end
                     ectx:unindent()
                 end
 
-                ectx:emit_statement(List.new{"end"})
+                ectx:emit_statement({"end"})
 
                 -- leave outputs on stack
                 while #ifargs > 0 do
@@ -108,13 +107,18 @@ i:define(S"cil/lua-if-then-else", function(i)
             end)
         end)
     end)
+end
+i:define(S"cil/lua-if-then-else", function(i)
+    local iftbody = i:stack_pop(List)
+    local iffbody = i:stack_pop(List)
+    local ifcond = i:stack_pop()
+    mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
 end)
 
 -- [ ... -> bool ] cil/lua/loop
 -- keep doing body while its top value is true
-i:define(S"cil/lua-loop", function(i)
+function mod.emit_loop(i, body)
     EvalContext.expect(i, function(i, ectx)
-        local body = i:stack_pop(List)
 
         EvalContext.eval(i, body, List.new{}, function(i, outs, ins, stmts)
             local ilen = ins:length()
@@ -132,7 +136,7 @@ i:define(S"cil/lua-loop", function(i)
             local uargs, uouts = luabase.unique_pairs(invars, outvars)
             table.insert(stmts, luabase.assignment(uargs, uouts, false, ilen))
 
-            ectx:emit_statement(List.new{"repeat"})
+            ectx:emit_statement({"repeat"})
 
             ectx:indent()
             for _, s in ipairs(stmts) do ectx:emit_statement(s) end
@@ -140,21 +144,32 @@ i:define(S"cil/lua-loop", function(i)
 
             local continue = luaexpr.lua["not"](ocont)
             local condstr = luabase.value_tostring_prec(continue)
-            ectx:emit_statement(List.new{"until ", condstr})
+            ectx:emit_statement({"until ", condstr})
 
             while #outvars > 0 do
                 i:stack_push(table.remove(outvars))
             end
         end)
     end)
+end
+i:define(S"cil/lua-loop", function(i)
+    local body = i:stack_pop(List)
+    mod.emit_loop(i, body)
 end)
+
+function mod.emit_break(i)
+    EvalContext.expect(i, function(i, ectx)
+        ectx:emit_statement({"break"})
+    end)
+end
+i:define(S"cil/lua-break", mod.emit_break)
 
 -- recursive functions (local function ...) are a different construct
 -- body name cil/lua-function
 -- [ body ] name cil/lua-function => function name() ... end
 -- [ body ] #f cil/lua-function => local func1 = function() ... end
 -- in either case, the function value itself is put on the stack after
-i:define(S"cil/lua-function", function(i)
+function mod.emit_function(i)
     EvalContext.expect(i, function(i, ectx)
         local name = i:stack_pop()
         local body = i:stack_pop(List)
@@ -171,7 +186,7 @@ i:define(S"cil/lua-function", function(i)
             luabase.csv_into(head, ins)
             table.insert(head, ")")
 
-            ectx:emit_statement(List.new(head))
+            ectx:emit_statement(head)
             ectx:indent()
             for _, s in ipairs(stmts) do ectx:emit_statement(s) end
             if outs:length() > 0 then
@@ -180,13 +195,14 @@ i:define(S"cil/lua-function", function(i)
                 ectx:emit_statement(r)
             end
             ectx:unindent()
-            ectx:emit_statement(List.new{"end"})
+            ectx:emit_statement({"end"})
 
             i:stack_push(fvar)
 
         end)
     end)
-end)
+end
+i:define(S"cil/lua-function", mod.emit_function)
 
 -- ; init limit step [ body : ... var -> ... ] cil/lua-for-iter =
 -- ; for var = init, limit, step do body end
