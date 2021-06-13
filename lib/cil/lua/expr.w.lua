@@ -1,8 +1,6 @@
 
 -- Expression makers and sublanguage
 
-local i = ...
-
 local base = require("base")
 local Type = base.Type
 local List = require("list")
@@ -132,6 +130,8 @@ addinfix2op(6, "==")
 addinfix2op(7, "and")
 addinfix2op(8, "or")
 
+return function(i)
+
 i:define(S"cil/lua-expression", function(i)
     local name = i:stack_pop("string")
     local op = mod.lua[name]
@@ -185,5 +185,5 @@ i:define(S"cil/lua-index", function(i)
     i:stack_push(mod.index(dex, index))
 end)
 
-
+end
 

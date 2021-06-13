@@ -7,7 +7,7 @@
 ; Write Worst programs that can turn themselves into other languages.
 
 ; Import .w.lua modules
-import cil/lua-import
+; import cil/lua-import
 
 ; Base types for Lua things to use, e.g. Expr, EvalContext
 import cil/base

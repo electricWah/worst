@@ -1,6 +1,4 @@
 
-local i = ...
-
 local base = require("base")
 local Type = base.Type
 local List = require("list")
@@ -147,10 +145,6 @@ function mod.expect_value(i)
     local ctx = EvalContext.expect(i)
     return ctx:expect_value(i)
 end
-i:define(S"cil/expect-value", function(i)
-    i:stack_push(mod.expect_value(i))
-end)
-
 --     i:define(S"cil/indent>", function() ectx:indent() end)
 --     i:define(S"cil/indent<", function() ectx:unindent() end)
 --     i:define(S"cil/new-id", function(i)
@@ -172,9 +166,17 @@ function mod.expect_values_list(i, n)
     --     i:stack_push(table.remove(l))
     -- end
 end
+
+return function(i)
+
+i:define(S"cil/expect-value", function(i)
+    i:stack_push(mod.expect_value(i))
+end)
+
 i:define(S"cil/expect-values/list", function(i)
     local n = i:stack_pop("number")
     mod.expect_values_list(i, n)
 end)
 
+end
 

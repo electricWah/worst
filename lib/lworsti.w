@@ -4,6 +4,8 @@
 ; - loads enough other modules to be useful
 ; - starts a REPL
 
+; "lworst/builtins/all" module-import
+
 [ quote quote quote uplevel uplevel ] quote upquote definition-add
 
 [ ; define name [def...]
@@ -50,11 +52,11 @@ define read-file [
     list-reverse
 ]
 
-"WORST_LIBPATH" env-get swap drop
-false? if [drop ""] []
-"[^:]+" string-global-matches
-list-reverse "%/lib" list-push list-reverse
-const WORST_LIBPATH
+; "WORST_LIBPATH" env-get swap drop
+; false? if [drop ""] []
+; "[^:]+" string-global-matches
+; list-reverse "%/lib" list-push list-reverse
+; const WORST_LIBPATH
 
 define import-path->file-name [
     "/" string-append p string-append ".w" string-append
@@ -81,8 +83,9 @@ define resolve-import-path [
 
 ; Very basic import/export
 define import [
-    upquote resolve-import-path
-    read-file quote eval uplevel
+    upquote symbol->string quote module-import uplevel
+    ; upquote resolve-import-path
+    ; read-file quote eval uplevel
 ]
 define export-name [
     upquote
@@ -98,7 +101,7 @@ import data/list
 import data/dict
 
 ; Real import/export
-import worst/module
+; import worst/module
 
 ; TODO fix: without this, documentation attribute does nothing, for e.g. help
 import syntax/attribute

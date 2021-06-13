@@ -14,10 +14,14 @@ MINIZIP_L=-Wl,--whole-archive $(shell pkg-config --libs --static minizip) -Wl,--
 LUAJIT_L=$(shell pkg-config --libs-only-L luajit) -lm -ldl -l:libluajit-5.1.a
 CCLIBS=$(MINIZIP_L) $(LUAJIT_L)
 
-LUA_PATH:=$(LUA_PATH);./?.lua;../lib/lworst/?.lua
+LUA_PATH:=$(LUA_PATH);./?.lua;../lib/lworst/?.lua;../lib/lworst/?.w.lua
 
-LWSRCMODULES=base interpreter builtins reader list map port main
-LWSRCFILES=$(LWSRCMODULES:%=../lib/lworst/%.lua)
+LWSRCMODULES=base interpreter reader list map port main
+LWSRCBUILTINS=all core definition interpreter list map \
+			  module numeric place port string system
+LWSRCFILES=$(LWSRCMODULES:%=../lib/lworst/%.lua) \
+		   $(LWSRCBUILTINS:%=../lib/lworst/builtins/%.w.lua)
+LWMODULES=$(LWSRCMODULES) $(LWSRCBUILTINS:%=builtins/%)
 
 .PHONY: all
 all: setup $(LUA_MODULES_PATHS) bundle
@@ -25,7 +29,7 @@ all: setup $(LUA_MODULES_PATHS) bundle
 
 lworsti.lua: $(LWSRCFILES) minizip.lua bundle.lua
 	eval `luarocks path`; \
-	amalg.lua -s bundle.lua minizip $(LWSRCMODULES) -o $@
+	amalg.lua -s bundle.lua minizip $(LWMODULES) -o $@
 
 lworsti.o: lworsti.lua
 	luajit -b $< $@
@@ -46,7 +50,7 @@ bin/lworsti: bundle_raw bin
 
 libworst.zip: bin/lworsti lib LICENSE
 	zip -ru $@ bin/lworsti LICENSE
-	zip -r $@ lib -i '*.w'
+	zip -r $@ lib -i '*.w' -i '*.w.lua'
 
 lworsti: bundle_raw libworst.zip
 	cat $^ > $@

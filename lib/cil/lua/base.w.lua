@@ -108,3 +108,7 @@ function emit_assignment(ectx, names, vals, new)
 end
 mod.emit_assignment = emit_assignment
 
+return function(i)
+
+end
+

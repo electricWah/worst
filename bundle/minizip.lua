@@ -128,13 +128,13 @@ function zipentry:read(fmt)
     if fmt == "*a" then
         return zipentry_read_buffer(self, math.huge)
     elseif fmt == "*l" then
-        local r, err = zipentry_read_line(self)
-        return r, err
+        return zipentry_read_line(self)
     elseif type(fmt) == "number" then
         if fmt < 0 then error("invalid fmt " .. fmt) end
-        local r, err = zipentry_read_buffer(self, fmt)
+        return zipentry_read_buffer(self, fmt)
+    else
+        error("format not implemented: " .. fmt)
     end
-    error("format not implemented: " .. fmt)
 end
 
 return zipfile

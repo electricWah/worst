@@ -1,6 +1,4 @@
 
-local i = ...
-
 local base = require("base")
 local Type = base.Type
 local List = require("list")
@@ -108,12 +106,6 @@ function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
         end)
     end)
 end
-i:define(S"cil/lua-if-then-else", function(i)
-    local iftbody = i:stack_pop(List)
-    local iffbody = i:stack_pop(List)
-    local ifcond = i:stack_pop()
-    mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
-end)
 
 -- [ ... -> bool ] cil/lua/loop
 -- keep doing body while its top value is true
@@ -152,17 +144,12 @@ function mod.emit_loop(i, body)
         end)
     end)
 end
-i:define(S"cil/lua-loop", function(i)
-    local body = i:stack_pop(List)
-    mod.emit_loop(i, body)
-end)
 
 function mod.emit_break(i)
     EvalContext.expect(i, function(i, ectx)
         ectx:emit_statement({"break"})
     end)
 end
-i:define(S"cil/lua-break", mod.emit_break)
 
 -- recursive functions (local function ...) are a different construct
 -- body name cil/lua-function
@@ -202,7 +189,26 @@ function mod.emit_function(i)
         end)
     end)
 end
+
+return function(i)
+
+i:define(S"cil/lua-if-then-else", function(i)
+    local iftbody = i:stack_pop(List)
+    local iffbody = i:stack_pop(List)
+    local ifcond = i:stack_pop()
+    mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
+end)
+
+i:define(S"cil/lua-loop", function(i)
+    local body = i:stack_pop(List)
+    mod.emit_loop(i, body)
+end)
+
+i:define(S"cil/lua-break", mod.emit_break)
+
 i:define(S"cil/lua-function", mod.emit_function)
+
+end
 
 -- ; init limit step [ body : ... var -> ... ] cil/lua-for-iter =
 -- ; for var = init, limit, step do body end

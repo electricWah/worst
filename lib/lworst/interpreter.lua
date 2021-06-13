@@ -94,6 +94,8 @@ function Interpreter:set_body(body)
     self.frame.body = List.create(body)
 end
 
+function Interpreter:get_body(body) return self.frame.body end
+
 function Interpreter:body_read()
     local body, v = self.frame.body:pop()
     self.frame.body = body
@@ -111,6 +113,7 @@ function Interpreter:into_parent()
 end
 
 function Interpreter:define(name, def)
+    if type(name) == "string" then name = Symbol.new(name) end
     if name == nil then
         self:error("define(nil, def)")
     elseif def == nil then

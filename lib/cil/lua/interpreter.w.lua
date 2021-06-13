@@ -1,6 +1,4 @@
 
-local i = ...
-
 local base = require("base")
 local Type = base.Type
 local List = require("list")
@@ -12,6 +10,8 @@ local luabase = require("cil/lua/base")
 local luaexpr = require("cil/lua/expr")
 
 local S = base.Symbol.new
+
+return function(i)
 
 i:define(S"cil/lua-interpreter-eval", function(i)
     EvalContext.expect(i, function(i, ectx)
@@ -30,4 +30,6 @@ i:define(S"cil/lua-interpreter-eval", function(i)
         end)
     end)
 end)
+
+end
 

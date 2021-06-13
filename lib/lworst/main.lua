@@ -1,10 +1,9 @@
 
-local io = require "io"
 local base = require "base"
 local port = require "port"
 local reader = require "reader"
-local builtins = require "builtins"
-local Interpreter = require"interpreter"
+local Interpreter = require "interpreter"
+local builtins_all = require "builtins/all"
 
 local List = require "list"
 local Symbol = base.Symbol
@@ -26,14 +25,12 @@ function mod.run_file(path, ...)
 
     local interp = Interpreter.create(body)
 
-    for name, def in pairs(builtins) do
-        interp:define(Symbol.new(name), def)
-    end
-
     local arglist = List.create({...})
     interp:define(Symbol.new("command-line-arguments"), function(i)
         i:stack_push(arglist)
     end)
+
+    builtins_all(interp)
 
     while interp:step() do end
 end

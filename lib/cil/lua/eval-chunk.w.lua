@@ -1,6 +1,4 @@
 
-local i = ...
-
 local base = require("base")
 local Type = base.Type
 local List = require("list")
@@ -24,6 +22,8 @@ function flatten (args)
     return sb
 end
 
+return function(i)
+
 i:define(S"cil/eval->lua-chunk", function(i)
     local body = i:stack_pop(List)
     EvalContext.eval(i, body, List.new{}, function(i, stack, args, stmts)
@@ -42,4 +42,6 @@ i:define(S"cil/eval->lua-chunk", function(i)
 
     end)
 end)
+
+end
 
