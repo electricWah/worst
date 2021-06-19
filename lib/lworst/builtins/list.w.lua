@@ -1,6 +1,6 @@
 
-local base = require "base"
-local List = require "list"
+local base = require "lworst/base"
+local List = require "lworst/list"
 
 return function(i)
 

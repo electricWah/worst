@@ -3,6 +3,6 @@
 # -jp=6 = 6 stack context, -jp=l6 = with line numbers
 export WORST_LIBPATH="$WORST_LIBPATH:./lib"
 export WORST_SRCPATH="${WORST_SRCPATH-./lib}"
-export LUA_PATH="${LUA_PATH};${WORST_SRCPATH}/lworst/?.lua;${WORST_SRCPATH}/lworst/?.w.lua"
+export LUA_PATH="${LUA_PATH};${WORST_SRCPATH}/?.lua;${WORST_SRCPATH}/?.w.lua"
 exec luajit -- ${WORST_SRCPATH}/lworst/lworsti.lua ${WORST_SRCPATH}/lworsti.w $0 $@
 

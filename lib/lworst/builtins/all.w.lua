@@ -15,7 +15,7 @@ local mods = {
 
 return function(i)
     for _, m in ipairs(mods) do
-        require("builtins/"..m)(i)
+        require("lworst/builtins/"..m)(i)
     end
     return i
 end

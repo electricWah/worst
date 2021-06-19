@@ -1,5 +1,5 @@
 
-local base = require "base"
+local base = require "lworst/base"
 local Place = base.Place
 
 return function(i)

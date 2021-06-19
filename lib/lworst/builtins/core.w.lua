@@ -1,5 +1,5 @@
 
-local base = require "base"
+local base = require "lworst/base"
 local Type = base.Type
 local Symbol = base.Symbol
 

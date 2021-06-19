@@ -1,9 +1,9 @@
 
-local base = require "base"
-local Interpreter = require "interpreter"
-local Port = require "port"
-local List = require "list"
-local Map = require "map"
+local base = require "lworst/base"
+local Interpreter = require "lworst/interpreter"
+local Port = require "lworst/port"
+local List = require "lworst/list"
+local Map = require "lworst/map"
 local Symbol = base.Symbol
 
 return function(i)
@@ -65,7 +65,7 @@ i:define("current-context-define-all", function(i)
     end
 end)
 
-i:define(require("interpreter").ERROR_HANDLER, function(i)
+i:define(Interpreter.ERROR_HANDLER, function(i)
     local v = i:stack_pop(Symbol)
     local irritants = i:stack_pop(List)
     print("error:", v, unpack(irritants:to_table()))

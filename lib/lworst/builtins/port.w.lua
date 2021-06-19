@@ -1,6 +1,6 @@
 
-local Port = require "port"
-local Reader = require "reader"
+local Port = require "lworst/port"
+local Reader = require "lworst/reader"
 
 return function(i)
 

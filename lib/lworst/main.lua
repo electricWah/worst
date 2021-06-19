@@ -1,11 +1,11 @@
 
-local base = require "base"
-local port = require "port"
-local reader = require "reader"
-local Interpreter = require "interpreter"
-local builtins_all = require "builtins/all"
+local base = require "lworst/base"
+local port = require "lworst/port"
+local reader = require "lworst/reader"
+local Interpreter = require "lworst/interpreter"
+local builtins_all = require "lworst/builtins/all"
 
-local List = require "list"
+local List = require "lworst/list"
 local Symbol = base.Symbol
 
 local mod = {}

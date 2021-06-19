@@ -1,2 +1,2 @@
-require("main").run_file(unpack(arg))
+require("lworst/main").run_file(unpack(arg))
 

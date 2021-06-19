@@ -1,7 +1,7 @@
 
-local os = require("os")
-local base = require("base")
-local List = require("list")
+local os = require "os"
+local base = require "lworst/base"
+local List = require "lworst/list"
 local Error = base.Error
 local Symbol = base.Symbol
 local Stack = base.Stack

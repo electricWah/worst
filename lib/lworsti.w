@@ -58,9 +58,9 @@ define read-file [
 ; list-reverse "%/lib" list-push list-reverse
 ; const WORST_LIBPATH
 
-define import-path->file-name [
-    "/" string-append p string-append ".w" string-append
-]
+; define import-path->file-name [
+;     "/" string-append p string-append ".w" string-append
+; ]
 
 ; module-name resolve-import-path
 ; uses WORST_LIBPATH

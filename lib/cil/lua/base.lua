@@ -1,15 +1,14 @@
 
-local base = require("base")
+local base = require "lworst/base"
 local Type = base.Type
-local List = require("list")
+local List = require "lworst/list"
 
-local cil = require("cil/base")
+local cil = require "cil/base"
 local Expr = cil.Expr
 
 local S = base.Symbol.new
 
 local mod = {}
-package.loaded["cil/lua/base"] = mod
 
 local value_tostring_prec
 local function value_tostring(v)
@@ -108,7 +107,5 @@ function emit_assignment(ectx, names, vals, new)
 end
 mod.emit_assignment = emit_assignment
 
-return function(i)
-
-end
+return mod
 

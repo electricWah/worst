@@ -2,10 +2,6 @@
 ; Lua backend for cil
 ; Written in Lua so it can bootstrap
 
-; Add Lua-only utility stuff into the EvalContext
-; like assignments, return, etc
-import cil/lua/base
-
 ; cil/eval->lua-chunk
 import cil/lua/eval-chunk
 

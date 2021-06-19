@@ -13,7 +13,7 @@ end
 
 package.loaded["io"] = zipio
 
-local Main = require("main")
+local Main = require "lworst/main"
 
 local mod = {}
 

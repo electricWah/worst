@@ -1,11 +1,11 @@
 
 -- Module-based stuff
 
-local base = require "base"
-local List = require "list"
-local Port = require "port"
-local Map = require "map"
-local Reader = require "reader"
+local base = require "lworst/base"
+local List = require "lworst/list"
+local Port = require "lworst/port"
+local Map = require "lworst/map"
+local Reader = require "lworst/reader"
 
 local Symbol = base.Symbol
 local S = Symbol.new
@@ -47,12 +47,21 @@ function read_worst(path)
     end
 end
 
-function read_lua(path)
+function read_lua_file(path)
     local f, err = Port.open_input_file(path)
     if f == nil then return nil, err end
     local lm = load(f:read("*a"), path)()
     return function(i)
         lm(i)
+        i:stack_push(Map.new(i:definitions()))
+    end
+end
+
+function read_lua_require(path)
+    local ok, res = pcall(require, path)
+    if not ok then return nil, res end
+    return function(i)
+        res(i)
         i:stack_push(Map.new(i:definitions()))
     end
 end
@@ -74,10 +83,13 @@ i:define("module-resolve", function(i)
         local paths = i:stack_pop(List)
         local res, err
         for p in List.iter(paths) do
-            res, err = read_lua(p.."/"..path..".w.lua")
+            res, err = read_lua_file(p.."/"..path..".w.lua")
             if res ~= nil then break end
             res, err = read_worst(p.."/"..path..".w")
             if res ~= nil then break end
+        end
+        if res == nil then
+            res, err = read_lua_require(path)
         end
         if res ~= nil then
             i:stack_push(res)

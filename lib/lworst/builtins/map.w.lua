@@ -1,6 +1,6 @@
 
-local base = require "base"
-local Map = require "map"
+local base = require "lworst/base"
+local Map = require "lworst/map"
 
 return function(i)
 
