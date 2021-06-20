@@ -73,7 +73,7 @@ define define-lua-builtin [
     ]
 
     cil/eval->lua-chunk
-    interpreter-dump-stack
+    stack-dump
     lua-load-string
     false? if [ abort ] []
     %name updo definition-add

@@ -7,8 +7,8 @@ local Symbol = base.Symbol
 local Stack = base.Stack
 local Type = base.Type
 
-local Interpreter = {}
-Interpreter.__index = Interpreter
+local Interpreter = Type.new("interpreter")
+Interpreter.__tostring = function() return "<interpreter>" end
 
 Interpreter.ERROR_HANDLER = "current-error-handler"
 
@@ -132,6 +132,17 @@ function Interpreter:definition_remove(name)
 end
 
 function Interpreter:definitions() return self.frame.defs end
+
+function Interpreter:all_definitions()
+    local m = {}
+    for k, v in pairs(self.defstacks) do
+        m[k] = v[#v]
+    end
+    for k, v in pairs(self.frame.defs) do
+        m[k] = v
+    end
+    return m
+end
 
 function Interpreter:code_read()
     while true do

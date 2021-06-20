@@ -1,7 +1,7 @@
 
 import syntax/attribute
 
-define clear-stack [ [] interpreter-stack-set ]
+define clear-stack [ [] stack-set ]
 
 define with-stty [
     upquote const %stty-opts
@@ -52,7 +52,7 @@ define input-line-editor [
             ; Escape key pressed. Do nothing?
         ]
     ] [
-        interpreter-dump-stack
+        stack-dump
         ->string
         read-a place-get swap
         bury
@@ -67,7 +67,7 @@ define worst-repl-prompt [
         "worst " print
 
         reset cyan fg
-        interpreter-stack list-reverse
+        stack-get list-reverse
         current-output-port swap
         port-write-value drop
 

@@ -66,10 +66,10 @@ export-name list-quasiquote
 ; with eval (for every 
 define list-eval [
     const %list-eval-body
-    [] interpreter-stack-swap
+    [] stack-swap
     const %list-eval-stack
     %list-eval-body eval
-    %list-eval-stack interpreter-stack-swap
+    %list-eval-stack stack-swap
     list-reverse
 ]
 export-name list-eval

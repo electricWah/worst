@@ -6,7 +6,7 @@ define exdef [
     upquote const %idefname
     upquote
     [ cil/lua-interpreter-eval* ] swap list-push eval
-    ; interpreter-dump-stack
+    ; stack-dump
     lua-load-string
     false? if [ abort ] []
     quote exdefinition definition-add

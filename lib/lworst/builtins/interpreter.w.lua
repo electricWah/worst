@@ -8,34 +8,42 @@ local Symbol = base.Symbol
 
 return function(i)
 
-i:define("interpreter-dump-stack", function(i)
-    print(unpack(i.stack))
+-- this is a strange idea
+-- i:define("current-interpreter", function(i) i:stack_push(i) end)
+
+i:define("interpreter-empty", function(i)
+    i:stack_push(Interpreter.empty())
 end)
 
-i:define("interpreter-call-stack", function(i)
-    i:stack_push(i:call_stack())
+i:define("interpreter-eval", function(i)
+    local v = i:stack_pop()
+    local interp = i:stack_ref(1, Interpreter)
+    interp:eval(v)
 end)
 
-i:define("interpreter-stack", function(i)
-    i:stack_push(i:stack_get())
+i:define("interpreter-run", function(i)
+    local interp = i:stack_ref(1, Interpreter)
+    while interp:step() do end
+end)
+
+i:define("interpreter-stack-get", function(i)
+    local interp = i:stack_ref(1, Interpreter)
+    i:stack_push(interp:stack_get())
 end)
 
 i:define("interpreter-stack-set", function(i)
-    local new = i:stack_pop(List)
-    i:stack_set(new)
+    local s = i:stack_pop(list)
+    local interp = i:stack_ref(1, Interpreter)
+    interp:stack_set(s)
 end)
 
-i:define("interpreter-stack-length", function(i)
-    i:stack_push(i:stack_length())
-end)
-
-i:define("interpreter-cpu-time", function(i)
-    i:stack_push(require("os").clock())
-end)
-
-i:define("interpreter-set-trace-port", function(i)
+i:define("set-trace-port", function(i)
     local p = i:stack_pop({ Port.OutputPort, false })
     i:set_trace_port(p)
+end)
+
+i:define("all-definitions", function(i)
+    i:stack_push(Map.new(i:all_definitions()))
 end)
 
 i:define("current-context-set-code", function(i)

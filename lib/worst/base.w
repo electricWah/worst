@@ -106,13 +106,13 @@ define define-gensym [
 ]
 export-name define-gensym
 
-define interpreter-stack-swap [
+define stack-swap [
     const new
-    interpreter-stack const old
-    new interpreter-stack-set
+    stack-get const old
+    new stack-set
     old
 ]
-export-name interpreter-stack-swap
+export-name stack-swap
 
 ; vi: ft=scheme
 
