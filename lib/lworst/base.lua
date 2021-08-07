@@ -122,24 +122,21 @@ function to_string_debug(a)
     return to_string_format(a, 'debug') or to_string_fallback(a)
 end
 
-local Error = {}
-Error.__index = Error
-Error.__tostring = function(e)
-    local irritants = {}
-    for _, v in ipairs(e) do
-        table.insert(irritants, tostring(v))
-    end
-    return "Error(" .. table.concat(irritants, " ") .. ")"
+local Error = Type.new("error")
+function Error.new(message, irritants)
+    return setmetatable({
+        message = message,
+        irritants = irritants,
+        lua_stack = debug.traceback("", 2)
+    }, Error)
 end
-
-setmetatable(Error, {
-    __call = function(c, v)
-        return setmetatable(v, c)
-    end
-})
-
-function Error.raise(name, ...)
-    error(Error({name, ...}), 0)
+Error.__tostring = function(e)
+    return "<error " ..
+        to_string_terse(e.message) .. to_string_terse(e.irritants)
+        .. ">"
+end
+function Error:to_list()
+    return e.irritants:push(e.message)
 end
 
 local Stack = Type.new("stack")

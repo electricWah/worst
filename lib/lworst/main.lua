@@ -32,7 +32,11 @@ function mod.run_file(path, ...)
 
     builtins_all(interp)
 
-    while interp:step() do end
+    local err = interp:run()
+    if err then
+        print(err)
+        print(err.lua_stack)
+    end
 end
 
 return mod

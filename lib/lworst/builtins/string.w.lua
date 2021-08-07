@@ -46,7 +46,7 @@ end)
 
 i:define("string-global-matches", function(i)
     local pat = i:stack_pop("string")
-    local str = i:stack_pop("string")
+    local str = i:stack_ref(1, "string")
     local t = {}
     for c in string.gmatch(str, pat) do
         table.insert(t, c)

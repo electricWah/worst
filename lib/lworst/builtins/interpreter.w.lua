@@ -21,9 +21,22 @@ i:define("interpreter-eval", function(i)
     interp:eval(v)
 end)
 
+i:define("interpreter-definition-add", function(i)
+    local name = i:stack_pop(Symbol)
+    local body = i:stack_pop({List, "function"})
+    local interp = i:stack_ref(1, Interpreter)
+    interp:define(name, body)
+end)
+
 i:define("interpreter-run", function(i)
     local interp = i:stack_ref(1, Interpreter)
-    while interp:step() do end
+    local err = interp:run()
+    i:stack_push(err or false)
+end)
+
+i:define("interpreter-reset", function(i)
+    local interp = i:stack_ref(1, Interpreter)
+    interp:reset()
 end)
 
 i:define("interpreter-stack-get", function(i)
@@ -35,6 +48,17 @@ i:define("interpreter-stack-set", function(i)
     local s = i:stack_pop(list)
     local interp = i:stack_ref(1, Interpreter)
     interp:stack_set(s)
+end)
+
+i:define("interpreter-body-get", function(i)
+    local interp = i:stack_ref(1, Interpreter)
+    i:stack_push(interp:get_body())
+end)
+
+i:define("interpreter-body-set", function(i)
+    local s = i:stack_pop(list)
+    local interp = i:stack_ref(1, Interpreter)
+    interp:set_body(s)
 end)
 
 i:define("set-trace-port", function(i)
@@ -71,13 +95,6 @@ i:define("current-context-define-all", function(i)
         local vs = i:assert_type(v, {List, "function"})
         i:define(ks, vs)
     end
-end)
-
-i:define(Interpreter.ERROR_HANDLER, function(i)
-    local v = i:stack_pop(Symbol)
-    local irritants = i:stack_pop(List)
-    print("error:", v, unpack(irritants:to_table()))
-    i:reset()
 end)
 
 end

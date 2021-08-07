@@ -60,7 +60,7 @@ end)
 
 i:define("port-peek-char", function(i)
     local port = i:stack_ref(1, Port.InputPort)
-    i:stack_push(port:peek(1))
+    i:stack_push(port:peek(1) or Port.EOF)
 end)
 
 i:define("port-read-char", function(i)

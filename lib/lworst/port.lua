@@ -1,7 +1,6 @@
 
 local io = require "io"
 local base = require "lworst/base"
-local Error = base.Error
 local Type = base.Type
 
 local mod = {}

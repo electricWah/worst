@@ -10,8 +10,6 @@ local Type = base.Type
 local Interpreter = Type.new("interpreter")
 Interpreter.__tostring = function() return "<interpreter>" end
 
-Interpreter.ERROR_HANDLER = "current-error-handler"
-
 -- instead of a parent / [childs] tree with O(stack length) resolve
 -- interpreter contains:
 -- - stack of parent frames
@@ -41,8 +39,10 @@ end
 
 function Interpreter:reset()
     self.parents = {}
-    self.frame = frame_empty()
     self.defstacks = {}
+    local defs = self.frame.defs
+    self.frame = frame_empty()
+    self.frame.defs = defs
 end
 
 function Interpreter.create(body)
@@ -98,7 +98,7 @@ function Interpreter:get_body(body) return self.frame.body end
 
 function Interpreter:body_read()
     local body, v = self.frame.body:pop()
-    self.frame.body = body
+    self.frame.body = body or List.empty()
     return v
 end
 
@@ -165,25 +165,7 @@ function Interpreter:code_read()
 end
 
 function Interpreter:error(name, ...)
-    error(Error({name, ...}), 0)
-end
-
-function Interpreter:handle_error(name, ...)
-    local irritants = List.create({...})
-    local handler = self:resolve(Interpreter.ERROR_HANDLER)
-    if type(handler) == "function" then
-        self:stack_push(irritants)
-        self:stack_push(Symbol.new(name))
-        handler(self, self.stack)
-    elseif List.is(handler) then
-        enter_body(self, handler)
-    else
-        local irr_messages = {}
-        for v in irritants:iter() do
-            table.insert(irr_messages, tostring(v))
-        end
-        error(name .. ": " .. table.concat(irr_messages, ", "), 0)
-    end
+    error(Error.new(name, List.new {...}), 1)
 end
 
 -- current is at the front
@@ -247,19 +229,7 @@ function Interpreter:eval(v, name)
         enter_body(self, v, name)
     elseif base.can_call(v) then
         local out, trace, t = start_eval_trace(self, name)
-        local ok, err = pcall(v, self)
-        if not ok then
-            print("Error in", name or "???", self.stack, err)
-            for _, p in ipairs(self.parents) do
-                print("...", p.name or "???")
-            end
-            print("...", self.frame.name or "???")
-            if Type.is(Error, err) then
-                self:handle_error(err[1], unpack(err, 2))
-            else
-                self:handle_error(err)
-            end
-        end
+        v(self)
         write_eval_trace(out, trace, t)
     else
         self:stack_push(v)
@@ -271,7 +241,7 @@ function Interpreter:call(name)
     -- print("call", name)
     local def = self:resolve(name)
     if def == nil then
-        self:handle_error("undefined", name)
+        self:error("undefined", name)
     else
         self:eval(def, name)
     end
@@ -303,7 +273,7 @@ end
 
 function Interpreter:stack_push(v)
     if v == nil then
-        error("stack_push(nil)")
+        self:error("stack_push(nil)")
     elseif type(v) == "table" and getmetatable(v) == nil then
         self:error("stack_push: unknown type", v)
     else
@@ -361,17 +331,27 @@ function Interpreter:stack_set(l)
     end
 end
 
+-- return (still running, error)
 function Interpreter:step()
     local code = self:code_read()
     if code == nil then
-        return false
+        return false, nil
     elseif Symbol.is(code) then
-        -- print(">", code)
-        self:call(code)
+        local ok, err = pcall(Interpreter.call, self, code)
+        if not ok then return false, err end
     else
         self:stack_push(code)
     end
     return true
+end
+
+-- returns nil or error
+function Interpreter:run()
+    local continue, err
+    repeat
+        continue, err = self:step()
+    until not continue
+    return err
 end
 
 return Interpreter
