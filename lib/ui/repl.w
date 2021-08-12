@@ -42,13 +42,36 @@ define worst-repl [
         swap list-reverse interpreter-body-set
         interpreter-run
 
-        false? if [ drop ] [
-            ; error
-            ->string print
-            "\n" print
-            interpreter-reset
+        ; don't display regular prompt if the quote prompt came up
+        false? if [ drop #t ] [
+            clone
+            error->list ["quote-nothing"] equal? bury drop drop
+            if [
+                ; if it's toplevel then more syntax is required
+                swap interpreter-toplevel bury swap dig
+                if [
+                    drop
+                    ansi [ cyan fg "... " print yellow fg "> " print reset ]
+                    ; unintelligent read
+                    swap port-read-value const v swap
+                    interpreter-stack-get v list-push interpreter-stack-set
+                    #f
+                ] [
+                    ; quote-nothing but not at toplevel, reset
+                    ->string ansi [ bright red fg print reset ]
+                    "\n" print
+                    interpreter-reset
+                    #t
+                ]
+            ] [
+                ; some other error, reset
+                ->string ansi [ bright red fg print reset ]
+                "\n" print
+                interpreter-reset
+                #t
+            ]
         ]
-        interpreter-stack-get display-prompt
+        if [ interpreter-stack-get display-prompt ] []
         drop
 
         []

@@ -136,7 +136,7 @@ Error.__tostring = function(e)
         .. ">"
 end
 function Error:to_list()
-    return e.irritants:push(e.message)
+    return self.irritants:push(self.message)
 end
 
 local Stack = Type.new("stack")

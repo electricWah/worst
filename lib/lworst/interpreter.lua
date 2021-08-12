@@ -8,21 +8,7 @@ local Stack = base.Stack
 local Type = base.Type
 
 local Interpreter = Type.new("interpreter")
-Interpreter.__tostring = function() return "<interpreter>" end
-
--- instead of a parent / [childs] tree with O(stack length) resolve
--- interpreter contains:
--- - stack of parent frames
--- - current frame
--- - dict of def stacks <-- NEW
--- frame contains:
--- - body
--- - stack of children
--- - definition table
-
--- moving between frames updates the dict of def stacks
--- if traversing into a child push all in defs
--- if traversing into a parent, pop all in defs
+function Interpreter:__tostring() return "<interpreter>" end
 
 function frame_empty(name)
     return { body = List.empty(), childs = {}, defs = {}, name = name }
@@ -37,19 +23,13 @@ function Interpreter.empty()
     }, Interpreter)
 end
 
-function Interpreter:reset()
-    self.parents = {}
-    self.defstacks = {}
-    local defs = self.frame.defs
-    self.frame = frame_empty()
-    self.frame.defs = defs
-end
-
 function Interpreter.create(body)
     local i = Interpreter.empty()
     i.frame.body = List.create(body)
     return i
 end
+
+function Interpreter:is_toplevel() return #self.parents == 0 end
 
 function Interpreter:resolve(name)
     if self.frame.defs[name] ~= nil then
@@ -110,6 +90,13 @@ function Interpreter:into_parent()
         table.insert(self.frame.childs, old_frame)
     end
     return true
+end
+
+function Interpreter:reset()
+    while self:into_parent() do end
+    local defs = self.frame.defs
+    self.frame = frame_empty()
+    self.frame.defs = defs
 end
 
 function Interpreter:define(name, def)

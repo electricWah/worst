@@ -61,6 +61,11 @@ i:define("interpreter-body-set", function(i)
     interp:set_body(s)
 end)
 
+i:define("interpreter-toplevel", function(i)
+    local interp = i:stack_ref(1, Interpreter)
+    i:stack_push(interp:is_toplevel())
+end)
+
 i:define("set-trace-port", function(i)
     local p = i:stack_pop({ Port.OutputPort, false })
     i:set_trace_port(p)

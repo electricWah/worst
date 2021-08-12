@@ -131,5 +131,15 @@ i:define("lua-load-string", function(i)
     end
 end)
 
+i:define("error->list", function(i)
+    local e = i:stack_pop(base.Error)
+    i:stack_push(e:to_list())
+end)
+
+i:define("error-message", function(i)
+    local e = i:stack_ref(1, base.Error)
+    i:stack_push(e.message)
+end)
+
 end
 
