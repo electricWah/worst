@@ -6,12 +6,7 @@ local Symbol = base.Symbol
 return function(i)
 
 i:define("quote", function(i)
-    local v = i:body_read()
-    if v == nil then
-        i:error("quote-nothing")
-    else
-        i:stack_push(v)
-    end
+    i:stack_push(i:quote())
 end)
 
 i:define("uplevel", function(i)

@@ -197,7 +197,7 @@ function contract_expect_types(context, types, values)
                 .. concat_with(types, Type.name, ", ")
                 .. "} but got {"
                 .. concat_with(values, to_string_debug, ", ")
-                .. "}")
+                .. "}", 3)
         end
     end
 end
@@ -209,7 +209,7 @@ function contract(itypes, otypes, body)
             error("input argument mismatch: expected "
                 .. tostring(#itypes)
                 .. " but got "
-                .. tostring(#inputs))
+                .. tostring(#inputs), 3)
         end
         if itypes ~= true then
             contract_expect_types("input", itypes, inputs)
@@ -217,7 +217,7 @@ function contract(itypes, otypes, body)
         if otypes == true then
             return body(...)
         else
-            local outputs = { body(inputs) }
+            local outputs = { body(unpack(inputs)) }
             contract_expect_types("output", otypes, outputs)
             return unpack(outputs)
         end

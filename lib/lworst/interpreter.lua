@@ -11,7 +11,13 @@ local Interpreter = Type.new("interpreter")
 function Interpreter:__tostring() return "<interpreter>" end
 
 function frame_empty(name)
-    return { body = List.empty(), childs = {}, defs = {}, name = name }
+    return {
+        body = List.empty(),
+        threads = {},
+        childs = {},
+        defs = {},
+        name = name
+    }
 end
 
 function Interpreter.empty()
@@ -64,10 +70,10 @@ function enter_child_frame(interp, frame)
     interp.frame = frame
 end
 
-function enter_body(interp, body, name)
+function Interpreter:step_into_new(body, name)
     local f = frame_empty(name)
     f.body = List.create(body)
-    enter_child_frame(interp, f)
+    enter_child_frame(self, f)
 end
 
 function Interpreter:set_body(body)
@@ -131,28 +137,10 @@ function Interpreter:all_definitions()
     return m
 end
 
-function Interpreter:code_read()
-    while true do
-        while true do
-            local child = table.remove(self.frame.childs)
-            if child then
-                enter_child_frame(self, child)
-            else
-                break
-            end
-        end
-
-        local body = self:body_read()
-        if body ~= nil then
-            return body
-        elseif enter_parent_frame(self) == nil then
-            return nil
-        end
-    end
-end
+function Interpreter:pause(v) coroutine.yield(v) end
 
 function Interpreter:error(name, ...)
-    error(Error.new(name, List.new {...}), 1)
+    coroutine.yield(Error.new(name, List.new {...}), 2)
 end
 
 -- current is at the front
@@ -210,10 +198,14 @@ function write_eval_trace(out, trace, t0)
     out:write_string(trace .. "\n" .. tostring(ns) .. "\n\n")
 end
 
+local EVAL_BREAK = {}
+
 function Interpreter:eval(v, name)
     -- local out, trace, t = start_eval_trace(self, name)
     if List.is(v) then
-        enter_body(self, v, name)
+        self:step_into_new(v, name)
+        self:into_parent()
+        self:pause(EVAL_BREAK)
     elseif base.can_call(v) then
         local out, trace, t = start_eval_trace(self, name)
         v(self)
@@ -224,38 +216,68 @@ function Interpreter:eval(v, name)
     -- write_eval_trace(out, trace, t)
 end
 
-function Interpreter:call(name)
-    -- print("call", name)
-    local def = self:resolve(name)
-    if def == nil then
-        self:error("undefined", name)
-    else
-        self:eval(def, name)
+-- returns nil on completion, error on error, any other value on pause
+function Interpreter:run()
+    while true do
+        -- leave uplevels
+        while true do
+            local child = table.remove(self.frame.childs)
+            if child then
+                enter_child_frame(self, child)
+            else
+                break
+            end
+        end
+
+        -- take paused coroutine first
+        local thread = table.remove(self.frame.threads)
+        if thread then
+            local ok, res = coroutine.resume(thread, self)
+            if coroutine.status(thread) ~= "dead" then
+                table.insert(self.frame.threads, thread)
+            end
+            if res ~= nil and res ~= EVAL_BREAK then return res end
+        else
+            local c = self:body_read()
+            if c == nil then
+                if enter_parent_frame(self) == nil then
+                    return nil
+                end
+            elseif Symbol.is(c) then
+                local thread = coroutine.create(Interpreter.call)
+                local ok, res = coroutine.resume(thread, self, c)
+                if coroutine.status(thread) ~= "dead" then
+                    table.insert(self.frame.threads, thread)
+                end
+                if res ~= nil and res ~= EVAL_BREAK then return res end
+            else
+                self:stack_push(c)
+            end
+        end
     end
 end
 
--- Helper functions to evaluate Worst from within Lua followed by some more Lua.
-function continuation_setup(i, k)
-    local name = Symbol.new("k")
-    -- step into a new context ready to uplevel k
-    i:eval(List.create { name }, name)
-    -- step back up to eval k()
-    i:define(name, function(i)
-        i:into_parent()
-        i:eval(k)
-    end)
-    -- finally go back up for the next part
-    i:into_parent()
+function Interpreter:try_resolve(name)
+    local def = self:resolve(name)
+    if def == nil then
+        self:error("undefined", name)
+        def = self:stack_pop()
+    end
+    return def
 end
 
-function Interpreter:eval_then(body, k)
-    continuation_setup(self, k)
-    self:eval(body)
+function Interpreter:call(name)
+    local def = self:try_resolve(name)
+    self:eval(def, name)
 end
 
-function Interpreter:call_then(name, k)
-    continuation_setup(self, k)
-    self:call(name)
+function Interpreter:quote()
+    local v = self:body_read()
+    if v == nil then
+        self:error("quote-nothing")
+        v = self:stack_pop()
+    end
+    return v
 end
 
 function Interpreter:stack_push(v)
@@ -292,6 +314,7 @@ function Interpreter:stack_pop(ty)
     local v = self.stack:pop()
     if v == nil then
         self:error("stack-empty")
+        return self:stack_pop(ty)
     elseif ty ~= nil then
         return self:assert_type(v, ty)
     else
@@ -316,29 +339,6 @@ function Interpreter:stack_set(l)
     for v in l:reverse():iter() do
         self:stack_push(v)
     end
-end
-
--- return (still running, error)
-function Interpreter:step()
-    local code = self:code_read()
-    if code == nil then
-        return false, nil
-    elseif Symbol.is(code) then
-        local ok, err = pcall(Interpreter.call, self, code)
-        if not ok then return false, err end
-    else
-        self:stack_push(code)
-    end
-    return true
-end
-
--- returns nil or error
-function Interpreter:run()
-    local continue, err
-    repeat
-        continue, err = self:step()
-    until not continue
-    return err
 end
 
 return Interpreter

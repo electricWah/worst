@@ -23,13 +23,12 @@ function read_worst(path)
             l = l:push(v)
         end
         local defs = {}
-        i:eval(List.new{})
+        -- i:step_into_new(List.new{})
         i:define("export-as", function(i)
             local new = i:stack_pop(Symbol)
             local orig = i:stack_pop(Symbol)
             local def = i:definition_get(orig)
             defs[new] = def
-
         end)
         i:define("export-name", function(i)
             local b = i:body_read()
@@ -41,9 +40,8 @@ function read_worst(path)
                 defs[k] = v
             end
         end)
-        i:eval_then(l:reverse(), function(i)
-            i:stack_push(Map.new(defs))
-        end)
+        i:eval(l:reverse())
+        i:stack_push(Map.new(defs))
     end
 end
 
@@ -79,25 +77,24 @@ end)
 
 i:define("module-resolve", function(i)
     local path = i:stack_pop("string")
-    i:call_then(S"WORST_LIBPATH", function(i)
-        local paths = i:stack_pop(List)
-        local res, err
-        for p in List.iter(paths) do
-            res, err = read_lua_file(p.."/"..path..".w.lua")
-            if res ~= nil then break end
-            res, err = read_worst(p.."/"..path..".w")
-            if res ~= nil then break end
-        end
-        if res == nil then
-            res, err = read_lua_require(path)
-        end
-        if res ~= nil then
-            i:stack_push(res)
-        else
-            i:stack_push(err)
-            i:stack_push(false)
-        end
-    end)
+    i:call(S"WORST_LIBPATH")
+    local paths = i:stack_pop(List)
+    local res, err
+    for p in List.iter(paths) do
+        res, err = read_lua_file(p.."/"..path..".w.lua")
+        if res ~= nil then break end
+        res, err = read_worst(p.."/"..path..".w")
+        if res ~= nil then break end
+    end
+    if res == nil then
+        res, err = read_lua_require(path)
+    end
+    if res ~= nil then
+        i:stack_push(res)
+    else
+        i:stack_push(err)
+        i:stack_push(false)
+    end
 end)
 
 i:define("module-cache-swap", function(i)
@@ -118,21 +115,18 @@ i:define("module-import", function(i)
     end
 
     i:stack_push(name)
-    i:call_then(S"module-resolve", function(i)
-        local mod = i:stack_pop({List, "function", false})
-        if not mod then return i:error("module not found", name) end
+    i:call(S"module-resolve")
+    local mod = i:stack_pop({List, "function", false})
+    if not mod then return i:error("module not found", name) end
 
-        i:eval(List.create{})
-        i:eval_then(mod, function(i)
-            local defs = i:stack_pop(Map)
-            -- print(defs:count(), "defs")
-            cache = cache:set(name, defs)
-            i:into_parent()
-            for k, v in defs:iter() do
-                i:define(k, v)
-            end
-        end)
-    end)
+    i:step_into_new(List.create{})
+    i:eval(mod)
+    local defs = i:stack_pop(Map)
+    cache = cache:set(name, defs)
+    i:into_parent()
+    for k, v in defs:iter() do
+        i:define(k, v)
+    end
 end)
 
 end
