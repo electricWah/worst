@@ -3,9 +3,8 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local cil = require "cil/base"
-local Expr = cil.Expr
-local EvalContext = cil.EvalContext
+local Expr = require "cil/expr"
+local eval = require "cil/eval"
 
 local luabase = require "cil/lua/base"
 local luaexpr = require "cil/lua/expr"
@@ -15,178 +14,182 @@ local S = base.Symbol.new
 local mod = {}
 
 function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
-    EvalContext.expect(i, function(i, ectx)
 
-        EvalContext.eval(i, iftbody, List.new{}, function(i, toutputs, tinputs, tstmts)
-            local tilen = tinputs:length()
-            local tolen = toutputs:length()
-            local tarity = toutputs:length() - tinputs:length()
+    local tstmts, tinputs, toutputs = eval.evaluate(i, iftbody)
 
-            EvalContext.eval(i, iffbody, tinputs, function(i, foutputs, finputs, fstmts)
-                local filen = finputs:length()
-                local folen = foutputs:length()
-                local farity = foutputs:length() - finputs:length()
+    local tilen = tinputs:length()
+    local tolen = toutputs:length()
+    local tarity = toutputs:length() - tinputs:length()
 
-                if tarity ~= farity then
-                    i:error("true and false arms have different arity",
-                            tarity, farity)
-                end
+    local fstmts, finputs, foutputs = eval.evaluate(i, iffbody, tinputs)
 
-                local arglen = math.max(tilen, tolen, filen, folen)
+    local filen = finputs:length()
+    local folen = foutputs:length()
+    local farity = foutputs:length() - finputs:length()
 
-                local invars = tinputs
-                if filen > tilen then invars = finputs end
-                invars = invars:to_table()
+    if tarity ~= farity then
+        i:error("true and false arms have different arity",
+                tarity, farity)
+    end
 
-                -- read all expected values (or vars if there aren't enough)
-                local invals = ectx:expect_all(i, "ifv", invars)
+    local arglen = math.max(tilen, tolen, filen, folen)
 
-                -- declare extra outputs
-                local nouts = math.max(0, arglen - math.max(tilen, filen))
-                local outvars = {}
-                for n = 1, nouts do
-                    table.insert(outvars, ectx:new_var("ifout"))
-                end
+    local invars = tinputs
+    if filen > tilen then invars = finputs end
+    invars = invars:to_table()
 
-                local ifargs = {}
-                for _, v in ipairs(outvars) do table.insert(ifargs, v) end
-                for _, v in ipairs(invals) do table.insert(ifargs, v) end
+    -- replace as many invars with stack values as possible
+    local invals = {}
+    for _, iv in List.ipairs(invars) do
+        if i:stack_length() > 0 then
+            table.insert(invals, i:stack_pop())
+        else
+            table.insert(invals, iv)
+        end
+    end
 
-                -- Assign output vals for both arms
-                local utargs, utouts = luabase.unique_pairs(ifargs, toutputs)
-                table.insert(tstmts,
-                    luabase.assignment(utargs, utouts, false, tolen))
-                local ufargs, ufouts = luabase.unique_pairs(ifargs, foutputs)
-                table.insert(fstmts,
-                    luabase.assignment(ufargs, ufouts, false, folen))
+    -- declare extra outputs
+    local nouts = math.max(0, arglen - math.max(tilen, filen))
+    local outvars = {}
+    for n = 1, nouts do
+        table.insert(outvars, eval.gensym(i, "ifout"))
+    end
 
-                -- Nothing to do inside either arm? Don't emit anything
-                -- (might uncomment this if it happens a lot)
-                if #tstmts == 0 and #fstmts == 0 then return end
+    local ifargs = {}
+    for _, v in ipairs(outvars) do table.insert(ifargs, v) end
+    for _, v in ipairs(invals) do table.insert(ifargs, v) end
 
-                -- Declare out-only vars
-                luabase.emit_assignment(ectx, outvars, {}, true)
+    -- Assign output vals for both arms
+    local utargs, utouts = luabase.unique_pairs(ifargs, toutputs)
+    table.insert(tstmts,
+        luabase.assignment(utargs, utouts, false, tolen))
+    local ufargs, ufouts = luabase.unique_pairs(ifargs, foutputs)
+    table.insert(fstmts,
+        luabase.assignment(ufargs, ufouts, false, folen))
 
-                -- Init input vars
-                local uins, uvals = luabase.unique_pairs(invars, invals)
-                luabase.emit_assignment(ectx, uins, uvals, true)
+    -- Nothing to do inside either arm? Don't emit anything
+    -- (might uncomment this if it happens a lot)
+    if #tstmts == 0 and #fstmts == 0 then return end
 
-                -- Convert empty true arm to empty false arm
-                -- if expr then else ... end -> if not expr then ... else end
-                if #tstmts == 0 then
-                    ifcond = luaexpr.lua["not"](ifcond)
-                    tstmts, fstmts = fstmts, tstmts
-                end
+    -- Declare out-only vars
+    luabase.emit_assignment(i, outvars, {}, true)
 
-                ectx:emit_statement({
-                    "if ", luabase.value_tostring_prec(ifcond), " then"
-                })
+    -- Init input vars
+    local uins, uvals = luabase.unique_pairs(invars, invals)
+    luabase.emit_assignment(i, uins, uvals, true)
 
-                ectx:indent()
-                for _, s in ipairs(tstmts) do ectx:emit_statement(s) end
-                ectx:unindent()
+    -- Convert empty true arm to empty false arm
+    -- if expr then else ... end -> if not expr then ... else end
+    if #tstmts == 0 then
+        ifcond = luaexpr.lua["not"](ifcond)
+        tstmts, fstmts = fstmts, tstmts
+    end
 
-                -- Convert "else end" into nothing
-                if #fstmts > 0 then
-                    ectx:emit_statement({"else"})
-                    ectx:indent()
-                    for _, s in ipairs(fstmts) do ectx:emit_statement(s) end
-                    ectx:unindent()
-                end
 
-                ectx:emit_statement({"end"})
+    eval.emit(i, {"if ", luabase.value_tostring_prec(ifcond), " then"})
 
-                -- leave outputs on stack
-                while #ifargs > 0 do
-                    i:stack_push(table.remove(ifargs))
-                end
+    eval.indent(i)
+    for _, s in ipairs(tstmts) do eval.emit(i, s) end
+    eval.unindent(i)
 
-            end)
-        end)
-    end)
+    -- Convert "else end" into nothing
+    if #fstmts > 0 then
+        eval.emit(i, {"else"})
+        eval.indent(i)
+        for _, s in ipairs(fstmts) do eval.emit(i, s) end
+        eval.unindent(i)
+    end
+
+    eval.emit(i, {"end"})
+
+    -- leave outputs on stack
+    while #ifargs > 0 do
+        i:stack_push(table.remove(ifargs))
+    end
+
 end
 
 -- [ ... -> bool ] cil/lua/loop
 -- keep doing body while its top value is true
 function mod.emit_loop(i, body)
-    EvalContext.expect(i, function(i, ectx)
 
-        EvalContext.eval(i, body, List.new{}, function(i, outs, ins, stmts)
-            local ilen = ins:length()
-            local olen = outs:length()
-            if olen ~= ilen + 1 then
-                return i:error("in arity must be out arity - 1", ilen, olen)
-            end
+    local stmts, ins, outs = eval.evaluate(i, body)
 
-            local invars = ectx:expect_all(i, "loopv", ins)
+    local ilen = ins:length()
+    local olen = outs:length()
+    if olen ~= ilen + 1 then
+        return i:error("in arity must be out arity - 1", ilen, olen)
+    end
 
-            local ocont
-            outs, ocont = outs:pop()
-            local outvars = outs:to_table()
+    local invars = {}
+    for _, iv in List.ipairs(ins) do
+        if i:stack_length() > 0 then
+            table.insert(invars, i:stack_pop())
+        else
+            table.insert(invars, iv)
+        end
+    end
 
-            local uargs, uouts = luabase.unique_pairs(invars, outvars)
-            table.insert(stmts, luabase.assignment(uargs, uouts, false, ilen))
+    local ocont
+    outs, ocont = outs:pop()
+    local outvars = outs:to_table()
 
-            ectx:emit_statement({"repeat"})
+    local uargs, uouts = luabase.unique_pairs(invars, outvars)
+    table.insert(stmts, luabase.assignment(uargs, uouts, false, ilen))
 
-            ectx:indent()
-            for _, s in ipairs(stmts) do ectx:emit_statement(s) end
-            ectx:unindent()
+    eval.emit(i, {"repeat"})
 
-            local continue = luaexpr.lua["not"](ocont)
-            local condstr = luabase.value_tostring_prec(continue)
-            ectx:emit_statement({"until ", condstr})
+    eval.indent(i)
+    for _, s in List.ipairs(stmts) do eval.emit(i, s) end
+    eval.unindent(i)
 
-            while #outvars > 0 do
-                i:stack_push(table.remove(outvars))
-            end
-        end)
-    end)
+    local continue = luaexpr.lua["not"](ocont)
+    local condstr = luabase.value_tostring_prec(continue)
+    eval.emit(i, {"until ", condstr})
+
+    while #outvars > 0 do
+        i:stack_push(table.remove(outvars))
+    end
+
 end
 
-function mod.emit_break(i)
-    EvalContext.expect(i, function(i, ectx)
-        ectx:emit_statement({"break"})
-    end)
-end
+function mod.emit_break(i) eval.emit(i, {"break"}) end
 
 -- recursive functions (local function ...) are a different construct
 -- body name cil/lua-function
 -- [ body ] name cil/lua-function => function name() ... end
 -- [ body ] #f cil/lua-function => local func1 = function() ... end
 -- in either case, the function value itself is put on the stack after
-function mod.emit_function(i)
-    EvalContext.expect(i, function(i, ectx)
-        local name = i:stack_pop()
-        local body = i:stack_pop(List)
-        EvalContext.eval(i, body, List.new{}, function(i, outs, ins, stmts)
+function mod.emit_function(i, name, body)
 
-            local fvar
-            if base.Type.is("string", name) then
-                fvar = S(name)
-            else
-                fvar = name or ectx:new_var("func")
-                name = luabase.value_tostring_prec(fvar)
-            end
-            local head = {"function ", name, "("}
-            luabase.csv_into(head, ins)
-            table.insert(head, ")")
+    local stmts, ins, outs = eval.evaluate(i, body)
 
-            ectx:emit_statement(head)
-            ectx:indent()
-            for _, s in ipairs(stmts) do ectx:emit_statement(s) end
-            if outs:length() > 0 then
-                local r = {"return "}
-                luabase.csv_into(r, outs)
-                ectx:emit_statement(r)
-            end
-            ectx:unindent()
-            ectx:emit_statement({"end"})
+    local fvar
+    if base.Symbol.is(name) then
+        fvar = eval.gensym(i, luabase.value_tostring_prec(name))
+        name = luabase.value_tostring_prec(fvar)
+    elseif base.Type.is("string", name) then
+        fvar = S(name)
+    else
+        fvar = name or eval.gensym(i, "func")
+        name = luabase.value_tostring_prec(fvar)
+    end
+    local head = {"function ", name, "("}
+    luabase.csv_into(head, ins)
+    table.insert(head, ")")
 
-            i:stack_push(fvar)
+    eval.emit(i, head)
+    eval.indent(i)
+    for _, s in ipairs(stmts) do eval.emit(i, s) end
+    if outs:length() > 0 then
+        local r = {"return "}
+        luabase.csv_into(r, outs)
+        eval.emit(i, r)
+    end
+    eval.unindent(i)
+    eval.emit(i, {"end"})
 
-        end)
-    end)
+    return fvar, List.length(ins), List.length(outs)
 end
 
 return mod

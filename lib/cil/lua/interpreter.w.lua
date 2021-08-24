@@ -3,9 +3,6 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local cil = require "cil/base"
-local EvalContext = cil.EvalContext
-
 local luabase = require "cil/lua/base"
 local luaexpr = require "cil/lua/expr"
 

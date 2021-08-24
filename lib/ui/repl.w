@@ -54,7 +54,7 @@ define worst-repl [
                     ansi [ cyan fg "... " print yellow fg "> " print reset ]
                     ; unintelligent read
                     swap port-read-value const v swap
-                    interpreter-stack-get v list-push interpreter-stack-set
+                    v interpreter-stack-push
                     #f
                 ] [
                     ; quote-nothing but not at toplevel, reset

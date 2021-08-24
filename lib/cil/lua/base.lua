@@ -3,8 +3,8 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local cil = require "cil/base"
-local Expr = cil.Expr
+local Expr = require "cil/expr"
+local eval = require "cil/eval"
 
 local S = base.Symbol.new
 
@@ -99,10 +99,10 @@ function assignment(names, vals, new)
 end
 mod.assignment = assignment
 
-function emit_assignment(ectx, names, vals, new)
+function emit_assignment(i, names, vals, new)
     local a = assignment(names, vals, new)
     if a ~= nil then
-        ectx:emit_statement(List.new(a))
+        eval.emit(i, a)
     end
 end
 mod.emit_assignment = emit_assignment

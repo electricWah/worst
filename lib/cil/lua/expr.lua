@@ -5,12 +5,10 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local cil = require "cil/base"
-local Expr = cil.Expr
-local EvalContext = cil.EvalContext
-
 local S = base.Symbol.new
 
+local Expr = require "cil/expr"
+local eval = require "cil/eval"
 local luabase = require "cil/lua/base"
 
 local mod = {}
@@ -41,37 +39,37 @@ function mod.index(a, b)
     end
 end
 
-function mulrets(ectx, n, v, name)
+function mulrets(i, n, v, name)
     if n == true then
         -- true = pure, no assignment needed
         return v
     elseif n == 0 then
         -- no return values at all
-        ectx:emit_statement({luabase.value_tostring_prec(v)})
+        eval.emit(i, { luabase.value_tostring_prec(v) })
     else
         -- local r1, r2, ...rN = v
         -- return r1, r2, ...rN
         local rets = {}
-        for i = 1, n do
-            table.insert(rets, ectx:new_var(name))
+        for _ = 1, n do
+            table.insert(rets, eval.gensym(i, name))
         end
-        luabase.emit_assignment(ectx, rets, {v}, true)
+        luabase.emit_assignment(i, rets, {v}, true)
         return unpack(rets)
     end
 end
 
-function mod.function_call(ectx, f, rcount, args, name)
+function mod.function_call(i, f, rcount, args, name)
     local a = { f, "(" }
     luabase.csv_into(a, args)
     table.insert(a, ")")
-    return mulrets(ectx, rcount, Expr.new(List.new(a)), name)
+    return mulrets(i, rcount, Expr.new(List.new(a)), name)
 end
 
-function mod.method_call(ectx, obj, m, rcount, args, name)
+function mod.method_call(i, obj, m, rcount, args, name)
     local a = { obj, ":", m, "(" }
     luabase.csv_into(a, args)
     table.insert(a, ")")
-    return mulrets(ectx, rcount, Expr.new(List.new(a)), name)
+    return mulrets(i, rcount, Expr.new(List.new(a)), name)
 end
 
 -- Lua's names for everything

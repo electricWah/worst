@@ -5,9 +5,7 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local cil = require "cil/base"
-local Expr = cil.Expr
-local EvalContext = cil.EvalContext
+local Expr = require "cil/expr"
 
 local S = base.Symbol.new
 
