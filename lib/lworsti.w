@@ -46,7 +46,7 @@ define syntax-read [ source-input-port port-read-value swap drop ]
 
 ; path read-file -> list
 define read-file [
-    open-input-file false? if [ drop [] swap list-push abort ] []
+    open-input-file false? if [ drop [] swap list-push "read-file" error ] []
     [] while [ swap port-read-value eof-object? not ] [ dig swap list-push ]
     drop drop
     list-reverse

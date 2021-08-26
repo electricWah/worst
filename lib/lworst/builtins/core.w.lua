@@ -1,5 +1,6 @@
 
 local base = require "lworst/base"
+local List = require "lworst/list"
 local Type = base.Type
 local Symbol = base.Symbol
 
@@ -113,6 +114,30 @@ i:define("not", function(i)
     i:stack_push(not i:stack_pop())
 end)
 
+i:define("pause", function(i)
+    i:pause(i:stack_pop())
+end)
+
+i:define("error?", function(i)
+    i:stack_push(Type.is(base.Error, i:stack_ref(1)))
+end)
+
+i:define("error", function(i)
+    local msg = i:stack_pop({Symbol, "string"})
+    local irritants = i:stack_pop(List)
+    i:error(msg, unpack(List.to_table(irritants)))
+end)
+
+i:define("error->list", function(i)
+    local e = i:stack_pop(base.Error)
+    i:stack_push(e:to_list())
+end)
+
+i:define("error-message", function(i)
+    local e = i:stack_ref(1, base.Error)
+    i:stack_push(e.message)
+end)
+
 -- string lua-load-string -> function
 --                        -> error    #f
 i:define("lua-load-string", function(i)
@@ -124,16 +149,6 @@ i:define("lua-load-string", function(i)
         i:stack_push(err)
         i:stack_push(false)
     end
-end)
-
-i:define("error->list", function(i)
-    local e = i:stack_pop(base.Error)
-    i:stack_push(e:to_list())
-end)
-
-i:define("error-message", function(i)
-    local e = i:stack_ref(1, base.Error)
-    i:stack_push(e.message)
 end)
 
 end

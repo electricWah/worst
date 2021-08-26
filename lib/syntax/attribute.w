@@ -100,7 +100,7 @@ define-attribute lexical [
             name list-push
             quote quote list-push
             name definition-resolve
-            false? if ["lexical: not defined: " dig ->string string-append abort] []
+            false? if [ drop [] swap list-push "undefined" error ] []
             swap drop list-push
         ]
         swap
@@ -117,9 +117,7 @@ define-attribute lexical-alias [
         new list-push
         quote quote list-push
         old definition-resolve
-        false? if ["lexical-alias: not defined: "
-                   dig ->string string-append
-                   abort] []
+        false? if [drop [] swap list-push "undefined" error] []
         swap drop list-push
         swap
     ]

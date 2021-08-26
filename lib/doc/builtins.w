@@ -6,16 +6,6 @@
 
 import doc
 
-doc-for abort [
-    title "Raise an error"
-    description "Stops evaluation, citing the top value as a reason."
-    usage "reason abort"
-    example "\"too cool\" abort"
-    example "\"abort is very basic\" abort"
-    section errors
-    tags [errors]
-]
-
 doc-for add [
     title "Add two numbers together"
     description "Replaces the top two values with their sum."
@@ -103,11 +93,6 @@ doc-for bury [
 define undocumented [
     upquote [undocumented #t] documentation-set
 ]
-
-undocumented builtin-quote
-undocumented %abort-to-repl
-undocumented %%repl
-undocumented %run
 
 doc-for WORST_LIBDIR [
     title "Location of import library"

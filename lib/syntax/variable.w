@@ -37,7 +37,7 @@ define variable [
         upquote
         quote get equal? if [ drop drop place-get swap drop ] [
             drop quote set equal? if [ drop drop swap place-set drop ] [
-                ("not a variable command") swap list-push abort
+                [] swap list-push "undefined" error
             ]
         ]
     ]

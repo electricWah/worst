@@ -17,7 +17,7 @@ define cond [
     upquote variable %conds
     while [
         %conds get
-        list-empty? if [ "cond: no matching condition" abort ] []
+        list-empty? if [ "cond: no matching condition" error ] []
         list-pop swap %conds set
         eval
         not

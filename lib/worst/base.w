@@ -1,7 +1,4 @@
 
-define abort [ quote abort current-error-handler ]
-export-name abort
-
 ; evaluate = quote; call if symbol
 define evaluate [ upquote symbol? quote call quote when uplevel ]
 export-name evaluate
@@ -64,7 +61,7 @@ define definition-rename [
     const new-name
     const name
     name updo definition-get
-    false? if ["definition-rename: does not exist" abort] []
+    false? if [drop [] swap list-push "undefined" error] []
     swap drop new-name
     updo definition-add
     name updo definition-remove
@@ -76,7 +73,7 @@ export-name definition-rename
 define definition-copy-up [
     const name
     name updo definition-get
-    false? if ["definition-copy-up: does not exist" abort] []
+    false? if [drop [] swap list-push "undefined" error] []
     swap
     quote definition-add
     quote uplevel
