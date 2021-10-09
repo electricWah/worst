@@ -216,6 +216,25 @@ function Interpreter:eval(v, name)
     -- write_eval_trace(out, trace, t)
 end
 
+-- prepare something to eval for next call to run()
+function Interpreter:eval_next(v, name)
+    if List.is(v) then
+        -- set toplevel body
+        -- TODO and name == nil?
+        if self:is_toplevel() and List.length(self.frame.body) == 0 then
+            self.frame.body = List.create(v)
+        else
+            self:step_into_new(v, name)
+            self:into_parent()
+        end
+    elseif base.can_call(v) then
+        table.insert(self.frame.threads, coroutine.create(v))
+    else
+        -- TODO step_into_new(List.new{v})
+        self:error("eval_next", v)
+    end
+end
+
 -- returns nil on completion, error on error, any other value on pause
 function Interpreter:run()
     while true do
@@ -236,6 +255,7 @@ function Interpreter:run()
             if coroutine.status(thread) ~= "dead" then
                 table.insert(self.frame.threads, thread)
             end
+            if not ok then self:error(res) end
             if res ~= nil and res ~= EVAL_BREAK then return res end
         else
             local c = self:body_read()
@@ -249,6 +269,7 @@ function Interpreter:run()
                 if coroutine.status(thread) ~= "dead" then
                     table.insert(self.frame.threads, thread)
                 end
+                if not ok then self:error(res) end
                 if res ~= nil and res ~= EVAL_BREAK then return res end
             else
                 self:stack_push(c)

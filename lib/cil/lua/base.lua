@@ -99,10 +99,10 @@ function assignment(names, vals, new)
 end
 mod.assignment = assignment
 
-function emit_assignment(i, names, vals, new)
+function emit_assignment(ctx, names, vals, new)
     local a = assignment(names, vals, new)
     if a ~= nil then
-        eval.emit(i, a)
+        ctx:emit(a)
     end
 end
 mod.emit_assignment = emit_assignment

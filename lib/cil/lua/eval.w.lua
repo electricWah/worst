@@ -7,6 +7,7 @@ local Interpreter = require "lworst/interpreter"
 local eval = require "cil/eval"
 
 local luabase = require "cil/lua/base"
+local luaeval = require "cil/lua/eval"
 local luabuiltins = require "cil/lua/builtins"
 
 local S = base.Symbol.new
@@ -30,7 +31,7 @@ i:define(S"cil/eval->lua-chunk", function(i)
     local interp = Interpreter.empty()
     luabuiltins(interp)
 
-    local stmts, args, rets = eval.evaluate(i, body, List.new{}, interp, true)
+    local stmts, args, rets = luaeval.evaluate(i, body, interp)
 
     local sb = {}
     local initargs = luabase.assignment(args, {S"..."}, true)

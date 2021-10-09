@@ -39,37 +39,37 @@ function mod.index(a, b)
     end
 end
 
-function mulrets(i, n, v, name)
+function mulrets(ctx, n, v, name)
     if n == true then
         -- true = pure, no assignment needed
         return v
     elseif n == 0 then
         -- no return values at all
-        eval.emit(i, { luabase.value_tostring_prec(v) })
+        ctx:emit({ luabase.value_tostring_prec(v) })
     else
         -- local r1, r2, ...rN = v
         -- return r1, r2, ...rN
         local rets = {}
         for _ = 1, n do
-            table.insert(rets, eval.gensym(i, name))
+            table.insert(rets, ctx:gensym(name))
         end
-        luabase.emit_assignment(i, rets, {v}, true)
+        luabase.emit_assignment(ctx, rets, {v}, true)
         return unpack(rets)
     end
 end
 
-function mod.function_call(i, f, rcount, args, name)
+function mod.function_call(ctx, f, rcount, args, name)
     local a = { f, "(" }
     luabase.csv_into(a, args)
     table.insert(a, ")")
-    return mulrets(i, rcount, Expr.new(List.new(a)), name)
+    return mulrets(ctx, rcount, Expr.new(List.new(a)), name)
 end
 
-function mod.method_call(i, obj, m, rcount, args, name)
+function mod.method_call(ctx, obj, m, rcount, args, name)
     local a = { obj, ":", m, "(" }
     luabase.csv_into(a, args)
     table.insert(a, ")")
-    return mulrets(i, rcount, Expr.new(List.new(a)), name)
+    return mulrets(ctx, rcount, Expr.new(List.new(a)), name)
 end
 
 -- Lua's names for everything

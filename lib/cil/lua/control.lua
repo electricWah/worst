@@ -13,15 +13,15 @@ local S = base.Symbol.new
 
 local mod = {}
 
-function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
+function mod.emit_if_then_else(ctx, i, ifcond, iftbody, iffbody)
 
-    local tstmts, tinputs, toutputs = eval.evaluate(i, iftbody)
+    local tstmts, tinputs, toutputs = ctx:evaluate(i, iftbody)
 
     local tilen = tinputs:length()
     local tolen = toutputs:length()
     local tarity = toutputs:length() - tinputs:length()
 
-    local fstmts, finputs, foutputs = eval.evaluate(i, iffbody, tinputs)
+    local fstmts, finputs, foutputs = ctx:evaluate(i, iffbody, tinputs)
 
     local filen = finputs:length()
     local folen = foutputs:length()
@@ -42,7 +42,7 @@ function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
     local invals = {}
     for _, iv in List.ipairs(invars) do
         if i:stack_length() > 0 then
-            table.insert(invals, i:stack_pop())
+            table.insert(invals, ctx:stack_pop(i))
         else
             table.insert(invals, iv)
         end
@@ -52,7 +52,7 @@ function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
     local nouts = math.max(0, arglen - math.max(tilen, filen))
     local outvars = {}
     for n = 1, nouts do
-        table.insert(outvars, eval.gensym(i, "ifout"))
+        table.insert(outvars, ctx:gensym("ifout"))
     end
 
     local ifargs = {}
@@ -72,11 +72,11 @@ function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
     if #tstmts == 0 and #fstmts == 0 then return end
 
     -- Declare out-only vars
-    luabase.emit_assignment(i, outvars, {}, true)
+    luabase.emit_assignment(ctx, outvars, {}, true)
 
     -- Init input vars
     local uins, uvals = luabase.unique_pairs(invars, invals)
-    luabase.emit_assignment(i, uins, uvals, true)
+    luabase.emit_assignment(ctx, uins, uvals, true)
 
     -- Convert empty true arm to empty false arm
     -- if expr then else ... end -> if not expr then ... else end
@@ -86,21 +86,21 @@ function mod.emit_if_then_else(i, ifcond, iftbody, iffbody)
     end
 
 
-    eval.emit(i, {"if ", luabase.value_tostring_prec(ifcond), " then"})
+    ctx:emit({"if ", luabase.value_tostring_prec(ifcond), " then"})
 
-    eval.indent(i)
-    for _, s in ipairs(tstmts) do eval.emit(i, s) end
-    eval.unindent(i)
+    ctx:indent()
+    for _, s in ipairs(tstmts) do ctx:emit(s) end
+    ctx:unindent()
 
     -- Convert "else end" into nothing
     if #fstmts > 0 then
-        eval.emit(i, {"else"})
-        eval.indent(i)
-        for _, s in ipairs(fstmts) do eval.emit(i, s) end
-        eval.unindent(i)
+        ctx:emit({"else"})
+        ctx:indent()
+        for _, s in ipairs(fstmts) do ctx:emit(s) end
+        ctx:unindent()
     end
 
-    eval.emit(i, {"end"})
+    ctx:emit({"end"})
 
     -- leave outputs on stack
     while #ifargs > 0 do
@@ -160,34 +160,34 @@ function mod.emit_break(i) eval.emit(i, {"break"}) end
 -- [ body ] name cil/lua-function => function name() ... end
 -- [ body ] #f cil/lua-function => local func1 = function() ... end
 -- in either case, the function value itself is put on the stack after
-function mod.emit_function(i, name, body)
+function mod.emit_function(ctx, i, name, body)
 
-    local stmts, ins, outs = eval.evaluate(i, body)
+    local stmts, ins, outs = ctx:evaluate(i, body)
 
     local fvar
     if base.Symbol.is(name) then
-        fvar = eval.gensym(i, luabase.value_tostring_prec(name))
+        fvar = ctx:gensym(luabase.value_tostring_prec(name))
         name = luabase.value_tostring_prec(fvar)
     elseif base.Type.is("string", name) then
         fvar = S(name)
     else
-        fvar = name or eval.gensym(i, "func")
+        fvar = name or ctx:gensym("func")
         name = luabase.value_tostring_prec(fvar)
     end
     local head = {"function ", name, "("}
     luabase.csv_into(head, ins)
     table.insert(head, ")")
 
-    eval.emit(i, head)
-    eval.indent(i)
-    for _, s in ipairs(stmts) do eval.emit(i, s) end
+    ctx:emit(head)
+    ctx:indent()
+    for _, s in ipairs(stmts) do ctx:emit(s) end
     if outs:length() > 0 then
         local r = {"return "}
         luabase.csv_into(r, outs)
-        eval.emit(i, r)
+        ctx:emit(r)
     end
-    eval.unindent(i)
-    eval.emit(i, {"end"})
+    ctx:unindent()
+    ctx:emit({"end"})
 
     return fvar, List.length(ins), List.length(outs)
 end

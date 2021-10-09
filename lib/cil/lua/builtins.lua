@@ -3,6 +3,7 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
+local cileval = require "cil/eval"
 local expr = require "cil/lua/expr"
 local control = require "cil/lua/control"
 
@@ -10,8 +11,9 @@ return function(i)
 
 function binop(def, lua)
     i:define(def, function(i)
-        local a = i:stack_pop()
-        local b = i:stack_pop()
+        local ctx = cileval.context(i)
+        local a = ctx:stack_pop(i, def .. "_a")
+        local b = ctx:stack_pop(i, def .. "_b")
         i:stack_push(expr.lua[lua](a, b))
     end)
 end
@@ -23,11 +25,12 @@ binop("div", "/")
 
 function extern(name, argn, retn)
     i:define(name, function(i)
+        local ctx = cileval.context(i)
         local args = {}
         for a = 1, argn do
-            table.insert(args, i:stack_pop())
+            table.insert(args, ctx:stack_pop(i, name .. tostring(a) .. "_"))
         end
-        local rets = { expr.function_call(i, name, retn, args, name) }
+        local rets = { expr.function_call(ctx, name, retn, args, name) }
         for _, r in ipairs(rets) do
             i:stack_push(r)
         end
@@ -42,22 +45,24 @@ i:define("loop", function(i)
 end)
 
 i:define("if", function(i)
+    local ctx = cileval.context(i)
     local iftbody = i:quote()
     local iffbody = i:quote()
-    local ifcond = i:stack_pop()
-    control.emit_if_then_else(i, ifcond, iftbody, iffbody)
+    local ifcond = ctx:stack_pop(i, "ifc")
+    control.emit_if_then_else(ctx, i, ifcond, iftbody, iffbody)
 end)
 
 i:define("define", function(i)
+    local ctx = cileval.context(i)
     local name = i:quote()
     local body = i:quote()
-    local defname, argn, retn = control.emit_function(i, name, body)
+    local defname, argn, retn = control.emit_function(ctx, i, name, body)
     i:define(name, function(i)
         local args = {}
         for a = 1, argn do
-            table.insert(args, i:stack_pop())
+            table.insert(args, ctx:stack_pop(i, base.Symbol.unwrap(name) .. tostring(a) .. "_"))
         end
-        local rets = { expr.function_call(i, defname, retn, args, name) }
+        local rets = { expr.function_call(ctx, defname, retn, args, name) }
         for _, r in ipairs(rets) do
             i:stack_push(r)
         end
