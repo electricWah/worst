@@ -16,14 +16,6 @@ local S = base.Symbol.new
 -- maybe it just calls it and grabs stuff off the stack
 -- to emit the args/returns after
 
-function flatten (args)
-    local sb = {}
-    for _, v in List.ipairs(args) do
-        table.insert(sb, luabase.value_tostring_prec(v))
-    end
-    return sb
-end
-
 return function(i)
 
 i:define(S"cil/eval->lua-chunk", function(i)
@@ -42,7 +34,9 @@ i:define(S"cil/eval->lua-chunk", function(i)
     end
 
     if rets:length() > 0 then
-        table.insert(sb, "return " .. table.concat(flatten(rets), ", "))
+        local ret = {"return "}
+        luabase.csv_into(ret, rets)
+        table.insert(sb, table.concat(ret))
     end
     i:stack_push(table.concat(sb, "\n"))
 

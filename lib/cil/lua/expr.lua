@@ -7,9 +7,9 @@ local List = require "lworst/list"
 
 local S = base.Symbol.new
 
-local Expr = require "cil/expr"
 local eval = require "cil/eval"
 local luabase = require "cil/lua/base"
+local Expr = luabase.Expr
 
 local mod = {}
 

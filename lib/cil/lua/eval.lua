@@ -5,9 +5,11 @@ local List = require "lworst/list"
 local Map = require "lworst/map"
 local Interpreter = require "lworst/interpreter"
 
-local Expr = require "cil/expr"
 local eval = require "cil/eval"
 local S = base.Symbol.new
+
+local luabase = require "cil/lua/base"
+local Expr = luabase.Expr
 
 local mod = {}
 

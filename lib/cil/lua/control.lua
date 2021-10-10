@@ -3,13 +3,13 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local Expr = require "cil/expr"
 local eval = require "cil/eval"
 
 local luabase = require "cil/lua/base"
 local luaexpr = require "cil/lua/expr"
 
 local S = base.Symbol.new
+local Expr = luabase.Expr
 
 local mod = {}
 

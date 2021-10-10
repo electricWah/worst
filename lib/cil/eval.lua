@@ -1,12 +1,4 @@
 
-local base = require "lworst/base"
-local Type = base.Type
-local List = require "lworst/list"
-local Interpreter = require "lworst/interpreter"
-
-local Expr = require "cil/expr"
-local S = base.Symbol.new
-
 local mod = {}
 
 local context_request = {}

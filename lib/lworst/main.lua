@@ -32,8 +32,18 @@ function mod.run_file(path, ...)
 
     builtins_all(interp)
 
-    local err = interp:run()
-    if err then
+    -- wrap in a coroutine in case of toplevel yield
+    local ok, err = coroutine.resume(coroutine.create(function()
+        local err = interp:run()
+        if err then
+            print(err)
+            print(err.lua_stack)
+        end
+    end))
+    if not ok then
+        print(err)
+    end
+    if base.Error.is(err) then
         print(err)
         print(err.lua_stack)
     end

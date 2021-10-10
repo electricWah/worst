@@ -3,12 +3,30 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local Expr = require "cil/expr"
 local eval = require "cil/eval"
 
 local S = base.Symbol.new
 
 local mod = {}
+
+local Expr = Type.new("lua-expr")
+function Expr.new(value, precedence)
+    return setmetatable({
+        value = value,
+        precedence = precedence or 10,
+    }, Expr)
+end
+function Expr:__tostring()
+    return "<expr " .. tostring(self.value) .. ">"
+end
+function Expr:is_compound() return self.precedence ~= true end
+
+function Expr:set_callable(args, retc)
+    self.arguments = args
+    self.returns = retc
+end
+
+mod.Expr = Expr
 
 local value_tostring_prec
 local function value_tostring(v)
