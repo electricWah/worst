@@ -92,64 +92,6 @@ function mod.evaluate(parent, body, interp)
     return evaluate(Context.new(), parent, body, nil, interp)
 end
 
-
-
-function test_evaluate(parent, body, inputs, interp, toplevel)
-    inputs = inputs or List.new{}
-    toplevel = toplevel or interp ~= nil
-
-    local gensym = 0
-    local args = {}
-    local indentation = 0
-    local lines = {}
-
-    for ev in eval.evaluator(interp, body) do
-        local d = ev.value
-        if eval.gensym.is(ev) then
-            if toplevel then
-                gensym = gensym + 1
-                interp:stack_push(Expr.new(S(d .. gensym), true))
-            else
-                interp:stack_push(eval.gensym(parent, d))
-            end
-        elseif eval.emit.is(ev) then
-            local st = { string.rep("    ", indentation), unpack(List.to_table(d)) }
-            table.insert(lines, st)
-        elseif eval.indent.is(ev) then
-            indentation = indentation + 1
-        elseif eval.unindent.is(ev) then
-            indentation = indentation - 1
-        elseif eval.stack_push.is(ev) then
-            -- in emit_builtin mode, um, emit stack_push I guess
-            interp:stack_push(d)
-        elseif eval.stack_pop.is(ev) then
-            -- no else, it would just be stack_push(stack_pop())
-            if interp:stack_length() == 0 then
-                local v
-                if inputs:length() > 0 then
-                    inputs, v = inputs:pop()
-                elseif toplevel then
-                    gensym = gensym + 1
-                    v = Expr.new(S("v" .. gensym), true)
-                else
-                    v = mod.gensym(parent, "v")
-                end
-                interp:stack_push(v)
-                table.insert(args, v)
-            end
-        elseif not toplevel
-                and base.Error.is(r) and r.message == "undefined" then
-            local name = r.irritants:head()
-            local def = parent:try_resolve(name)
-            interp:stack_push(def)
-        else
-            parent:pause(d)
-        end
-    end
-
-    return List.new(lines), List.new(args), interp:stack_get()
-end
-
 return mod
 
 
