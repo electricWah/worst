@@ -6,7 +6,6 @@ local List = require "lworst/list"
 local eval = require "cil/eval"
 
 local luabase = require "cil/lua/base"
-local luaexpr = require "cil/lua/expr"
 
 local S = base.Symbol.new
 local Expr = luabase.Expr
@@ -81,7 +80,7 @@ function mod.emit_if_then_else(ctx, i, ifcond, iftbody, iffbody)
     -- Convert empty true arm to empty false arm
     -- if expr then else ... end -> if not expr then ... else end
     if #tstmts == 0 then
-        ifcond = luaexpr.lua["not"](ifcond)
+        ifcond = luabase.syntax["not"](ifcond)
         tstmts, fstmts = fstmts, tstmts
     end
 
@@ -143,7 +142,7 @@ function mod.emit_loop(i, body)
     for _, s in List.ipairs(stmts) do eval.emit(i, s) end
     eval.unindent(i)
 
-    local continue = luaexpr.lua["not"](ocont)
+    local continue = luabase.syntax["not"](ocont)
     local condstr = luabase.value_tostring_prec(continue)
     eval.emit(i, {"until ", condstr})
 

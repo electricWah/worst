@@ -4,7 +4,7 @@ local Type = base.Type
 local List = require "lworst/list"
 
 local cileval = require "cil/eval"
-local expr = require "cil/lua/expr"
+local luabase = require "cil/lua/base"
 local control = require "cil/lua/control"
 
 return function(i)
@@ -14,7 +14,7 @@ function binop(def, lua)
         local ctx = cileval.context(i)
         local a = ctx:stack_pop(i, def .. "_a")
         local b = ctx:stack_pop(i, def .. "_b")
-        i:stack_push(expr.lua[lua](a, b))
+        i:stack_push(luabase.syntax[lua](a, b))
     end)
 end
 
@@ -30,7 +30,7 @@ function extern(name, argn, retn)
         for a = 1, argn do
             table.insert(args, ctx:stack_pop(i, name .. tostring(a) .. "_"))
         end
-        local rets = { expr.function_call(ctx, name, retn, args, name) }
+        local rets = { luabase.function_call(ctx, name, retn, args, name) }
         for _, r in ipairs(rets) do
             i:stack_push(r)
         end
@@ -62,7 +62,7 @@ i:define("define", function(i)
         for a = 1, argn do
             table.insert(args, ctx:stack_pop(i, base.Symbol.unwrap(name) .. tostring(a) .. "_"))
         end
-        local rets = { expr.function_call(ctx, defname, retn, args, name) }
+        local rets = { luabase.function_call(ctx, defname, retn, args, name) }
         for _, r in ipairs(rets) do
             i:stack_push(r)
         end
