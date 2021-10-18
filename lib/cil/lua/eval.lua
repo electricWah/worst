@@ -33,7 +33,7 @@ function Context:inner(inputs)
         lines = {},
         global = self.global,
         parent = self,
-    }, Context)
+    }, getmetatable(self))
 end
 
 function Context:gensym(name)
@@ -67,18 +67,31 @@ function Context:stack_pop(i, name)
     return v
 end
 
-function evaluate(context, parent, body, inputs, interp)
-    inputs = inputs or List.new{}
+function Context:try_resolve(parent, name)
+    return nil
+end
+
+function mod.evaluate(parent, body, interp, inputs, context)
     interp = interp or Interpreter.empty()
+    inputs = inputs or List.new{}
+    context = context or Context.new()
 
     -- print("evaluate", body)
     for ev in eval.evaluator(context, interp, body) do
         -- print("evaled", ev)
-        if context.parent ~= nil
-            and base.Error.is(ev) and ev.message == "undefined" then
+        if base.Error.is(ev) and ev.message == "undefined" then
             local name = ev.irritants:head()
-            local def = parent:try_resolve(name)
-            interp:stack_push(def)
+            local def
+            if context.parent == nil then
+                def = context:try_resolve(parent, name)
+            else
+                def = parent:try_resolve(name)
+            end
+            if def == nil then
+                parent:pause(ev)
+            else
+                interp:stack_push(def)
+            end
         else
             parent:pause(ev)
         end
@@ -87,14 +100,8 @@ function evaluate(context, parent, body, inputs, interp)
 end
 
 function Context:evaluate(parent, body, inputs)
-    return evaluate(self:inner(), parent, body, inputs, nil)
-end
-
-function mod.evaluate(parent, body, interp)
-    return evaluate(Context.new(), parent, body, nil, interp)
+    return mod.evaluate(parent, body, nil, inputs, self:inner())
 end
 
 return mod
-
-
 

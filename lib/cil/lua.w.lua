@@ -1,20 +1,13 @@
 
 local base = require "lworst/base"
-local Type = base.Type
 local List = require "lworst/list"
 local Interpreter = require "lworst/interpreter"
-
-local eval = require "cil/eval"
 
 local luabase = require "cil/lua/base"
 local luaeval = require "cil/lua/eval"
 local luabuiltins = require "cil/lua/builtins"
 
 local S = base.Symbol.new
-
--- TODO decide how this interacts with cil/eval-args
--- maybe it just calls it and grabs stuff off the stack
--- to emit the args/returns after
 
 return function(i)
 

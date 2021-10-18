@@ -154,15 +154,7 @@ end
 
 function mod.emit_break(i) eval.emit(i, {"break"}) end
 
--- recursive functions (local function ...) are a different construct
--- body name cil/lua-function
--- [ body ] name cil/lua-function => function name() ... end
--- [ body ] #f cil/lua-function => local func1 = function() ... end
--- in either case, the function value itself is put on the stack after
-function mod.emit_function(ctx, i, name, body)
-
-    local stmts, ins, outs = ctx:evaluate(i, body)
-
+function mod.emit_function_res(ctx, name, stmts, ins, outs)
     local fvar
     if base.Symbol.is(name) then
         fvar = ctx:gensym(luabase.value_tostring_prec(name))
@@ -189,6 +181,16 @@ function mod.emit_function(ctx, i, name, body)
     ctx:emit({"end"})
 
     return fvar, List.length(ins), List.length(outs)
+end
+
+-- recursive functions (local function ...) are a different construct
+-- body name cil/lua-function
+-- [ body ] name cil/lua-function => function name() ... end
+-- [ body ] #f cil/lua-function => local func1 = function() ... end
+-- in either case, the function value itself is put on the stack after
+function mod.emit_function(ctx, i, name, body)
+    local stmts, ins, outs = ctx:evaluate(i, body)
+    return mod.emit_function_res(ctx, name, stmts, ins, outs)
 end
 
 return mod
