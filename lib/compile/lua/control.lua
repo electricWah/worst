@@ -3,11 +3,9 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local eval = require "cil/eval"
+local eval = require "compile/evaluate"
 
-local luabase = require "cil/lua/base"
-
-local S = base.Symbol.new
+local luabase = require "compile/lua/base"
 local Expr = luabase.Expr
 
 local mod = {}
@@ -60,22 +58,20 @@ function mod.emit_if_then_else(ctx, i, ifcond, iftbody, iffbody)
 
     -- Assign output vals for both arms
     local utargs, utouts = luabase.unique_pairs(ifargs, toutputs)
-    table.insert(tstmts,
-        luabase.assignment(utargs, utouts, false, tolen))
+    table.insert(tstmts, {luabase.assignment(utargs, utouts, false, tolen)})
     local ufargs, ufouts = luabase.unique_pairs(ifargs, foutputs)
-    table.insert(fstmts,
-        luabase.assignment(ufargs, ufouts, false, folen))
+    table.insert(fstmts, {luabase.assignment(ufargs, ufouts, false, folen)})
 
     -- Nothing to do inside either arm? Don't emit anything
     -- (might uncomment this if it happens a lot)
     if #tstmts == 0 and #fstmts == 0 then return end
 
     -- Declare out-only vars
-    luabase.emit_assignment(ctx, outvars, {}, true)
+    ctx:emit(luabase.assignment(outvars, {}, true))
 
     -- Init input vars
     local uins, uvals = luabase.unique_pairs(invars, invals)
-    luabase.emit_assignment(ctx, uins, uvals, true)
+    ctx:emit(luabase.assignment(uins, uvals, true))
 
     -- Convert empty true arm to empty false arm
     -- if expr then else ... end -> if not expr then ... else end
@@ -85,21 +81,21 @@ function mod.emit_if_then_else(ctx, i, ifcond, iftbody, iffbody)
     end
 
 
-    ctx:emit({"if ", luabase.value_tostring_prec(ifcond), " then"})
+    ctx:emit("if ", luabase.value_tostring_prec(ifcond), " then")
 
     ctx:indent()
-    for _, s in ipairs(tstmts) do ctx:emit(s) end
+    for _, s in ipairs(tstmts) do ctx:emit(unpack(s)) end
     ctx:unindent()
 
     -- Convert "else end" into nothing
     if #fstmts > 0 then
-        ctx:emit({"else"})
+        ctx:emit("else")
         ctx:indent()
-        for _, s in ipairs(fstmts) do ctx:emit(s) end
+        for _, s in ipairs(fstmts) do ctx:emit(unpack(s)) end
         ctx:unindent()
     end
 
-    ctx:emit({"end"})
+    ctx:emit("end")
 
     -- leave outputs on stack
     while #ifargs > 0 do
@@ -112,6 +108,7 @@ end
 -- keep doing body while its top value is true
 function mod.emit_loop(i, body)
 
+    error("it brokem ):")
     local stmts, ins, outs = eval.evaluate(i, body)
 
     local ilen = ins:length()
@@ -134,7 +131,7 @@ function mod.emit_loop(i, body)
     local outvars = outs:to_table()
 
     local uargs, uouts = luabase.unique_pairs(invars, outvars)
-    table.insert(stmts, luabase.assignment(uargs, uouts, false, ilen))
+    table.insert(stmts, {luabase.assignment(uargs, uouts, false, ilen)})
 
     eval.emit(i, {"repeat"})
 
@@ -242,6 +239,7 @@ return mod
 
 -- ]
 -- export-name cil/lua-for-iter
+
 
 
 

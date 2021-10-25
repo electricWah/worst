@@ -5,10 +5,10 @@ local List = require "lworst/list"
 local Map = require "lworst/map"
 local Interpreter = require "lworst/interpreter"
 
-local eval = require "cil/eval"
+local evaluate = require "compile/evaluate"
 local S = base.Symbol.new
 
-local luabase = require "cil/lua/base"
+local luabase = require "compile/lua/base"
 local Expr = luabase.Expr
 
 local mod = {}
@@ -49,9 +49,14 @@ function Context:unindent()
     self.global.indentation = self.global.indentation - 1
 end
 
-function Context:emit(line)
+function Context:emit_raw(line)
+    table.insert(self.lines, line)
+end
+
+function Context:emit(...)
+    if #{...} == 0 then return end
     local indent = string.rep("    ", self.global.indentation)
-    table.insert(self.lines, { indent, unpack(List.to_table(line)) })
+    table.insert(self.lines, table.concat({ indent, ... }))
 end
 
 function Context:stack_pop(i, name)
@@ -77,9 +82,11 @@ function mod.evaluate(parent, body, interp, inputs, context)
     context = context or Context.new()
 
     -- print("evaluate", body)
-    for ev in eval.evaluator(context, interp, body) do
+    for ev in evaluate.evaluator(context, interp, body) do
         -- print("evaled", ev)
-        if base.Error.is(ev) and ev.message == "undefined" then
+        if base.Error.is(ev) and ev.message == "stack-empty" then
+            interp:stack_push(context:stack_pop(interp))
+        elseif base.Error.is(ev) and ev.message == "undefined" then
             local name = ev.irritants:head()
             local def
             if context.parent == nil then

@@ -3,8 +3,6 @@ local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
 
-local eval = require "cil/eval"
-
 local S = base.Symbol.new
 
 local mod = {}
@@ -113,7 +111,7 @@ mod.csv_into = csv_into
 function csv(t)
     local r = {}
     csv_into(r, t)
-    return r
+    return unpack(r)
 end
 mod.csv = csv
 
@@ -127,17 +125,9 @@ function assignment(names, vals, new)
         table.insert(a, " = ")
         csv_into(a, vals)
     end
-    return a
+    return unpack(a)
 end
 mod.assignment = assignment
-
-function emit_assignment(ctx, names, vals, new)
-    local a = assignment(names, vals, new)
-    if a ~= nil then
-        ctx:emit(a)
-    end
-end
-mod.emit_assignment = emit_assignment
 
 function mulrets(ctx, n, v, name)
     if n == true then
@@ -145,7 +135,7 @@ function mulrets(ctx, n, v, name)
         return v
     elseif n == 0 then
         -- no return values at all
-        ctx:emit({ value_tostring_prec(v) })
+        ctx:emit(value_tostring_prec(v))
     else
         -- local r1, r2, ...rN = v
         -- return r1, r2, ...rN
@@ -153,7 +143,7 @@ function mulrets(ctx, n, v, name)
         for _ = 1, n do
             table.insert(rets, ctx:gensym(name))
         end
-        emit_assignment(ctx, rets, {v}, true)
+        ctx:emit(assignment(rets, {v}, true))
         return unpack(rets)
     end
 end
@@ -220,4 +210,5 @@ addinfix2op(7, "and")
 addinfix2op(8, "or")
 
 return mod
+
 

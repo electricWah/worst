@@ -231,6 +231,7 @@ function Interpreter:eval_next(v, name)
         table.insert(self.frame.threads, coroutine.create(v))
     else
         -- TODO step_into_new(List.new{v})
+        if v == nil then v = "<nil>" end -- ?
         self:error("eval_next", v)
     end
 end
