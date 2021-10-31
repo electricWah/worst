@@ -206,7 +206,7 @@ function Interpreter:eval(v, name)
         self:step_into_new(v, name)
         self:into_parent()
         self:pause(EVAL_BREAK)
-    elseif base.can_call(v) then
+    elseif base.can.call(v) then
         local out, trace, t = start_eval_trace(self, name)
         v(self)
         write_eval_trace(out, trace, t)
@@ -227,7 +227,7 @@ function Interpreter:eval_next(v, name)
             self:step_into_new(v, name)
             self:into_parent()
         end
-    elseif base.can_call(v) then
+    elseif base.can.call(v) then
         table.insert(self.frame.threads, coroutine.create(v))
     else
         -- TODO step_into_new(List.new{v})
@@ -293,10 +293,10 @@ function Interpreter:call(name)
     self:eval(def, name)
 end
 
-function Interpreter:quote()
+function Interpreter:quote(purpose)
     local v = self:body_read()
     if v == nil then
-        self:error("quote-nothing")
+        self:error("quote-nothing", purpose)
         v = self:stack_pop()
     end
     return v
@@ -312,9 +312,9 @@ function Interpreter:stack_push(v)
     end
 end
 
-function Interpreter:assert_type(v, ty)
+function Interpreter:assert_type(v, ty, purpose)
     if not Type.is(ty, v) then
-        self:error("wrong-type", Type.name(ty), v)
+        self:error("wrong-type", Type.name(ty), v, purpose)
         return nil
     else
         return v
@@ -332,13 +332,13 @@ function Interpreter:stack_ref(i, ty)
     end
 end
 
-function Interpreter:stack_pop(ty)
+function Interpreter:stack_pop(ty, purpose)
     local v = self.stack:pop()
     if v == nil then
         self:error("stack-empty")
         return self:stack_pop(ty)
     elseif ty ~= nil then
-        return self:assert_type(v, ty)
+        return self:assert_type(v, ty, purpose)
     else
         return v
     end

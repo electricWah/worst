@@ -1,4 +1,21 @@
 
+define ->string [ to-string/terse swap drop ]
+export-name ->string
+
+define port-write-value [ ->string port-write-string ]
+export-name port-write-value
+
+define syntax-read [ source-input-port port-read-value swap drop ]
+export-name syntax-read
+
+; path read-file -> list
+define read-file [
+    open-input-file false? if [ drop [] swap list-push "read-file" error ] []
+    [] while [ swap port-read-value eof-object? not ] [ dig swap list-push ]
+    drop drop
+    list-reverse
+]
+
 ; evaluate = quote; call if symbol
 define evaluate [ upquote symbol? quote call quote when uplevel ]
 export-name evaluate

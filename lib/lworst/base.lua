@@ -59,40 +59,44 @@ function Symbol.to_string_debug(s) return "Symbol(" .. s.v .. ")" end
 Symbol.__tostring = function(s) return Symbol.to_string_debug(s) end
 function Symbol.unwrap(v) return v.v end
 
-function can(v, f) return (getmetatable(v) or {})[f] ~= nil end
-function can_equal(a) return can(a, 'equal') end
+
+function can_impl(v, f) return (getmetatable(v) or {})[f] ~= nil end
+local can = setmetatable({}, {
+    __index = function(t, k)
+        if not rawget(t, k) then
+            t[k] = function(v) return can_impl(k, v) end
+        end
+        return rawget(t, k)
+    end,
+})
 function equal(a, b)
-    if can_equal(a) then
+    if can.equal(a) then
         return a:equal(b)
-    elseif can_equal(b) then
+    elseif can.equal(b) then
         return b:equal(a)
     else
         return a == b
     end
 end
 
-function can_clone(a) return can(a, 'clone') end
 function clone(a)
-    if can_clone(a) then
+    if can.clone(a) then
         return a:clone()
     else
         return a
     end
 end
 
-function can_call(a)
-    return can(a, '__call') or type(a) == "function"
+can.call = function(a)
+    return can_impl(a, '__call')
+        or type(a) == "function"
+        or can_impl(a, 'call')
 end
 
-function can_destroy(a) return can(a, 'destroy') end
-function destroy(a) if can_destroy(a) then a:destroy() end end
-
-function can_to_string_format(a) return can(a, 'to_string_format') end
-function can_to_string_terse(a) return can(a, 'to_string_terse') end
-function can_to_string_debug(a) return can(a, 'to_string_debug') end
+function destroy(a) if can.destroy(a) then a:destroy() end end
 
 function to_string_format(a, fmt)
-    if can_to_string_format(a) then
+    if can.to_string_format(a) then
         return a:to_string_format(fmt) or false
     end
     return false
@@ -113,12 +117,12 @@ function to_string_fallback(a)
 end
 
 function to_string_terse(a)
-    if can_to_string_terse(a) then return a:to_string_terse() end
+    if can.to_string_terse(a) then return a:to_string_terse() end
     return to_string_format(a, 'terse') or to_string_fallback(a)
 end
 
 function to_string_debug(a)
-    if can_to_string_debug(a) then return a:to_string_debug() end
+    if can.to_string_debug(a) then return a:to_string_debug() end
     return to_string_format(a, 'debug') or to_string_fallback(a)
 end
 
@@ -231,7 +235,7 @@ return {
     clone = clone,
     destroy = destroy,
     equal = equal,
-    can_call = can_call,
+    can = can,
     to_string_format = to_string_format,
     to_string_terse = to_string_terse,
     to_string_debug = to_string_debug,

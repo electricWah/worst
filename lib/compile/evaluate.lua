@@ -11,9 +11,7 @@ function mod.evaluator(ctx, interp, body)
     interp:eval_next(body)
     function iterator()
         while true do
-            -- print("run")
             local r = interp:run()
-            -- print("ctx", r, ctx)
             if r == context_request then
                 interp:stack_push(ctx)
             else

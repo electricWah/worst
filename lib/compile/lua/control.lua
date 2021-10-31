@@ -165,17 +165,16 @@ function mod.emit_function_res(ctx, name, stmts, ins, outs)
     local head = {"function ", name, "("}
     luabase.csv_into(head, ins)
     table.insert(head, ")")
-
-    ctx:emit(head)
+    ctx:emit(unpack(head))
     ctx:indent()
-    for _, s in ipairs(stmts) do ctx:emit(s) end
+    for _, s in ipairs(stmts) do ctx:emit_raw(s) end
     if outs:length() > 0 then
         local r = {"return "}
         luabase.csv_into(r, outs)
-        ctx:emit(r)
+        ctx:emit(unpack(r))
     end
     ctx:unindent()
-    ctx:emit({"end"})
+    ctx:emit("end")
 
     return fvar, List.length(ins), List.length(outs)
 end

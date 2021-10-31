@@ -23,17 +23,11 @@ function read_worst(path)
             l = l:push(v)
         end
         local defs = {}
-        -- i:step_into_new(List.new{})
-        i:define("export-as", function(i)
-            local new = i:stack_pop(Symbol)
-            local orig = i:stack_pop(Symbol)
-            local def = i:definition_get(orig)
-            defs[new] = def
-        end)
-        i:define("export-name", function(i)
-            local b = i:body_read()
-            local def = i:definition_get(b)
-            defs[b] = def
+        i:define("definition-export", function(i)
+            local name = i:stack_pop(Symbol)
+            local def = i:stack_pop({List, "function"},
+                                    List.new({"export-definition", name}))
+            defs[name] = def
         end)
         i:define("export-all", function(i)
             for k, v in pairs(i:definitions()) do

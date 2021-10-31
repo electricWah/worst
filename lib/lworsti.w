@@ -4,98 +4,15 @@
 ; - loads enough other modules to be useful
 ; - starts a REPL
 
-; "lworst/builtins/all" module-import
+; Core stuff necessary for everything else
+"worst/base" module-import
+; define
+"worst/define" module-import
+; import/export
+"worst/module" module-import
 
-[ quote quote quote uplevel uplevel ] quote upquote definition-add
-
-[ ; define name [def...]
-    upquote upquote ; name [def ...]
-    swap quote definition-add uplevel
-] quote define definition-add
-
-define const [
-    [quote] swap list-push list-reverse
-    upquote
-    quote definition-add uplevel
-]
-
-define ->string [ to-string/terse swap drop ]
-
-define port-write-value [ ->string port-write-string ]
-
-; bool if [if-true] [if-false]
-define if [
-    upquote upquote
-    ; cond true false => false true cond
-    swap dig
-    quote swap when drop
-    quote eval uplevel
-]
-
-; while [-> bool] [body ...]
-define while [
-    upquote quote %%cond definition-add
-    upquote quote %%while-body definition-add
-    [
-        %%cond if [%%while-body %%loop] [[]] current-context-set-code
-    ] const %%loop
-    %%loop current-context-set-code
-]
-
-define syntax-read [ source-input-port port-read-value swap drop ]
-
-; path read-file -> list
-define read-file [
-    open-input-file false? if [ drop [] swap list-push "read-file" error ] []
-    [] while [ swap port-read-value eof-object? not ] [ dig swap list-push ]
-    drop drop
-    list-reverse
-]
-
-; "WORST_LIBPATH" env-get swap drop
-; false? if [drop ""] []
-; "[^:]+" string-global-matches
-; list-reverse "%/lib" list-push list-reverse
-; const WORST_LIBPATH
-
-; define import-path->file-name [
-;     "/" string-append p string-append ".w" string-append
-; ]
-
-; module-name resolve-import-path
-; uses WORST_LIBPATH
-define resolve-import-path [
-    ->string const p
-    #f ; not-found
-    WORST_LIBPATH
-    while [list-empty? not] [
-        list-pop import-path->file-name const path
-
-        path open-input-file
-        false? if [drop drop] [
-            port-close
-            drop
-            drop path [] ; exit loop and return path instead of not-found
-        ]
-    ]
-    drop ; drop remaining WORST_LIBPATH
-]
-
-; Very basic import/export
-define import [
-    upquote symbol->string quote module-import uplevel
-    ; upquote resolve-import-path
-    ; read-file quote eval uplevel
-]
-define export-name [
-    upquote
-    definition-resolve
-    swap
-    quote definition-add quote uplevel uplevel
-]
-
-; Generally useful utilities
-import worst/base
+; Useful stuff for programming in general
+import worst/misc
 
 import data/list
 import data/dict
@@ -120,7 +37,4 @@ list-empty? if [
     list-pop swap drop
     read-file eval
 ]
-
-; vi: ft=scheme
-
 

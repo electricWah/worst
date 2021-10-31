@@ -30,10 +30,5 @@ i:define(base.Symbol.new "compile->lua-chunk", function(parent)
     i:stack_push(table.concat(List.to_table(stmts), "\n"))
 end)
 
-i:define("lua-chunk", function(i)
-    i:stack_push(i:quote())
-    i:call(base.Symbol.new "compile->lua-chunk")
-end)
-
 end
 
