@@ -1,14 +1,14 @@
 
 import ui/ansi
-export-name ansi
+export ansi
 
 import ui/repl
-export-name worst-repl
+export worst-repl
 
 import ui/help
 ; help docs for builtins
 import doc/builtins
-export-name help
+export help
 
 ; vi: ft=scheme
 

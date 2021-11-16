@@ -46,16 +46,5 @@ i:define("map-keys", function(i)
     i:stack_push(m:keys())
 end)
 
-i:define("map-set-string", function(i)
-    local s = i:stack_pop({"string", false})
-    local m = i:stack_pop(Map)
-    if s then
-        m = m:set(Map.Meta.tostring_key, s)
-    else
-        m = m:remove(Map.Meta.tostring_key)
-    end
-    i:stack_push(m)
-end)
-
 end
 

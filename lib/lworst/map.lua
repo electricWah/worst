@@ -15,15 +15,8 @@ end
 
 local Map = Type.new("Map")
 
-Map.Meta = {}
-Map.Meta.tostring_key = setmetatable({ name = "tostring-key" }, MapMeta)
-
 function Map:__tostring()
-    local tsk = self:get(Map.Meta.tostring_key)
-    if tsk then return tsk
-    else
-        return "Map(" .. self:count() .. ")"
-    end
+    return "Map(" .. self:count() .. ")"
 end
 
 function Map.new(src)

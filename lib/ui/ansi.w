@@ -39,7 +39,7 @@ define ansi [
 
     upquote eval
 ]
-export-name ansi
+export ansi
 
 ; vi: ft=scheme
 

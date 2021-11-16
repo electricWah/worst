@@ -29,7 +29,7 @@ define cond [
     eval
 ]
 
-export-name cond
+export cond
 
 ; vi: ft=scheme
 

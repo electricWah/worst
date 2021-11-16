@@ -81,7 +81,7 @@ function List.create(data)
         return l
     end
 end
-function List.new(data) return List.create(data) end
+function List.new(data) return List.create(data or {}) end
 
 function List.to_table(t)
     if not List.is(t) then return t end

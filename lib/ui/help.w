@@ -112,7 +112,7 @@ define help [
     ]
 ]
 
-export-name help
+export help
 
 ; vi: ft=scheme
 

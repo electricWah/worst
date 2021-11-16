@@ -3,11 +3,9 @@
 
 ; ; map . k -> map-get
 ; define . [ upquote map-get swap drop ]
-; export-name .
 
 ; ; map v .= k v -> map-set
 ; define .= [ upquote upquote map-set ]
-; export-name .=
 
 ; a b map-merge -> map
 ; for k, v in b do a[k] = b
@@ -69,7 +67,7 @@ define map-replace [
     ]
 ]
 
-export-all
+export #t
 
 ; vi: ft=scheme
 

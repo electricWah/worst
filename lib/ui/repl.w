@@ -1,9 +1,11 @@
 
-define worst-repl [
+import {
+    worst/interpreter
+    syntax/cond
+    data/string
+}
 
-    import worst/interpreter
-    import syntax/cond
-    import data/string
+define worst-repl [
 
     define clear-stack [ [] stack-set ]
 
@@ -121,7 +123,7 @@ define worst-repl [
     drop drop
 ]
 
-export-name worst-repl
+export worst-repl
 
 ; vi: ft=scheme
 

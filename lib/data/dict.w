@@ -46,15 +46,7 @@ define dict-keys [
     r
 ]
 
-export-name dict?
-export-name dict-empty
-export-name dict-exists
-export-name dict-set
-export-name dict-get
-export-name dict-remove
-export-name dict-keys
-export-name dict->map
-export-name map->dict
+export #t
 
 ; vi: ft=scheme
 

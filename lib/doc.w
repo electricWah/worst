@@ -17,10 +17,11 @@
 ;   ... any more...
 ; ]
 
+import data/dict
+
 dict-empty const %docs
 dict-empty const %tags
 
-lexical (%docs %tags)
 define documentation-set [
     import data/map
     const body
@@ -39,7 +40,6 @@ define documentation-set [
 
 define doc-for [ upquote upquote documentation-set ]
 
-lexical (%docs)
 ; doc-eval [
 ;   key [program] ...
 ; ]
@@ -69,37 +69,28 @@ define doc-eval [
     ]
 ]
 
-define-attribute documentation [
-    args (doc-body)
-    before [
-        const name const def-body
-        name doc-body documentation-set
-        def-body name
-    ]
-]
+; TODO fix docs
+define documentation [ upquote drop ]
 
-
-lexical (%docs)
 define has-documentation? [ %docs swap dict-exists dig drop ]
 
-lexical (%docs)
 define documented-names [ %docs dict-keys swap drop ]
 
-lexical (%tags)
 define doc-tags [ %tags ]
 
-lexical (%tags)
 define doc-tag? [ %tags swap dict-exists dig drop ]
 
-export-name doc-for
-export-name doc-eval
-export-name documentation
-export-name documentation-set
-export-name has-documentation?
-export-name documented-names
+export {
+    doc-for
+    doc-eval
+    documentation
+    documentation-set
+    has-documentation?
+    documented-names
 
-export-name doc-tags
-export-name doc-tag?
+    doc-tags
+    doc-tag?
+}
 
 ; vi: ft=scheme
 

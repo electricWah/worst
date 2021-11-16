@@ -4,7 +4,7 @@ define string-contains-match? [
     string-global-matches
     list-empty? not swap drop
 ]
-export-name string-contains-match?
+export string-contains-match?
 
 ; vi: ft=scheme
 

@@ -1,16 +1,18 @@
 
 local mods = {
     "core",
-    "definition",
     "interpreter",
     "list",
     "map",
-    "module",
     "numeric",
     "place",
     "port",
     "string",
     "system",
+
+    "control",
+    "module",
+    "define",
 }
 
 return function(i)

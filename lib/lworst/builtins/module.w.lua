@@ -6,11 +6,11 @@ local List = require "lworst/list"
 local Port = require "lworst/port"
 local Map = require "lworst/map"
 local Reader = require "lworst/reader"
+local Interpreter = require "lworst/interpreter"
 
+local Type = base.Type
 local Symbol = base.Symbol
 local S = Symbol.new
-
-local cache = Map.empty()
 
 function read_worst(path)
     local f, err = Port.open_input_file(path)
@@ -22,20 +22,7 @@ function read_worst(path)
             if v == nil then break end
             l = l:push(v)
         end
-        local defs = {}
-        i:define("definition-export", function(i)
-            local name = i:stack_pop(Symbol)
-            local def = i:stack_pop({List, "function"},
-                                    List.new({"export-definition", name}))
-            defs[name] = def
-        end)
-        i:define("export-all", function(i)
-            for k, v in pairs(i:definitions()) do
-                defs[k] = v
-            end
-        end)
         i:eval(l:reverse())
-        i:stack_push(Map.new(defs))
     end
 end
 
@@ -58,6 +45,73 @@ function read_lua_require(path)
     end
 end
 
+function resolve_module(path, libpath)
+    if Symbol.is(path) then
+        path = Symbol.unwrap(path)
+    end
+    local res, err
+    for p in List.iter(libpath) do
+        res, err = read_lua_file(p.."/"..path..".w.lua")
+        if res ~= nil then break end
+        res, err = read_worst(p.."/"..path..".w")
+        if res ~= nil then break end
+    end
+    if res == nil then
+        res, err = read_lua_require(path)
+    end
+    if res ~= nil then
+        return res, nil
+    else
+        return nil, err
+    end
+end
+
+local Export = Type.new("<export>")
+function Export.new(name, def)
+    return setmetatable({ name = name, def = def }, Export)
+end
+
+function eval_module(parent, mod, name, defs)
+    local i = Interpreter.empty()
+    for k, v in pairs(defs) do
+        i:define(k, v)
+    end
+    i:eval_next(mod, name)
+    local exports = {}
+    while true do
+        local r = i:run()
+        if r == nil then
+            break
+        elseif Export.is(r) then
+            exports[r.name] = r.def
+        else
+            return parent:pause(base.Error.new("module import failed", List.new({name, r})))
+        end
+    end
+    return Map.new(exports)
+end
+
+function exporter(i)
+    local names = i:quote("export")
+    if List.is(names) then
+        -- default
+    elseif Symbol.is(names) then
+        names = List.new({names})
+    elseif names == true then
+        names = List.new()
+        for k, v in pairs(i:definitions()) do
+            names = names:push(k)
+        end
+    else
+        return i:error("cannot export this")
+    end
+    for name in List.iter(names) do
+        local def = i:resolve(name)
+        if not def then i:error("export", name) end
+        i:pause(Export.new(name, def))
+    end
+end
+
 return function(i)
 
 i:define("WORST_LIBPATH", function(i)
@@ -69,56 +123,39 @@ i:define("WORST_LIBPATH", function(i)
     i:stack_push(List.new(l))
 end)
 
-i:define("module-resolve", function(i)
-    local path = i:stack_pop("string")
-    i:call(S"WORST_LIBPATH")
-    local paths = i:stack_pop(List)
-    local res, err
-    for p in List.iter(paths) do
-        res, err = read_lua_file(p.."/"..path..".w.lua")
-        if res ~= nil then break end
-        res, err = read_worst(p.."/"..path..".w")
-        if res ~= nil then break end
-    end
-    if res == nil then
-        res, err = read_lua_require(path)
-    end
-    if res ~= nil then
-        i:stack_push(res)
+local import_cache = {}
+
+i:define("import", function(i)
+    local names = i:quote("import")
+
+    if List.is(names) then
+        -- default
+    elseif Symbol.is(names) then
+        names = List.new({names})
+    elseif base.Type.is("string", names) then
+        return i:error("TODO import <string>")
     else
-        i:stack_push(err)
-        i:stack_push(false)
+        return i:error("cannot import this")
     end
-end)
 
-i:define("module-cache-swap", function(i)
-    local newcache = i:stack_pop(Map)
-    i:stack_push(cache)
-    cache = newcache
-end)
+    i:call(S"WORST_LIBPATH")
+    local libpath = i:stack_pop(List)
 
-i:define("module-import", function(i)
-    local name = i:stack_pop("string")
-
-    local defs = cache:get(name)
-    if defs ~= nil then
-        for k, v in defs:iter() do
-            i:define(k, v)
+    local defs = i:all_definitions()
+    defs[S"export"] = exporter
+    local import_defs = {}
+    for im in List.iter(names) do
+        if not import_cache[im] then
+            local mod, err = resolve_module(im, libpath)
+            if not mod then return i:error("import failed", im, err) end
+            local exports = eval_module(i, mod, im, defs)
+            import_cache[im] = exports
         end
-        return
+        for k, v in import_cache[im]:iter() do
+            import_defs[k] = v
+        end
     end
-
-    i:stack_push(name)
-    i:call(S"module-resolve")
-    local mod = i:stack_pop({List, "function", false})
-    if not mod then return i:error("module not found", name) end
-
-    i:step_into_new(List.create{})
-    i:eval(mod)
-    local defs = i:stack_pop(Map)
-    cache = cache:set(name, defs)
-    i:into_parent()
-    for k, v in defs:iter() do
+    for k, v in pairs(import_defs) do
         i:define(k, v)
     end
 end)

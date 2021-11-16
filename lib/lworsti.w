@@ -4,26 +4,16 @@
 ; - loads enough other modules to be useful
 ; - starts a REPL
 
-; Core stuff necessary for everything else
-"worst/base" module-import
-; define
-"worst/define" module-import
-; import/export
-"worst/module" module-import
+import {
+    ; Useful stuff for programming in general
+    worst/misc
+    data/list
+    ; data/dict
 
-; Useful stuff for programming in general
-import worst/misc
-
-import data/list
-import data/dict
-
-; Real import/export
-; import worst/module
-
-; TODO fix: without this, documentation attribute does nothing, for e.g. help
-import syntax/attribute
-
-import doc
+    ; TODO without this, documentation attribute does nothing, for e.g. help
+    ; syntax/attribute
+    doc ; this should be worst/doc and also import its own stuff
+}
 
 ; Interactive if given no arguments
 command-line-arguments

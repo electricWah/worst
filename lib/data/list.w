@@ -1,7 +1,6 @@
 
 ; list index list-ref! -> list value
 define list-ref! [list-ref swap drop]
-export-name list-ref!
 
 ; [l...] list-iterate [ body ... ]
 define list-iterate [
@@ -13,7 +12,6 @@ define list-iterate [
     ]
     drop
 ]
-export-name list-iterate
 
 ; [l...] list-map [ body : l -> l' ] -> [l' ...]
 define list-map [
@@ -29,7 +27,6 @@ define list-map [
     drop
     list-reverse
 ]
-export-name list-map
 
 ; [a1 a2 ...] [b1 b2 ...] list-zip -> [[a1 b1] [a2 b2] ...]
 define list-zip [
@@ -45,7 +42,6 @@ define list-zip [
     ]
     drop drop acc get list-reverse
 ]
-export-name list-zip
 
 ; list-quasiquote( ^[literal-list] *[list-expr] ~[single-value-expr] ... )
 define list-quasiquote [
@@ -58,7 +54,6 @@ define list-quasiquote [
     upquote eval
     %acc get
 ]
-export-name list-quasiquote
 
 ; list list-eval
 ; eval list in a temporary stack and return it as a new list
@@ -72,7 +67,6 @@ define list-eval [
     %list-eval-stack stack-swap
     list-reverse
 ]
-export-name list-eval
 
 ; [v0 v1 v2 ... vN] i list-join -> [v0 i v1 i v2 i ... vN]
 define list-join [
@@ -82,7 +76,6 @@ define list-join [
         [ l list-iterate [i] drop ] list-eval
     ]
 ]
-export-name list-join
 
 ; [list] list-partition [el -> bool] -> [el : #f] [el : #t]
 define list-partition [
@@ -94,7 +87,6 @@ define list-partition [
     list-reverse swap
     list-reverse
 ]
-export-name list-partition
 
 ; Remove the first N elements from the list and put them in their own list
 ; [ v0 ... vN vN+1 ... vM ] n list-split -> [ vN+1 ... vM ] [ v0 ... vN ]
@@ -102,7 +94,6 @@ define list-split [
     [] bury do-times [ list-pop bury swap dig list-push swap ]
     swap list-reverse
 ]
-export-name list-split
 
 ; l list-choose [elem -> elem | #f]
 define list-choose [
@@ -110,7 +101,6 @@ define list-choose [
     const %list
     [ %list list-iterate [%filter eval false? if [drop] [] ] ] list-eval
 ]
-export-name list-choose
 
 ; n list-imake [ i -> el ] -> [ el0 el1 ... eln ]
 define list-imake [
@@ -126,7 +116,6 @@ define list-imake [
     drop
     list-reverse
 ]
-export-name list-imake
 
 ; Sort a list using a mapping function and greater-than for its output
 ; this should be a general sort and also keep original order
@@ -171,7 +160,6 @@ define list-psort [
         list-iterate [list-push]
     ]
 ]
-export-name list-psort
 
 ; Sort a list using a given greater-than comparison function
 ; [v0 v1 ...] list-gtsort [a b -> a b {b > a?}] -> [v0 v1 but sorted ...]
@@ -179,7 +167,8 @@ define list-gtsort [
     upquote quote %%list-gtsort-body definition-add
     list-psort [] [%%list-gtsort-body]
 ]
-export-name list-gtsort
+
+export #t
 
 ; vi: ft=scheme
 

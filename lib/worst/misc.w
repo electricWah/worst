@@ -1,12 +1,9 @@
 
 define ->string [ to-string/terse swap drop ]
-export-name ->string
 
 define port-write-value [ ->string port-write-string ]
-export-name port-write-value
 
 define syntax-read [ source-input-port port-read-value swap drop ]
-export-name syntax-read
 
 ; path read-file -> list
 define read-file [
@@ -18,22 +15,16 @@ define read-file [
 
 ; evaluate = quote; call if symbol
 define evaluate [ upquote symbol? quote call quote when uplevel ]
-export-name evaluate
 
 ; a equals? b => a bool
 define equals? [ upquote equal? swap drop ]
-export-name equals?
 
 define abs [ 0 ascending? swap drop if [negate] [] ]
 define max [ ascending? if [swap] [] drop ]
 define min [ ascending? if [] [swap] drop ]
-export-name abs
-export-name max
-export-name min
 
 ; updo thing => quote thing uplevel
 define updo [ upquote quote uplevel uplevel ]
-export-name updo
 
 ; n iteri [ n -> body ... ]
 ; do body n times with 0 .. n on the stack
@@ -49,7 +40,6 @@ define iteri [
     ]
     drop
 ]
-export-name iteri
 
 ; n do-times [body...]
 define do-times [
@@ -63,15 +53,12 @@ define do-times [
     ]
     drop
 ]
-export-name do-times
 
 define print [ current-output-port swap port-write-string drop ]
-export-name print
 
 define definition-exists [
     updo definition-get not not
 ]
-export-name definition-exists
 
 ; name new-name definition-rename
 define definition-rename [
@@ -83,7 +70,6 @@ define definition-rename [
     updo definition-add
     name updo definition-remove
 ]
-export-name definition-rename
 
 ; name definition-copy-up
 ; copies the definition into the parent scope
@@ -96,7 +82,6 @@ define definition-copy-up [
     quote uplevel
     uplevel
 ]
-export-name definition-copy-up
 
 ; define-gensym name :-> name -> symbol
 define define-gensym [
@@ -118,7 +103,6 @@ define define-gensym [
     name definition-add
     name definition-copy-up
 ]
-export-name define-gensym
 
 define stack-swap [
     const new
@@ -126,7 +110,8 @@ define stack-swap [
     new stack-set
     old
 ]
-export-name stack-swap
+
+export #t
 
 ; vi: ft=scheme
 

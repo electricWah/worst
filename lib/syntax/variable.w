@@ -46,7 +46,7 @@ define variable [
     name
     updo definition-add
 ]
-export-name variable
+export variable
 
 ; vi: ft=scheme
 
