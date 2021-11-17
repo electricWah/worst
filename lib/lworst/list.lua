@@ -116,14 +116,13 @@ function List.to_string_terse(l)
 end
 List.__tostring = function(l) return List.to_string_terse(l) end
 
-function List.equal(a, b)
+function List.__eq(a, b)
     local alen = a:length()
-    if not List.is(b) then return false
-    elseif alen ~= b:length() then return false
+    if alen ~= b:length() then return false
     elseif alen == 0 then return true
     else
         for i = 0, alen do
-            if not base.equal(a:index(i), b:index(i)) then return false end
+            if a:index(i) ~= b:index(i) then return false end
         end
         return true
     end

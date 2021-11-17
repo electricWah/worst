@@ -41,7 +41,7 @@ function Map:has_key(k)
 end
 
 function Map:set(k, v)
-    if base.equal(v, self.data[k]) then
+    if v == self.data[k] then
         return self
     else
         local m = self:clone()

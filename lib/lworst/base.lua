@@ -69,15 +69,6 @@ local can = setmetatable({}, {
         return rawget(t, k)
     end,
 })
-function equal(a, b)
-    if can.equal(a) then
-        return a:equal(b)
-    elseif can.equal(b) then
-        return b:equal(a)
-    else
-        return a == b
-    end
-end
 
 function clone(a)
     if can.clone(a) then
@@ -209,7 +200,6 @@ return {
     Type = Type,
     clone = clone,
     destroy = destroy,
-    equal = equal,
     can = can,
     to_string_format = to_string_format,
     to_string_terse = to_string_terse,

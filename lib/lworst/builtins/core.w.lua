@@ -37,7 +37,7 @@ end)
 i:define("equal?", function(i)
     local b = i:stack_ref(1)
     local a = i:stack_ref(2)
-    i:stack_push(base.equal(a, b))
+    i:stack_push(a == b)
 end)
 
 i:define("clone", function(i)
