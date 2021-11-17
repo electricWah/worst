@@ -4,7 +4,6 @@ local base = require "lworst/base"
 local List = require "lworst/list"
 local Error = base.Error
 local Symbol = base.Symbol
-local Stack = base.Stack
 local Type = base.Type
 
 local Interpreter = Type.new("interpreter")
@@ -25,7 +24,7 @@ function Interpreter.empty()
         parents = {},
         frame = frame_empty(),
         defstacks = {},
-        stack = Stack.empty(),
+        stack = {},
     }, Interpreter)
 end
 
@@ -308,7 +307,7 @@ function Interpreter:stack_push(v)
     elseif type(v) == "table" and getmetatable(v) == nil then
         self:error("stack_push: unknown type", v)
     else
-        self.stack:push(v)
+        table.insert(self.stack, v)
     end
 end
 
@@ -333,7 +332,7 @@ function Interpreter:stack_ref(i, ty)
 end
 
 function Interpreter:stack_pop(ty, purpose)
-    local v = self.stack:pop()
+    local v = table.remove(self.stack)
     if v == nil then
         self:error("stack-empty")
         return self:stack_pop(ty)
@@ -345,7 +344,7 @@ function Interpreter:stack_pop(ty, purpose)
 end
 
 function Interpreter:stack_length()
-    return self.stack:length()
+    return #self.stack
 end
 
 function Interpreter:stack_get()
@@ -357,7 +356,7 @@ function Interpreter:stack_get()
 end
 
 function Interpreter:stack_set(l)
-    while self.stack:pop() ~= nil do end
+    while table.remove(self.stack) ~= nil do end
     for v in l:reverse():iter() do
         self:stack_push(v)
     end

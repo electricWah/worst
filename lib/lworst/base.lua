@@ -143,31 +143,6 @@ function Error:to_list()
     return self.irritants:push(self.message)
 end
 
-local Stack = Type.new("stack")
-Stack.__tostring = function(s)
-    local vals = {}
-    for _, v in ipairs(s) do
-        table.insert(vals, to_string_debug(v))
-    end
-    return "Stack(" .. table.concat(vals, " ") .. ")"
-end
-
-function Stack.empty()
-    return setmetatable({}, Stack)
-end
-
-function Stack:push(v)
-    table.insert(self, v)
-end
-
-function Stack:pop()
-    return table.remove(self)
-end
-
-function Stack:length()
-    return #self
-end
-
 local Place = Type.new("place")
 Place.__tostring = function(p)
     return "Place(" .. tostring(p.v) .. ")"
@@ -239,7 +214,6 @@ return {
     to_string_format = to_string_format,
     to_string_terse = to_string_terse,
     to_string_debug = to_string_debug,
-    Stack = Stack,
     Place = Place,
     contract = contract,
 }
