@@ -48,7 +48,7 @@ define worst-repl [
         false? if [ drop #t ] [
             error? if [
                 clone
-                error->list ["quote-nothing"] equal? bury drop drop
+                error->list list-pop swap drop "quote-nothing" equal? bury drop drop
                 if [
                     ; if it's toplevel then more syntax is required
                     swap interpreter-toplevel bury swap dig

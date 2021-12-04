@@ -1,4 +1,49 @@
 
+local Value = {}
+Value.__index = Value
+
+function Value:__tostring()
+    return "<value " .. tostring(self.value) .. ">"
+end
+
+-- create a value
+function value(v)
+    if v == nil or getmetatable(v) == Value then return v end
+    return setmetatable({
+        value = v,
+        -- is_lua = (getmetatable(v) == nil and type(type(v)) == "string")
+    }, Value)
+end
+
+-- remove the Value wrapper around v if there is one
+function Value:unwrap(v)
+    if getmetatable(self) == Value then
+        return self.value
+    else
+        return self
+    end
+end
+
+function Value:clone()
+    local val = Value.unwrap(self)
+    local r = setmetatable({}, Value)
+    for k, v in pairs(val) do
+        r[k] = v
+    end
+    return r
+end
+
+-- shallow copy self with a new inner value
+function Value:update(new)
+    local r = Value.clone(self)
+    r.value = Value.unwrap(new)
+    return r
+end
+
+-- function Value:update_with(f, ...)
+--     return Value.update(self, f(self.value, ...))
+-- end
+
 local Type = {}
 Type.__index = Type
 Type.__tostring = function(t)
@@ -50,6 +95,8 @@ local Symbol = Type.new("symbol")
 local SymbolCache = setmetatable({}, { __mode = "kv" })
 function Symbol.new(v)
     if SymbolCache[v] then return SymbolCache[v] end
+    if Symbol.is(v) then return v end
+    if type(v) ~= "string" then error("Symbol.new: not a string: " .. v) end
     local s = setmetatable({v = v}, Symbol)
     SymbolCache[v] = s
     return s
@@ -195,6 +242,8 @@ function contract(itypes, otypes, body)
 end
 
 return {
+    Value = Value,
+    value = value,
     Error = Error,
     Symbol = Symbol,
     Type = Type,

@@ -26,9 +26,16 @@ function List.empty()
 end
 
 function List:length() return self.top end
-function List:head() return self.data[self.top] end
-function List:index(n) return self.data[self.top - n] end
+function List:index(n)
+    if n < self.top then
+        return base.Value.unwrap(self.data[self.top - n])
+    else
+        return nil
+    end
+end
+function List:head() return self:index(0) end
 
+-- what is this
 function List.len(t) if List.is(t) then return t:length() else return #t end end
 
 function List:clone()
@@ -52,7 +59,7 @@ function List:pop()
     local l = self:clone()
     local v = l.data[l.top]
     l.top = l.top - 1
-    return l, v
+    return l, base.Value.unwrap(v)
 end
 
 function List:push(v)
@@ -63,12 +70,14 @@ function List:push(v)
         l = self:clone()
     end
     l.top = l.top + 1
-    l.data[l.top] = v
+    l.data[l.top] = base.value(v)
     return l
 end
 
-function List.create(data)
-    if List.is(data) then
+function List.new(data)
+    if data == nil then
+        return List.empty()
+    elseif List.is(data) then
         return data:clone()
     elseif getmetatable(data) then
         error("List.create: not a plain table: " .. base.to_string_debug(data))
@@ -81,7 +90,7 @@ function List.create(data)
         return l
     end
 end
-function List.new(data) return List.create(data or {}) end
+function List.create(data) return List.new(data) end
 
 function List.to_table(t)
     if not List.is(t) then return t end

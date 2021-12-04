@@ -30,19 +30,27 @@ end
 
 function Interpreter.create(body)
     local i = Interpreter.empty()
-    i.frame.body = List.create(body)
+    i:set_body(body)
     return i
+end
+
+function Interpreter:set_body(body)
+    self.frame.body = List.new(base.Value.unwrap(body))
 end
 
 function Interpreter:is_toplevel() return #self.parents == 0 end
 
-function Interpreter:resolve(name)
+function Interpreter:resolve_value(name)
+    name = base.Value.unwrap(name)
     if self.frame.defs[name] ~= nil then
         return self.frame.defs[name]
     else
         local namestack = self.defstacks[name]
         return namestack and namestack[#namestack]
     end
+end
+function Interpreter:resolve(name)
+    return base.Value.unwrap(self:resolve_value(name))
 end
 
 -- returns old frame
@@ -71,12 +79,8 @@ end
 
 function Interpreter:step_into_new(body, name)
     local f = frame_empty(name)
-    f.body = List.create(body)
     enter_child_frame(self, f)
-end
-
-function Interpreter:set_body(body)
-    self.frame.body = List.create(body)
+    self:set_body(body)
 end
 
 function Interpreter:get_body(body) return self.frame.body end
@@ -111,16 +115,16 @@ function Interpreter:define(name, def)
     elseif def == nil then
         self:error("define(_, nil)", name)
     else
-        self.frame.defs[name] = def
+        self.frame.defs[name] = base.value(def)
     end
 end
 
 function Interpreter:definition_get(name)
-    return self.frame.defs[name]
+    return base.Value.unwrap(self.frame.defs[name])
 end
 
 function Interpreter:definition_remove(name)
-    self.frame.defs[name] = nil
+    self.frame.defs[base.Value.unwrap(name)] = nil
 end
 
 function Interpreter:definitions() return self.frame.defs end
@@ -221,7 +225,7 @@ function Interpreter:eval_next(v, name)
         -- set toplevel body
         -- TODO and name == nil?
         if self:is_toplevel() and List.length(self.frame.body) == 0 then
-            self.frame.body = List.create(v)
+            self:set_body(v)
         else
             self:step_into_new(v, name)
             self:into_parent()
@@ -302,25 +306,29 @@ function Interpreter:quote(purpose)
 end
 
 function Interpreter:stack_push(v)
+    local mt = getmetatable(v)
     if v == nil then
         self:error("stack_push(nil)")
-    elseif type(v) == "table" and getmetatable(v) == nil then
+    elseif mt == base.Value then
+        table.insert(self.stack, v)
+    elseif type(v) == "table" and mt == nil then
         self:error("stack_push: unknown type", v)
     else
-        table.insert(self.stack, v)
+        table.insert(self.stack, base.value(v))
     end
 end
 
 function Interpreter:assert_type(v, ty, purpose)
-    if not Type.is(ty, v) then
-        self:error("wrong-type", Type.name(ty), v, purpose)
+    local uv = base.Value.unwrap(v)
+    if not Type.is(ty, uv) then
+        self:error("wrong-type", Type.name(ty), uv, purpose)
         return nil
     else
         return v
     end
 end
 
-function Interpreter:stack_ref(i, ty)
+function Interpreter:stack_ref_value(i, ty)
     local v = self.stack[#self.stack - (i - 1)]
     if v == nil then
         self:error("stack-empty")
@@ -331,7 +339,11 @@ function Interpreter:stack_ref(i, ty)
     end
 end
 
-function Interpreter:stack_pop(ty, purpose)
+function Interpreter:stack_ref(i, ty)
+    return base.Value.unwrap(self:stack_ref_value(i, ty))
+end
+
+function Interpreter:stack_pop_value(ty, purpose)
     local v = table.remove(self.stack)
     if v == nil then
         self:error("stack-empty")
@@ -341,6 +353,10 @@ function Interpreter:stack_pop(ty, purpose)
     else
         return v
     end
+end
+
+function Interpreter:stack_pop(ty, purpose)
+    return base.Value.unwrap(self:stack_pop_value(ty, purpose))
 end
 
 function Interpreter:stack_length()

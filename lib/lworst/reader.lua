@@ -176,8 +176,8 @@ function mod.read_next(port)
 
     function read_token()
         if not port:read(0) then return nil end
+        read_blanks(port)
         for i, matcher in ipairs(matchers) do
-            read_blanks(port)
             local r = matcher(port)
             if r ~= nil then return r end
         end
@@ -203,13 +203,15 @@ function mod.read_next(port)
             end
         end
 
-        if is_list_start(tok) then
-            return read_until_list_end(tok.kind)
-        elseif is_list_end(tok) then
-            error("unmatched closing " .. tok.kind)
-        else
-            return tok
+        if is_list_end(tok) then
+            return error("unmatched closing " .. tok.kind)
         end
+        
+        if is_list_start(tok) then
+            tok = read_until_list_end(tok.kind)
+        end
+
+        return base.value(tok)
     end
 
     return valuify_token(read_token())

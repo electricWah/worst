@@ -20,7 +20,7 @@ function Map:__tostring()
 end
 
 function Map.new(src)
-    return setmetatable({ data = src }, Map)
+    return setmetatable({ data = src or {} }, Map)
 end
 
 function Map.empty()

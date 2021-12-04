@@ -80,7 +80,7 @@ function StringPort:seek(whence, offs, saturating)
 end
 
 function StringPort:write_buf(...)
-    self.src = self.src .. table.concat({ ... })
+    self.src = table.concat({ self.src, ... })
 end
 function StringPort:write(...)
     self:write_buf(...)

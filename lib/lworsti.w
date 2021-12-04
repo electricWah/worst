@@ -9,10 +9,7 @@ import {
     worst/misc
     data/list
     ; data/dict
-
-    ; TODO without this, documentation attribute does nothing, for e.g. help
-    ; syntax/attribute
-    doc ; this should be worst/doc and also import its own stuff
+    worst/doc
 }
 
 ; Interactive if given no arguments
