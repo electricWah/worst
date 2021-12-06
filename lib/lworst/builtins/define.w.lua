@@ -9,7 +9,7 @@ return function(i)
 
 i:define("definition-add", function(i)
     local name = i:stack_pop(Symbol)
-    local body = i:stack_pop({List, "function"})
+    local body = i:stack_pop_value({List, "function"})
     i:define(name, body)
 end)
 
@@ -26,7 +26,7 @@ end)
 
 i:define("definition-resolve", function(i)
     local name = i:stack_ref(1, Symbol)
-    local def = i:resolve(name) or false
+    local def = i:resolve_value(name) or false
     i:stack_push(def)
 end)
 
@@ -42,30 +42,39 @@ end)
 --     end)
 -- end)
 
+local next_dynamic = false
+
+i:define("dynamic", function(i)
+    next_dynamic = true
+end)
+
 -- attribute: wrap body in current definitions
 function wrap_lexical_attr(i)
-    local body_value = i:stack_pop_value()
-    local body = base.Value.unwrap(body_value)
-
     -- this means it should probably be the last thing?
     -- also not sure why it's here?
     i:into_parent()
+
+    if next_dynamic then
+        next_dynamic = false
+        return
+    end
+
+    local body_value = i:stack_pop_value() --:shallow_clone()
+
+    local body = base.Value.unwrap(body_value)
     local all_defs = i:all_definitions()
     
-    local def = base.value(function(i)
+    body_value.value = function(i)
         i:step_into_new(body)
         for k, v in pairs(all_defs) do
             i:define(k, v)
         end
-    end)
-    i:stack_push(base.Value.update(body_value, def))
+    end
+    i:stack_push(body_value)
 end
 
 i:define("default-attributes", function(i)
     i:eval(wrap_lexical_attr)
-end)
-
-i:define("attribute", function(i)
 end)
 
 -- define (attributes) name [ body ... ]
@@ -93,7 +102,7 @@ i:define("define", function(i)
     i:call(S"default-attributes")
     i:into_parent()
 
-    local def = base.value(i:stack_pop_value())
+    local def = i:stack_pop_value()
     local name = i:stack_pop()
     def.name = name
     def.attributes = attrs

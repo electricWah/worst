@@ -12,6 +12,12 @@ local Type = base.Type
 local Symbol = base.Symbol
 local S = Symbol.new
 
+local Export = Type.new("export")
+function Export:__tostring() return "<export "..tostring(self.name)..">" end
+function interp_export(i, name, def)
+    i:pause(setmetatable({ name = name, def = def }, Export))
+end
+
 function read_worst(path)
     local f, err = Port.open_input_file(path)
     if f == nil then return nil, err end
@@ -26,23 +32,36 @@ function read_worst(path)
     end
 end
 
+function lua_module_loader(mod)
+    return function(i)
+        local defs
+        local old_defs = i:definitions()
+        if base.can.call(mod) then
+            mod(i)
+            defs = i:definitions()
+        else
+            -- table
+            defs = mod
+        end
+        for name, def in pairs(defs) do
+            if old_defs[name] ~= def then
+                interp_export(i, name, def)
+            end
+        end
+    end
+end
+
 function read_lua_file(path)
     local f, err = Port.open_input_file(path)
     if f == nil then return nil, err end
-    local lm = load(f:read("*a"), path)()
-    return function(i)
-        lm(i)
-        i:stack_push(Map.new(i:definitions()))
-    end
+    local mod = load(f:read("*a"), path)()
+    return lua_module_loader(mod)
 end
 
 function read_lua_require(path)
     local ok, res = pcall(require, path)
     if not ok then return nil, res end
-    return function(i)
-        res(i)
-        i:stack_push(Map.new(i:definitions()))
-    end
+    return lua_module_loader(res)
 end
 
 function resolve_module(path, libpath)
@@ -66,11 +85,6 @@ function resolve_module(path, libpath)
     end
 end
 
-local Export = Type.new("<export>")
-function Export.new(name, def)
-    return setmetatable({ name = name, def = def }, Export)
-end
-
 function eval_module(parent, mod, name, defs)
     local i = Interpreter.empty()
     for k, v in pairs(defs) do
@@ -87,6 +101,8 @@ function eval_module(parent, mod, name, defs)
         local r = i:run()
         if r == nil then
             break
+        elseif Export.is(r) then
+            exports:set(exports:get():set(r.name, r.def))
         else
             return parent:error("module import failed", name, r)
         end
@@ -176,11 +192,8 @@ i:define("import", function(i)
             local interp, export_names = eval_module(i, mod, im, defs)
             if export_names == true then
                 for k, v in pairs(interp:all_definitions()) do
-                    -- TODO change this to check if defined module == this
-                    -- and not Value.private
-                    if not defs[k] then -- and defs[k] == v then
-                        exports[k] = v
-                    end
+                    -- TODO check Value.private
+                    exports[k] = v
                 end
             elseif Map.is(export_names) then
                 for name, def in Map.iter(export_names) do

@@ -11,7 +11,6 @@ function value(v)
     if v == nil or getmetatable(v) == Value then return v end
     return setmetatable({
         value = v,
-        -- is_lua = (getmetatable(v) == nil and type(type(v)) == "string")
     }, Value)
 end
 
@@ -24,7 +23,16 @@ function Value:unwrap(v)
     end
 end
 
+function Value:shallow_clone()
+    local r = setmetatable({}, Value)
+    for k, v in pairs(self) do
+        r[k] = v
+    end
+    return r
+end
+
 function Value:clone()
+    print("clone bad")
     local val = Value.unwrap(self)
     local r = setmetatable({}, Value)
     for k, v in pairs(val) do
@@ -35,6 +43,7 @@ end
 
 -- shallow copy self with a new inner value
 function Value:update(new)
+    print("update bad")
     local r = Value.clone(self)
     r.value = Value.unwrap(new)
     return r

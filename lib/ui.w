@@ -7,8 +7,8 @@ export worst-repl
 
 import ui/help
 ; help docs for builtins
-import doc/builtins
-export help
+; import doc/builtins
+export (info help)
 
 ; vi: ft=scheme
 

@@ -17,6 +17,10 @@
 ;   ... any more...
 ; ]
 
+; import worst/doc/builtins
+import worst/doc/attribute
+export (doc default-attributes)
+
 import data/dict
 
 dict-empty const %docs
@@ -79,18 +83,6 @@ define documented-names [ %docs dict-keys swap drop ]
 define doc-tags [ %tags ]
 
 define doc-tag? [ %tags swap dict-exists dig drop ]
-
-export {
-    doc-for
-    doc-eval
-    documentation
-    documentation-set
-    has-documentation?
-    documented-names
-
-    doc-tags
-    doc-tag?
-}
 
 ; vi: ft=scheme
 

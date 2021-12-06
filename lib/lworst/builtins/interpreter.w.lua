@@ -23,7 +23,7 @@ end)
 
 i:define("interpreter-definition-add", function(i)
     local name = i:stack_pop(Symbol)
-    local body = i:stack_pop({List, "function"})
+    local body = i:stack_pop_value({List, "function"})
     local interp = i:stack_ref(1, Interpreter)
     interp:define(name, body)
 end)
@@ -96,11 +96,7 @@ i:define("current-context-clear", function(i)
 end)
 
 i:define("current-context-definitions", function(i)
-    local m = Map.empty()
-    for k, v in pairs(i:definitions()) do
-        m = Map.set(m, k, base.clone(v))
-    end
-    i:stack_push(m)
+    i:stack_push(Map.new(i:definitions()))
 end)
 
 -- Should be a map of symbols to definitions

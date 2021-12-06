@@ -127,7 +127,13 @@ function Interpreter:definition_remove(name)
     self.frame.defs[base.Value.unwrap(name)] = nil
 end
 
-function Interpreter:definitions() return self.frame.defs end
+function Interpreter:definitions()
+    local m = {}
+    for k, v in pairs(self.frame.defs) do
+        m[k] = v
+    end
+    return m
+end
 
 function Interpreter:all_definitions()
     local m = {}
@@ -309,8 +315,6 @@ function Interpreter:stack_push(v)
     local mt = getmetatable(v)
     if v == nil then
         self:error("stack_push(nil)")
-    elseif mt == base.Value then
-        table.insert(self.stack, v)
     elseif type(v) == "table" and mt == nil then
         self:error("stack_push: unknown type", v)
     else
