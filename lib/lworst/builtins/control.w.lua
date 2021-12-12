@@ -2,7 +2,6 @@
 local base = require "lworst/base"
 local List = require "lworst/list"
 local Port = require "lworst/port"
-local Map = require "lworst/map"
 local Reader = require "lworst/reader"
 
 local Symbol = base.Symbol

@@ -3,7 +3,6 @@ local mods = {
     "core",
     "interpreter",
     "list",
-    "map",
     "numeric",
     "place",
     "port",

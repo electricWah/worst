@@ -25,7 +25,7 @@ function mod.run_file(path, ...)
 
     local interp = Interpreter.create(body)
 
-    local arglist = List.create({...})
+    local arglist = List.new({...})
     interp:define(Symbol.new("command-line-arguments"), function(i)
         i:stack_push(arglist)
     end)

@@ -1,7 +1,6 @@
 
 local base = require "lworst/base"
 local List = require "lworst/list"
-local Map = require "lworst/map"
 local Symbol = base.Symbol
 local S = Symbol.new
 

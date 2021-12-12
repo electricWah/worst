@@ -2,7 +2,6 @@
 local base = require "lworst/base"
 local Type = base.Type
 local List = require "lworst/list"
-local Map = require "lworst/map"
 local Interpreter = require "lworst/interpreter"
 
 local evaluate = require "compile/evaluate"

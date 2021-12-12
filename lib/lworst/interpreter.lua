@@ -11,7 +11,7 @@ function Interpreter:__tostring() return "<interpreter>" end
 
 function frame_empty(name)
     return {
-        body = List.empty(),
+        body = List.new(),
         threads = {},
         childs = {},
         defs = {},
@@ -87,7 +87,7 @@ function Interpreter:get_body(body) return self.frame.body end
 
 function Interpreter:body_read()
     local body, v = self.frame.body:pop()
-    self.frame.body = body or List.empty()
+    self.frame.body = body or List.new()
     return v
 end
 
@@ -154,7 +154,7 @@ end
 
 -- current is at the front
 function Interpreter:call_stack()
-    local st = List.empty()
+    local st = List.new()
     for _,  p in ipairs(self.parents) do
         st = List.push(st, p.name or false)
     end
@@ -368,7 +368,7 @@ function Interpreter:stack_length()
 end
 
 function Interpreter:stack_get()
-    local l = List.empty()
+    local l = List.new()
     for _, v in ipairs(self.stack) do
         l = l:push(v)
     end

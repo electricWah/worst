@@ -51,7 +51,7 @@ i:define("string-global-matches", function(i)
     for c in string.gmatch(str, pat) do
         table.insert(t, c)
     end
-    i:stack_push(List.create(t))
+    i:stack_push(List.new(t))
 end)
 
 i:define("string-split", function(i)

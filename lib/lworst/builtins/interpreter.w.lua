@@ -3,7 +3,6 @@ local base = require "lworst/base"
 local Interpreter = require "lworst/interpreter"
 local Port = require "lworst/port"
 local List = require "lworst/list"
-local Map = require "lworst/map"
 local Symbol = base.Symbol
 
 return function(i)
@@ -83,7 +82,7 @@ i:define("set-trace-port", function(i)
 end)
 
 i:define("all-definitions", function(i)
-    i:stack_push(Map.new(i:all_definitions()))
+    i:stack_push(List.new_pairs(i:all_definitions()))
 end)
 
 i:define("current-context-set-code", function(i)
@@ -92,17 +91,17 @@ i:define("current-context-set-code", function(i)
 end)
 
 i:define("current-context-clear", function(i)
-    i:set_body(List.empty())
+    i:set_body(List.new())
 end)
 
 i:define("current-context-definitions", function(i)
-    i:stack_push(Map.new(i:definitions()))
+    i:stack_push(List.new_pairs(i:definitions()))
 end)
 
--- Should be a map of symbols to definitions
+-- List of symbol/definition pairs
 i:define("current-context-define-all", function(i)
-    local m = i:stack_pop(Map)
-    for k, v in m:iter() do
+    local m = i:stack_pop(List)
+    for k, v in List.pairs(m) do
         local ks = i:assert_type(k, Symbol)
         local vs = i:assert_type(v, {List, "function"})
         i:define(ks, vs)

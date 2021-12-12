@@ -1,7 +1,5 @@
 
-import doc
-
-documentation [
+doc [
     title "Choose a block of code to run based on the matching condition"
     description "It's basically an if/elseif/else block."
     usage "cond [ [-> bool] { if-true ... } ... ]"

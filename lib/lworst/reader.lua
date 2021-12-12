@@ -193,7 +193,7 @@ function mod.read_next(port)
                     error("unmatched opening " .. ty)
                 elseif is_list_end(t) then
                     if t.kind == ty then
-                        return List.create(acc)
+                        return List.new(acc)
                     else
                         error("expected " .. ty .. " but got " .. t.kind)
                     end

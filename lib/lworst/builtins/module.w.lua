@@ -4,7 +4,6 @@
 local base = require "lworst/base"
 local List = require "lworst/list"
 local Port = require "lworst/port"
-local Map = require "lworst/map"
 local Reader = require "lworst/reader"
 local Interpreter = require "lworst/interpreter"
 
@@ -17,35 +16,36 @@ function Export:__tostring() return "<export "..tostring(self.name)..">" end
 function interp_export(i, name, def)
     i:pause(setmetatable({ name = name, def = def }, Export))
 end
+function interp_export_all(i)
+    i:pause(setmetatable({ all = true, name = "all", }, Export))
+end
 
 function read_worst(path)
     local f, err = Port.open_input_file(path)
     if f == nil then return nil, err end
     return function(i)
-        local l = List.empty()
+        local l = {}
         while true do
             local v = Reader.read_next(f)
             if v == nil then break end
-            l = l:push(v)
+            table.insert(l, v)
         end
-        i:eval(l:reverse())
+        i:eval(List.new(l))
     end
 end
 
 function lua_module_loader(mod)
     return function(i)
-        local defs
         local old_defs = i:definitions()
         if base.can.call(mod) then
             mod(i)
-            defs = i:definitions()
+            interp_export_all(i)
         else
             -- table
-            defs = mod
-        end
-        for name, def in pairs(defs) do
-            if old_defs[name] ~= def then
-                interp_export(i, name, def)
+            for name, def in pairs(mod) do
+                if old_defs[name] ~= def then
+                    interp_export(i, name, def)
+                end
             end
         end
     end
@@ -90,24 +90,37 @@ function eval_module(parent, mod, name, defs)
     for k, v in pairs(defs) do
         i:define(k, v)
     end
-    local exports = base.Place.new(Map.new())
-    i:define("current-module", List.new({Map.new({
+    local old_defs = i:definitions()
+    local exports = base.Place.new(List.new())
+    i:define("current-module", List.new({List.new_pairs({
         [S"name"] = name,
-        [S"exports"] = exports
+        -- [S"exports"] = exports
     })}))
     -- i:step_into_new()
+    local export_all = false
     i:eval_next(mod, name)
     while true do
         local r = i:run()
         if r == nil then
             break
         elseif Export.is(r) then
-            exports:set(exports:get():set(r.name, r.def))
+            if r.all then
+                export_all = true
+            else
+                exports:set(exports:get():add_pair(r.name, r.def))
+            end
         else
             return parent:error("module import failed", name, r)
         end
     end
     i:definition_remove(S"current-module")
+    if export_all then
+        for defname, def in pairs(i:definitions()) do
+            if old_defs[defname] ~= def then
+                exports:set(exports:get():add_pair(defname, def))
+            end
+        end
+    end
     return i, exports:get()
 end
 
@@ -128,38 +141,25 @@ function export_def(i)
     if not i:resolve(S"current-module") then
         return i:error("export: not in a module!")
     end
-    i:call(S"current-module")
-    local current_module = i:stack_pop(Map)
-
-    local exports_place = current_module:get(S"exports")
-    local exports = exports_place:get()
-
-    if exports == true then
-        return i:error("export: already did export #t!")
-    end
 
     local names = i:quote("export")
 
     if names == true then
-        if exports:count() > 0 then
-            return i:error("export #t after exporting specific names", exports:keys())
-        end
-        exports_place:set(true)
+        interp_export_all(i)
     elseif Symbol.is(names) then
         local def = i:resolve_value(names)
         if not def then
-            return i:error("export: not defined", names)
+            return i:error("export: not defined (symbol)", names)
         end
-        exports_place:set(exports:set(names, def))
+        interp_export(i, names, def)
     elseif List.is(names) then
         for name in List.iter(names) do
             local def = i:resolve_value(name)
             if not def then
-                return i:error("export: not defined", name)
+                return i:error("export: not defined (list)", name)
             end
-            exports = exports:set(name, def)
+            interp_export(i, name, def)
         end
-        exports_place:set(exports)
     else
         return i:error("cannot export this")
     end
@@ -195,17 +195,8 @@ i:define("import", function(i)
                     -- TODO check Value.private
                     exports[k] = v
                 end
-            elseif Map.is(export_names) then
-                for name, def in Map.iter(export_names) do
-                    exports[name] = def
-                end
             elseif List.is(export_names) then
-                for name in List.iter(export_names) do
-                    local def = interp:resolve_value(name)
-                    -- pause and expect something on stack?
-                    if not def then
-                        i:error("export: not defined", name)
-                    end
+                for name, def in List.pairs(export_names) do
                     exports[name] = def
                 end
             else
