@@ -1,6 +1,6 @@
 
 local t = require "test"
-local port = require "port"
+local port = require "lworst/port"
 
 local mod = {}
 

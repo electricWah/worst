@@ -8,7 +8,7 @@ local failures = {}
 function fmt_str(s) return string.format("%q", s) end
 
 function mod.check(v, msg)
-    mod.func(function() assert(v, msg or "check failed") end)
+    mod.func(function() if not v then error(msg or "check failed", 6) end end)
 end
 
 function mod.check_equal_with(a, b, f, msg)

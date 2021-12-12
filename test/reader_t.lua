@@ -1,9 +1,9 @@
 
 local t = require "test"
-local port = require "port"
-local reader = require "reader"
-local base = require "base"
-local List = require "list"
+local port = require "lworst/port"
+local reader = require "lworst/reader"
+local base = require "lworst/base"
+local List = require "lworst/list"
 
 local mod = {}
 
@@ -17,15 +17,15 @@ end
 
 mod["read a list part"] = function()
     local p = port.InputPort.string("()")
-    t.check_equal_with(List.empty(), reader.read_next(p), List.equal)
+    t.check_equal(List.new(), reader.read_next(p), List.equal)
     t.check_equal(nil, reader.read_next(p))
 end
 
 mod["read some list parts"] = function()
     local p = port.InputPort.string("()  {}  \n[]")
-    t.check_equal_with(List.empty(), reader.read_next(p), List.equal, "()")
-    t.check_equal_with(List.empty(), reader.read_next(p), List.equal, "{}")
-    t.check_equal_with(List.empty(), reader.read_next(p), List.equal, "[]")
+    t.check_equal(List.new(), reader.read_next(p), "()")
+    t.check_equal(List.new(), reader.read_next(p), "{}")
+    t.check_equal(List.new(), reader.read_next(p), "[]")
     t.check_equal(nil, reader.read_next(p))
 end
 
@@ -113,7 +113,7 @@ mod["escaped string in list"] = function()
     local e
     l, e = l:pop()
     t.check_equal("\"", e)
-    t.check_equal_with(List.empty(), l, List.equal)
+    t.check_equal(List.new(), l)
     t.check_equal(nil, reader.read_next(p))
 end
 
