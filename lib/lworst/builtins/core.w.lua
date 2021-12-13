@@ -31,7 +31,6 @@ end)
 
 i:define("drop", function(i)
     local v = i:stack_pop()
-    base.destroy(v)
 end)
 
 i:define("equal?", function(i)
@@ -42,7 +41,7 @@ end)
 
 i:define("clone", function(i)
     local v = i:stack_ref(1)
-    i:stack_push(base.clone(v))
+    i:stack_push(v)
 end)
 
 i:define("swap", function(i)

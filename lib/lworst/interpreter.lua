@@ -149,7 +149,7 @@ end
 function Interpreter:pause(v) coroutine.yield(v) end
 
 function Interpreter:error(name, ...)
-    coroutine.yield(Error.new(name, List.new {...}), 2)
+    coroutine.yield(Error.new(name, List.new {...}))
 end
 
 -- current is at the front

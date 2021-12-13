@@ -15,7 +15,7 @@ function value(v)
 end
 
 -- remove the Value wrapper around v if there is one
-function Value:unwrap(v)
+function Value:unwrap()
     if getmetatable(self) == Value then
         return self.value
     else
@@ -23,41 +23,9 @@ function Value:unwrap(v)
     end
 end
 
-function Value:shallow_clone()
-    local r = setmetatable({}, Value)
-    for k, v in pairs(self) do
-        r[k] = v
-    end
-    return r
-end
-
-function Value:clone()
-    print("clone bad")
-    local val = Value.unwrap(self)
-    local r = setmetatable({}, Value)
-    for k, v in pairs(val) do
-        r[k] = v
-    end
-    return r
-end
-
--- shallow copy self with a new inner value
-function Value:update(new)
-    print("update bad")
-    local r = Value.clone(self)
-    r.value = Value.unwrap(new)
-    return r
-end
-
--- function Value:update_with(f, ...)
---     return Value.update(self, f(self.value, ...))
--- end
-
 local Type = {}
 Type.__index = Type
-Type.__tostring = function(t)
-    return "Type(" .. t.name .. ")"
-end
+Type.__tostring = function(t) return t.name end
 
 function Type.new(name)
     local t = setmetatable({ name = name }, Type)
@@ -104,7 +72,6 @@ local Symbol = Type.new("symbol")
 local SymbolCache = setmetatable({}, { __mode = "kv" })
 function Symbol.new(v)
     if SymbolCache[v] then return SymbolCache[v] end
-    if Symbol.is(v) then return v end
     if type(v) ~= "string" then error("Symbol.new: not a string: " .. v) end
     local s = setmetatable({v = v}, Symbol)
     SymbolCache[v] = s
@@ -126,21 +93,11 @@ local can = setmetatable({}, {
     end,
 })
 
-function clone(a)
-    if can.clone(a) then
-        return a:clone()
-    else
-        return a
-    end
-end
-
 can.call = function(a)
     return can_impl(a, '__call')
         or type(a) == "function"
         or can_impl(a, 'call')
 end
-
-function destroy(a) if can.destroy(a) then a:destroy() end end
 
 function to_string_format(a, fmt)
     if can.to_string_format(a) then
@@ -207,62 +164,16 @@ function Place:set(v)
     self.v = v
 end
 
-function concat_with(t, f, sep)
-    local a = {}
-    for _, v in ipairs(t) do
-        table.insert(a, f(v))
-    end
-    return table.concat(a, sep)
-end
-
-function contract_expect_types(context, types, values)
-    for i, v in ipairs(values) do
-        local t = types[i]
-        if t ~= true and not Type.is(t, v) then
-            error(context .. " type mismatch: expected {"
-                .. concat_with(types, Type.name, ", ")
-                .. "} but got {"
-                .. concat_with(values, to_string_debug, ", ")
-                .. "}", 3)
-        end
-    end
-end
-
-function contract(itypes, otypes, body)
-    return function(...)
-        local inputs = { ... }
-        if #inputs ~= #itypes then
-            error("input argument mismatch: expected "
-                .. tostring(#itypes)
-                .. " but got "
-                .. tostring(#inputs), 3)
-        end
-        if itypes ~= true then
-            contract_expect_types("input", itypes, inputs)
-        end
-        if otypes == true then
-            return body(...)
-        else
-            local outputs = { body(unpack(inputs)) }
-            contract_expect_types("output", otypes, outputs)
-            return unpack(outputs)
-        end
-    end
-end
-
 return {
     Value = Value,
     value = value,
     Error = Error,
     Symbol = Symbol,
     Type = Type,
-    clone = clone,
-    destroy = destroy,
     can = can,
     to_string_format = to_string_format,
     to_string_terse = to_string_terse,
     to_string_debug = to_string_debug,
     Place = Place,
-    contract = contract,
 }
 
