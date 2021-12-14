@@ -175,7 +175,7 @@ function start_eval_trace(i, name)
     local st = {}
     function write_st(name)
         if name then
-            table.insert(st, prefix .. base.to_string_terse(name or unknown))
+            table.insert(st, prefix .. base.write_string(name or unknown))
         end
     end
 

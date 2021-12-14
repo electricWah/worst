@@ -147,14 +147,14 @@ function List.to_table(t)
     return r
 end
 
-function List.to_string_terse(l)
+function List.write_string(l)
     local acc = {}
     for v in l:iter() do
-        table.insert(acc, base.to_string_terse(v))
+        table.insert(acc, base.write_string(v))
     end
     return "(" .. table.concat(acc, " ") .. ")"
 end
-List.__tostring = function(l) return List.to_string_terse(l) end
+function List:__tostring() return self:write_string() end
 
 -- traverse
 

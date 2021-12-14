@@ -77,10 +77,9 @@ function Symbol.new(v)
     SymbolCache[v] = s
     return s
 end
-function Symbol.to_string_terse(s) return s.v end
-function Symbol.to_string_debug(s) return "Symbol(" .. s.v .. ")" end
-Symbol.__tostring = function(s) return Symbol.to_string_debug(s) end
-function Symbol.unwrap(v) return v.v end
+function Symbol.write_string(s) return s.v end
+Symbol.__tostring = function(s) return s.v end
+function Symbol.unwrap(s) return s.v end
 
 
 function can_impl(v, f) return (getmetatable(v) or {})[f] ~= nil end
@@ -99,35 +98,17 @@ can.call = function(a)
         or can_impl(a, 'call')
 end
 
-function to_string_format(a, fmt)
-    if can.to_string_format(a) then
-        return a:to_string_format(fmt) or false
+function write_string(v)
+    local t = type(v)
+    if t == "string" then
+        return string.format("%q", v)
+    elseif t == "boolean" then
+        if v then return "#t" else return "#f" end
+    elseif can.write_string(v) then
+        return v:write_string()
+    else
+        return tostring(v)
     end
-    return false
-end
-
-local tostring_types = {}
-tostring_types["string"] = function(a)
-    return string.format("%q", a)
-end
-tostring_types["boolean"] = function(a)
-    if a then return "#t" else return "#f" end
-end
-
-function to_string_fallback(a)
-    local t = tostring_types[type(a)]
-    if t then return t(a) end
-    return tostring(a)
-end
-
-function to_string_terse(a)
-    if can.to_string_terse(a) then return a:to_string_terse() end
-    return to_string_format(a, 'terse') or to_string_fallback(a)
-end
-
-function to_string_debug(a)
-    if can.to_string_debug(a) then return a:to_string_debug() end
-    return to_string_format(a, 'debug') or to_string_fallback(a)
 end
 
 local Error = Type.new("error")
@@ -139,9 +120,7 @@ function Error.new(message, irritants)
     }, Error)
 end
 Error.__tostring = function(e)
-    return "<error " ..
-        to_string_terse(e.message) .. to_string_terse(e.irritants)
-        .. ">"
+    return "<error " .. write_string(e.message) .. write_string(e.irritants) .. ">"
 end
 function Error:to_list()
     return self.irritants:push(self.message)
@@ -149,7 +128,7 @@ end
 
 local Place = Type.new("place")
 Place.__tostring = function(p)
-    return "Place(" .. tostring(p.v) .. ")"
+    return "Place(" .. write_string(p.v) .. ")"
 end
 
 function Place.new(v)
@@ -171,9 +150,7 @@ return {
     Symbol = Symbol,
     Type = Type,
     can = can,
-    to_string_format = to_string_format,
-    to_string_terse = to_string_terse,
-    to_string_debug = to_string_debug,
+    write_string = write_string,
     Place = Place,
 }
 

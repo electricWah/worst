@@ -1,5 +1,5 @@
 
-define ->string [ to-string/terse swap drop ]
+define ->string [ value-write-string ]
 
 define port-write-value [ ->string port-write-string ]
 

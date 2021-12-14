@@ -16,14 +16,8 @@ i:define("symbol->string", function(i)
     i:stack_push(Symbol.unwrap(v))
 end)
 
-i:define("to-string/terse", function(i)
-    local v = i:stack_ref(1)
-    i:stack_push(base.to_string_terse(v))
-end)
-
-i:define("to-string/debug", function(i)
-    local v = i:stack_ref(1)
-    i:stack_push(base.to_string_debug(v))
+i:define("value-write-string", function(i)
+    i:stack_push(base.write_string(i:stack_pop()))
 end)
 
 i:define("string-append", function(i)
