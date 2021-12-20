@@ -43,6 +43,14 @@ function List.new(src)
     }, List)
 end
 
+function List:clone()
+    return setmetatable({
+        data = self.data,
+        min = self.min,
+        max = self.max,
+    }, List)
+end
+
 -- query
 function List:length()
     if List.is(self) then
@@ -53,7 +61,7 @@ function List:length()
 end
 function List:index(n)
     if n >= 0 and n < self.max - self.min then
-        return base.Value.unwrap(self.data[self.min + n])
+        return self.data[self.min + n]
     else
         return nil
     end
@@ -74,19 +82,16 @@ end
 
 -- modify
 function list_clone(l, full)
-    local data, min, max = l.data, l.min, l.max
+    l = base.clone(l)
     if full then
-        data, min, max = {}, 0, 0
+        local data, min, max = {}, 0, 0
         for _, v in List.ipairs(l) do
             data[max] = v
             max = max + 1
         end
+        l.data, l.min, l.max = data, min, max
     end
-    return setmetatable({
-        data = data,
-        min = min,
-        max = max,
-    }, List)
+    return l
 end
 
 function List:pop()
@@ -94,7 +99,7 @@ function List:pop()
     local l = list_clone(self)
     local v = l.data[l.min]
     l.min = l.min + 1
-    return l, base.Value.unwrap(v)
+    return l, v
 end
 
 function List:push(v)
@@ -109,7 +114,7 @@ function List:shift()
     local l = list_clone(self)
     local v = l.data[l.max]
     l.max = l.max - 1
-    return l, base.Value.unwrap(v)
+    return l, v
 end
 
 function List:unshift(v)
@@ -147,14 +152,13 @@ function List.to_table(t)
     return r
 end
 
-function List.write_string(l)
+function List:__tostring()
     local acc = {}
-    for v in l:iter() do
-        table.insert(acc, base.write_string(v))
+    for v in self:iter() do
+        table.insert(acc, tostring(v))
     end
     return "(" .. table.concat(acc, " ") .. ")"
 end
-function List:__tostring() return self:write_string() end
 
 -- traverse
 
@@ -181,11 +185,19 @@ function List.ipairs(t)
     end
 end
 
+function List:map(f)
+    local r = {}
+    for _, v in List.ipairs(self) do
+        table.insert(r, f(v))
+    end
+    return List.new(r)
+end
+
 -- as pairs
 
 -- create a (k v ...) list from pairs(src)
-function List.new_pairs(src)
-    if getmetatable(src) or type(src) ~= "table" then
+function List.new_pairs(src, allow_metatable)
+    if (getmetatable(src) and not allow_metatable) or type(src) ~= "table" then
         return error("List.new_pairs: not a plain table: " .. tostring(src))
     end
 
@@ -222,9 +234,8 @@ function List:find_key(k)
     -- if not List.is(self) then
     --     return self[k]
     -- end
-    local ku = base.Value.unwrap(k)
     for key, v in List.pairs(self) do
-        if base.Value.unwrap(key) == ku then
+        if key == k then
             return v
         end
     end

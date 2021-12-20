@@ -10,7 +10,7 @@ i:define("env-get", function(i)
 end)
 
 i:define("stack-dump", function(i)
-    print(unpack(i.stack))
+    print(i:stack_get())
 end)
 
 i:define("current-call-stack", function(i)

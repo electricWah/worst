@@ -22,7 +22,7 @@ end)
 
 i:define("interpreter-definition-add", function(i)
     local name = i:stack_pop(Symbol)
-    local body = i:stack_pop_value({List, "function"})
+    local body = i:stack_pop({List, "function"})
     local interp = i:stack_ref(1, Interpreter)
     interp:define(name, body)
 end)

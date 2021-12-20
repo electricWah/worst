@@ -89,7 +89,7 @@ i:define("port-read-all", function(i)
 end)
 
 i:define("port-write-string", function(i)
-    local v = i:stack_pop(String)
+    local v = i:stack_pop("string")
     local port = i:stack_ref(1, Port.OutputPort)
     port:write_string(v)
 end)
@@ -101,7 +101,7 @@ end)
 
 i:define("eof-object?", function(i)
     local v = i:stack_ref(1)
-    i:stack_push(Port.Eof.is(v))
+    i:stack_push(v == Port.EOF)
 end)
 
 end

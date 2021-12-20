@@ -5,7 +5,7 @@ local Symbol = base.Symbol
 
 local mod = {}
 
-function mod.read_next_value(port)
+function mod.read_next(port)
 
     function whitespace(p)
         local consumed = false
@@ -211,15 +211,11 @@ function mod.read_next_value(port)
             tok = read_until_list_end(tok.kind)
         end
 
-        return base.value(tok)
+        return tok
     end
 
     return valuify_token(read_token())
 
-end
-
-function mod.read_next(port)
-    return base.Value.unwrap(mod.read_next_value(port))
 end
 
 return mod

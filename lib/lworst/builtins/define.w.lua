@@ -8,14 +8,13 @@ return function(i)
 
 i:define("definition-add", function(i)
     local name = i:stack_pop(Symbol)
-    local body = i:stack_pop_value({List, "function"})
+    local body = i:stack_pop({List, "function"})
     i:define(name, body)
 end)
 
 i:define("definition-get", function(i)
     local name = i:stack_ref(1, Symbol)
-    local def = i:definition_get(name) or false
-    i:stack_push(def)
+    i:stack_push(i:definition_get(name) or false)
 end)
 
 i:define("definition-remove", function(i)
@@ -25,8 +24,7 @@ end)
 
 i:define("definition-resolve", function(i)
     local name = i:stack_ref(1, Symbol)
-    local def = i:resolve_value(name) or false
-    i:stack_push(def)
+    i:stack_push(i:resolve(name) or false)
 end)
 
 -- -- "lexical scope"
@@ -58,18 +56,18 @@ function wrap_lexical_attr(i)
         return
     end
 
-    local body_value = i:stack_pop_value() --:shallow_clone()
+    local body = i:stack_pop()
 
-    local body = base.Value.unwrap(body_value)
     local all_defs = i:all_definitions()
     
-    body_value.value = function(i)
+    function wrapped(i)
         i:step_into_new(body)
         for k, v in pairs(all_defs) do
             i:define(k, v)
         end
     end
-    i:stack_push(body_value)
+
+    i:stack_push(base.meta.set_all(wrapped, base.meta.get(body) or {}))
 end
 
 i:define("default-attributes", function(i)
@@ -101,11 +99,13 @@ i:define("define", function(i)
     i:call(S"default-attributes")
     i:into_parent()
 
-    local def = i:stack_pop_value()
-    local name = i:stack_pop()
-    def.name = name
-    def.attributes = attrs
-    def.body = body
+    local def = i:stack_pop({List, "function"})
+    local name = i:stack_pop(Symbol)
+    def = base.meta.set_all(def, {
+        name = name,
+        attributes = attrs,
+        body = body
+    })
     i:define(name, def)
 end)
 

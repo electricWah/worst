@@ -17,7 +17,7 @@ i:define("symbol->string", function(i)
 end)
 
 i:define("value-write-string", function(i)
-    i:stack_push(base.write_string(i:stack_pop()))
+    i:stack_push(tostring(i:stack_pop()))
 end)
 
 i:define("string-append", function(i)
@@ -29,10 +29,12 @@ end)
 i:define("string-join", function(i)
     local sep = i:stack_pop("string")
     local strs = i:stack_pop(List)
-    local t = strs:to_table()
-    for _, v in ipairs(t) do
-        if not Type.is("string", v) then
+    local t = {}
+    for _, v in List.ipairs(strs) do
+        if not base.is_a(v, "string") then
             i:error("wrong-type", "list of strings", strs)
+        else
+            table.insert(t, base.unwrap_lua(v))
         end
     end
     i:stack_push(table.concat(t, sep))

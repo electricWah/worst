@@ -1,115 +1,159 @@
 
-local Value = {}
-Value.__index = Value
-
-function Value:__tostring()
-    return "<value " .. tostring(self.value) .. ">"
-end
-
--- create a value
-function value(v)
-    if v == nil or getmetatable(v) == Value then return v end
-    return setmetatable({
-        value = v,
-    }, Value)
-end
-
--- remove the Value wrapper around v if there is one
-function Value:unwrap()
-    if getmetatable(self) == Value then
-        return self.value
-    else
-        return self
-    end
-end
-
 local Type = {}
-Type.__index = Type
-Type.__tostring = function(t) return t.name end
 
 function Type.new(name)
-    local t = setmetatable({ name = name }, Type)
-    t.__index = t
-    t.is = function(v) return getmetatable(v) == t end
+    local ty = {name=name}
+    ty.__index = ty
+    function ty.is(v) return getmetatable(v) == ty end
+    return setmetatable(ty, Type)
+end
+function Type:__tostring() return "<" .. self.name .. ">" end
+
+local lua_types = {}
+function new_lua_type(ty)
+    local t = Type.new(ty)
+    t.lua_type = ty
+    function t.new(v)
+        if getmetatable(v) == t then
+            return v
+        elseif type(v) ~= ty then
+            return error("not a " .. ty .. ": " .. tostring(v) .. ", " .. tostring(getmetatable(v)))
+        else
+            return setmetatable({
+                value = v
+            }, t)
+        end
+    end
+    function t.__eq(a, b) return a.value == b.value end
+    function t:clone() return t.new(self.value) end
+    function t:unwrap() return self.value end
+    lua_types[ty] = t
     return t
 end
 
-function Type.is(t, v)
-    if t == nil then error("Type.is(nil, " .. tostring(v) .. ")") end
-    if type(v) == t
-    or getmetatable(v) == t
-    or (type(t) == "table" and type(t.is) == "function" and t.is(v))
-    or (type(t) == "function" and t(v))
-    or (type(t) ~= "string" and t == v)
-    then return true end
+local String = new_lua_type("string")
+function String.__tostring(v) return string.format("%q", v.value) end
+local Boolean = new_lua_type("boolean")
+function Boolean.__tostring(v)
+    if v.value then return "#t" else return "#f" end
+end
+local Number = new_lua_type("number")
+function Number.__tostring(v) return tostring(v.value) end
+local Function = new_lua_type("function")
+function Function.__tostring(v) return "<" .. tostring(v.value) .. ">" end
+function Function:__call(...)
+    return self.value(...)
+end
 
-    if type(t) == "table" then
-        for _, t in ipairs(t) do
-            if Type.is(t, v) then return true end
+function value(v)
+    if v == nil then return nil end
+    if getmetatable(getmetatable(v)) == Type then
+        return v
+    end
+    local wrapper = lua_types[type(v)]
+    if wrapper then
+        return wrapper.new(v)
+    else
+        error("cannot use value " .. tostring(v))
+    end
+end
+
+local meta = setmetatable({}, {
+    __tostring = function() return "meta" end
+})
+
+function clone(v)
+    if getmetatable(getmetatable(v)) == Type and type(v.clone) == "function" then
+        local c = v:clone()
+        c[meta] = v[meta]
+        return c
+    elseif type(v) ~= "table" then
+        return v
+    else
+        error("cannot clone " .. type(v) .. " " .. tostring(v))
+    end
+end
+
+function unwrap_lua(v)
+    local mt = getmetatable(v)
+    if mt and lua_types[mt.lua_type] then
+        return v.value
+    else
+        return v
+    end
+end
+
+function is_a(v, ...)
+    if v == nil then return false end
+    local types = {...}
+    local luaty = type(v)
+    local mt = getmetatable(v)
+    for _, ty in ipairs(types) do
+        if mt == ty
+            or (mt and mt.lua_type and mt.lua_type == ty)
+            or luaty == ty
+        then
+            return true
+        elseif type(ty) == "table" and #ty > 0 and is_a(v, unpack(ty)) then
+            return true
         end
     end
-
     return false
 end
 
-function Type.name(t)
-    if type(t) == "string" then return t end
-
-    if type(t) == "table" then
-        local names = {}
-        for _, t in ipairs(t) do
-            table.insert(names, Type.name(t))
-        end
-        if #names > 0 then
-            return table.concat(names, " or ")
-        end
+local Meta = Type.new("meta")
+function Meta:__tostring()
+    local t = {}
+    for k, v in pairs(self) do
+        table.insert(t, tostring(k) .. ": " .. tostring(v))
     end
+    return "{" .. table.concat(t, ", ") .. "}"
+end
+function Meta_clone(orig)
+    local c = setmetatable({}, Meta)
+    for k, v in pairs(orig or {}) do
+        c[k] = v
+    end
+    return c
+end
 
-    return tostring(t)
+function meta.set_all(v, p)
+    local u = value(clone(v))
+    u[meta] = Meta_clone(u[meta])
+    for mk, mv in pairs(p) do
+        mk = unwrap_lua(mk)
+        u[meta][mk] = mv
+    end
+    return u
+end
+
+function meta.set(v, mk, mv)
+    return meta.set_all(v, {[mk]=mv})
+end
+
+function meta.get(v, mk)
+    mk = unwrap_lua(mk)
+    local m = value(v)[meta]
+    if m and mk then
+        -- print("getmeta", m, mk, m[mk])
+        return m[mk]
+    else
+        return m
+    end
 end
 
 local Symbol = Type.new("symbol")
 local SymbolCache = setmetatable({}, { __mode = "kv" })
 function Symbol.new(v)
     if SymbolCache[v] then return SymbolCache[v] end
-    if type(v) ~= "string" then error("Symbol.new: not a string: " .. v) end
+    if Symbol.is(v) then return v end
+    if type(v) ~= "string" then error("Symbol.new: not a string: " .. tostring(v)) end
     local s = setmetatable({v = v}, Symbol)
     SymbolCache[v] = s
     return s
 end
-function Symbol.write_string(s) return s.v end
 Symbol.__tostring = function(s) return s.v end
 function Symbol.unwrap(s) return s.v end
-
-
-function can_impl(v, f) return (getmetatable(v) or {})[f] ~= nil end
-local can = setmetatable({}, {
-    __index = function(t, k)
-        if not rawget(t, k) then
-            t[k] = function(v) return can_impl(k, v) end
-        end
-        return rawget(t, k)
-    end,
-})
-
-can.call = function(a)
-    return can_impl(a, '__call')
-        or type(a) == "function"
-        or can_impl(a, 'call')
-end
-
-function write_string(v)
-    local t = type(v)
-    if t == "string" then
-        return string.format("%q", v)
-    elseif t == "boolean" then
-        if v then return "#t" else return "#f" end
-    elseif can.write_string(v) then
-        return v:write_string()
-    else
-        return tostring(v)
-    end
-end
 
 local Error = Type.new("error")
 function Error.new(message, irritants)
@@ -120,37 +164,31 @@ function Error.new(message, irritants)
     }, Error)
 end
 Error.__tostring = function(e)
-    return "<error " .. write_string(e.message) .. write_string(e.irritants) .. ">"
+    return "<error " .. tostring(e.message) .. tostring(e.irritants) .. ">"
 end
 function Error:to_list()
     return self.irritants:push(self.message)
 end
 
 local Place = Type.new("place")
-Place.__tostring = function(p)
-    return "Place(" .. write_string(p.v) .. ")"
-end
-
-function Place.new(v)
-    return setmetatable({ v = v }, Place)
-end
-
-function Place:get()
-    return self.v
-end
-
-function Place:set(v)
-    self.v = v
-end
+Place.__tostring = function(p) return "Place(" .. tostring(p.v) .. ")" end
+function Place.new(v) return setmetatable({ v = v }, Place) end
+function Place:get() return self.v end
+function Place:set(v) self.v = v end
 
 return {
-    Value = Value,
+    Type = Type,
     value = value,
+    clone = clone,
+    unwrap_lua = unwrap_lua,
+    is_a = is_a,
+    meta = meta,
+    String = String,
+    Boolean = Boolean,
+    Number = Number,
+    Function = Function,
     Error = Error,
     Symbol = Symbol,
-    Type = Type,
-    can = can,
-    write_string = write_string,
     Place = Place,
 }
 

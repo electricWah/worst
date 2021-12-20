@@ -37,7 +37,7 @@ end
 function lua_module_loader(mod)
     return function(i)
         local old_defs = i:definitions()
-        if base.can.call(mod) then
+        if base.is_a(mod, "function") then
             mod(i)
             interp_export_all(i)
         else
@@ -144,24 +144,24 @@ function export_def(i)
 
     local names = i:quote("export")
 
-    if names == true then
+    if base.unwrap_lua(names) == true then
         interp_export_all(i)
     elseif Symbol.is(names) then
-        local def = i:resolve_value(names)
+        local def = i:resolve(names)
         if not def then
             return i:error("export: not defined (symbol)", names)
         end
         interp_export(i, names, def)
     elseif List.is(names) then
         for name in List.iter(names) do
-            local def = i:resolve_value(name)
+            local def = i:resolve(name)
             if not def then
                 return i:error("export: not defined (list)", name)
             end
             interp_export(i, name, def)
         end
     else
-        return i:error("cannot export this")
+        return i:error("cannot export this", names)
     end
 end
 

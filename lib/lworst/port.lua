@@ -8,7 +8,6 @@ local mod = {}
 local Eof = Type.new("eof")
 function Eof.__tostring() return "<EOF>" end
 local EOF = setmetatable({}, Eof)
-mod.Eof = Eof
 mod.EOF = EOF
 
 local StringPort = Type.new("string-port")

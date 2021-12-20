@@ -35,22 +35,18 @@ function Interpreter.create(body)
 end
 
 function Interpreter:set_body(body)
-    self.frame.body = List.new(base.Value.unwrap(body))
+    self.frame.body = List.new(body)
 end
 
 function Interpreter:is_toplevel() return #self.parents == 0 end
 
-function Interpreter:resolve_value(name)
-    name = base.Value.unwrap(name)
+function Interpreter:resolve(name)
     if self.frame.defs[name] ~= nil then
         return self.frame.defs[name]
     else
         local namestack = self.defstacks[name]
         return namestack and namestack[#namestack]
     end
-end
-function Interpreter:resolve(name)
-    return base.Value.unwrap(self:resolve_value(name))
 end
 
 -- returns old frame
@@ -120,11 +116,11 @@ function Interpreter:define(name, def)
 end
 
 function Interpreter:definition_get(name)
-    return base.Value.unwrap(self.frame.defs[name])
+    return self.frame.defs[name]
 end
 
 function Interpreter:definition_remove(name)
-    self.frame.defs[base.Value.unwrap(name)] = nil
+    self.frame.defs[name] = nil
 end
 
 function Interpreter:definitions()
@@ -215,7 +211,7 @@ function Interpreter:eval(v, name)
         self:step_into_new(v, name)
         self:into_parent()
         self:pause(EVAL_BREAK)
-    elseif base.can.call(v) then
+    elseif base.is_a(v, "function") then
         local out, trace, t = start_eval_trace(self, name)
         v(self)
         write_eval_trace(out, trace, t)
@@ -236,8 +232,8 @@ function Interpreter:eval_next(v, name)
             self:step_into_new(v, name)
             self:into_parent()
         end
-    elseif base.can.call(v) then
-        table.insert(self.frame.threads, coroutine.create(v))
+    elseif base.is_a(v, "function") then
+        table.insert(self.frame.threads, coroutine.create(base.unwrap_lua(v)))
     else
         -- TODO step_into_new(List.new{v})
         if v == nil then v = "<nil>" end -- ?
@@ -323,16 +319,22 @@ function Interpreter:stack_push(v)
 end
 
 function Interpreter:assert_type(v, ty, purpose)
-    local uv = base.Value.unwrap(v)
-    if not Type.is(ty, uv) then
-        self:error("wrong-type", Type.name(ty), uv, purpose)
+    if not base.is_a(v, ty) then
+        local type_name = ty
+        if type(ty) == "table" then
+            type_name = List.new_pairs(ty)
+        end
+
+        self:error("wrong-type", tostring(ty), v, purpose)
         return nil
+    elseif type(ty) == "string" then
+        return base.unwrap_lua(v)
     else
         return v
     end
 end
 
-function Interpreter:stack_ref_value(i, ty)
+function Interpreter:stack_ref(i, ty)
     local v = self.stack[#self.stack - (i - 1)]
     if v == nil then
         self:error("stack-empty")
@@ -343,11 +345,7 @@ function Interpreter:stack_ref_value(i, ty)
     end
 end
 
-function Interpreter:stack_ref(i, ty)
-    return base.Value.unwrap(self:stack_ref_value(i, ty))
-end
-
-function Interpreter:stack_pop_value(ty, purpose)
+function Interpreter:stack_pop(ty, purpose)
     local v = table.remove(self.stack)
     if v == nil then
         self:error("stack-empty")
@@ -357,10 +355,6 @@ function Interpreter:stack_pop_value(ty, purpose)
     else
         return v
     end
-end
-
-function Interpreter:stack_pop(ty, purpose)
-    return base.Value.unwrap(self:stack_pop_value(ty, purpose))
 end
 
 function Interpreter:stack_length()

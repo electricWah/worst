@@ -3,7 +3,7 @@ import worst/doc/attribute
 import ui/ansi
 
 doc [
-    title "Show usability"
+    title "Show information on how to use the Worst interactive environment."
     ; description "It's help."
     usage "help topic-name"
     example "help help"
@@ -34,6 +34,7 @@ define info [
     value-doc
     bury drop drop
     false? if [
+        drop
         ansi [ bright red fg "No info available.\n" print reset ]
     ] [
         ansi [ bright magenta fg "Sorry, no nice formatting for now!\n" print reset ]

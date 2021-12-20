@@ -1,8 +1,6 @@
 
 local base = require "lworst/base"
 local List = require "lworst/list"
-local Type = base.Type
-local Symbol = base.Symbol
 
 return function(i)
 
@@ -14,7 +12,7 @@ i:define("uplevel", function(i)
     if not i:into_parent() then
         i:error("root-uplevel")
     else
-        local v = i:stack_pop(Symbol)
+        local v = i:stack_pop(base.Symbol)
         i:call(v)
     end
 end)
@@ -45,16 +43,16 @@ i:define("clone", function(i)
 end)
 
 i:define("swap", function(i)
-    local a = i:stack_pop_value()
-    local b = i:stack_pop_value()
+    local a = i:stack_pop()
+    local b = i:stack_pop()
     i:stack_push(a)
     i:stack_push(b)
 end)
 
 i:define("dig", function(i)
-    local a = i:stack_pop_value()
-    local b = i:stack_pop_value()
-    local c = i:stack_pop_value()
+    local a = i:stack_pop()
+    local b = i:stack_pop()
+    local c = i:stack_pop()
     i:stack_push(b)
     i:stack_push(a)
     i:stack_push(c)
@@ -70,7 +68,7 @@ i:define("bury", function(i)
 end)
 
 i:define("when", function(i)
-    local name = i:stack_pop(Symbol)
+    local name = i:stack_pop(base.Symbol)
     local whether = i:stack_pop("boolean")
     if whether then
         i:call(name)
@@ -90,27 +88,27 @@ i:define("or", function(i)
 end)
 
 i:define("number?", function(i)
-    i:stack_push(Type.is("number", i:stack_ref(1)))
+    i:stack_push(base.is_a(i:stack_ref(1), "number"))
 end)
 
 i:define("string?", function(i)
-    i:stack_push(Type.is("string", i:stack_ref(1)))
+    i:stack_push(base.is_a(i:stack_ref(1), "string"))
 end)
 
 i:define("bool?", function(i)
-    i:stack_push(Type.is("boolean", i:stack_ref(1)))
+    i:stack_push(base.is_a(i:stack_ref(1), "boolean"))
 end)
 
 i:define("symbol?", function(i)
-    i:stack_push(Type.is(Symbol, i:stack_ref(1)))
+    i:stack_push(base.is_a(i:stack_ref(1), base.Symbol))
 end)
 
 i:define("false?", function(i)
-    i:stack_push(not i:stack_ref(1))
+    i:stack_push(not base.unwrap_lua(i:stack_ref(1)))
 end)
 
 i:define("not", function(i)
-    i:stack_push(not i:stack_pop())
+    i:stack_push(not base.unwrap_lua(i:stack_pop()))
 end)
 
 i:define("pause", function(i)
@@ -118,11 +116,11 @@ i:define("pause", function(i)
 end)
 
 i:define("error?", function(i)
-    i:stack_push(Type.is(base.Error, i:stack_ref(1)))
+    i:stack_push(base.is_a(i:stack_ref(1), base.Error))
 end)
 
 i:define("error", function(i)
-    local msg = i:stack_pop({Symbol, "string"})
+    local msg = i:stack_pop({base.Symbol, "string"})
     local irritants = i:stack_pop(List)
     i:error(msg, unpack(List.to_table(irritants)))
 end)
