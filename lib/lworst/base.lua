@@ -135,7 +135,6 @@ function meta.get(v, mk)
     mk = unwrap_lua(mk)
     local m = value(v)[meta]
     if m and mk then
-        -- print("getmeta", m, mk, m[mk])
         return m[mk]
     else
         return m

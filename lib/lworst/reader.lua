@@ -211,7 +211,7 @@ function mod.read_next(port)
             tok = read_until_list_end(tok.kind)
         end
 
-        return tok
+        return base.value(tok)
     end
 
     return valuify_token(read_token())
