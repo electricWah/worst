@@ -21,20 +21,22 @@ local Type = base.Type
 
 local List = Type.new("list")
 
+local List_empty = setmetatable({data = {}, min = 0, max = 0}, List)
+
 -- create
 function List.new(src)
-    if List.is(src) then
+    if src == nil then
+        return List_empty
+    elseif List.is(src) then
         return src
-    elseif getmetatable(src) then
+    elseif nil and (type(src) ~= "table" or getmetatable(src)) then
         return error("List.new: not a plain table: " .. tostring(src))
     end
 
     local data, min, max = {}, 0, 0
-    if src ~= nil then
-        for _, v in ipairs(src) do
-            data[max] = v
-            max = max + 1
-        end
+    for _, v in ipairs(src) do
+        data[max] = base.value(v)
+        max = max + 1
     end
     return setmetatable({
         data = data,

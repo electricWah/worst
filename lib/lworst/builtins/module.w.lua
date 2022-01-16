@@ -70,6 +70,7 @@ function resolve_module(path, libpath)
     end
     local res, err
     for p in List.iter(libpath) do
+        p = base.unwrap_lua(p)
         res, err = read_lua_file(p.."/"..path..".w.lua")
         if res ~= nil then break end
         res, err = read_worst(p.."/"..path..".w")
@@ -86,7 +87,7 @@ function resolve_module(path, libpath)
 end
 
 function eval_module(parent, mod, name, defs)
-    local i = Interpreter.empty()
+    local i = Interpreter.new(mod)
     for k, v in pairs(defs) do
         i:define(k, v)
     end
@@ -96,9 +97,13 @@ function eval_module(parent, mod, name, defs)
         [S"name"] = name,
         -- [S"exports"] = exports
     })}))
+    i:define("export-definition", function(i)
+        local n = i:stack_pop(Symbol)
+        local def = i:stack_pop()
+        exports:set(exports:get():add_pair(n, def))
+    end)
     -- i:step_into_new()
     local export_all = false
-    i:eval_next(mod, name)
     while true do
         local r = i:run()
         if r == nil then

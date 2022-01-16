@@ -9,56 +9,54 @@ local Type = base.Type
 local Interpreter = Type.new("interpreter")
 function Interpreter:__tostring() return "<interpreter>" end
 
-function frame_empty(name)
-    return {
-        body = List.new(),
-        threads = {},
+local Frame = Type.new("frame")
+function new_frame(body)
+    if base.is_a(body, "function") then
+        local b = body
+        body = coroutine.create(function(i) b(i) end)
+    end
+    return setmetatable({
+        body = body or List.new(),
         childs = {},
-        defs = {},
-        name = name
-    }
+        defs = {}, -- maybe nil if thread so you definitely can't define
+    }, Frame)
 end
 
-function Interpreter.empty()
+function Interpreter.new(body)
+    local frame
+    -- function frames are always evaluated as if in their parent frames
+    -- so toplevel frame must be a list (even if empty)
+    if base.is_a(body, "function") then
+        frame = new_frame()
+        table.insert(frame.childs, new_frame(body))
+    else
+        frame = new_frame(body)
+    end
     return setmetatable({
         parents = {},
-        frame = frame_empty(),
+        frame = frame,
         defstacks = {},
         stack = {},
     }, Interpreter)
 end
 
-function Interpreter.create(body)
-    local i = Interpreter.empty()
-    i:set_body(body)
-    return i
-end
-
-function Interpreter:set_body(body)
-    self.frame.body = List.new(body)
-end
-
-function Interpreter:is_toplevel() return #self.parents == 0 end
-
-function Interpreter:resolve(name)
-    if self.frame.defs[name] ~= nil then
-        return self.frame.defs[name]
-    else
-        local namestack = self.defstacks[name]
-        return namestack and namestack[#namestack]
-    end
-end
-
 -- returns old frame
-function enter_parent_frame(interp)
+function enter_parent_frame(interp, keep_child)
     if #interp.parents == 0 then return nil end
     local frame = interp.frame
     interp.frame = table.remove(interp.parents)
-    -- table.insert(interp.frame.childs, frame)
 
     for name, def in pairs(interp.frame.defs) do
         table.remove(interp.defstacks[name])
     end
+
+    if keep_child or #frame.childs > 0 then
+        table.insert(interp.frame.childs, frame)
+    end
+    if not base.is_a(interp.frame.body, List) then
+        print("into_parent not list?")
+    end
+
     return frame
 end
 
@@ -73,35 +71,111 @@ function enter_child_frame(interp, frame)
     interp.frame = frame
 end
 
-function Interpreter:step_into_new(body, name)
-    local f = frame_empty(name)
-    enter_child_frame(self, f)
-    self:set_body(body)
-end
-
+function Interpreter:set_body(body) self.frame.body = List.new(body) end
 function Interpreter:get_body(body) return self.frame.body end
+function Interpreter:is_toplevel() return #self.parents == 0 end
 
-function Interpreter:body_read()
-    local body, v = self.frame.body:pop()
-    self.frame.body = body or List.new()
+function read_body(interp)
+    local v
+    interp.frame.body, v = interp.frame.body:pop()
     return v
 end
 
-function Interpreter:into_parent()
-    local old_frame = enter_parent_frame(self)
-    if not old_frame then
-        return false
-    elseif old_frame.body:length() > 0 or #old_frame.childs > 0 then
-        table.insert(self.frame.childs, old_frame)
-    end
-    return true
+function Interpreter:reset()
+    while enter_parent_frame(self) do end
+    local defs = self.frame.defs
+    self.frame = new_frame()
+    self.frame.defs = defs
 end
 
-function Interpreter:reset()
-    while self:into_parent() do end
-    local defs = self.frame.defs
-    self.frame = frame_empty()
-    self.frame.defs = defs
+function Interpreter:eval(body)
+    -- check current before yield?
+    if base.is_a(body, List) then
+        coroutine.yield(new_frame(body))
+    elseif base.is_a(body, "function") then
+        coroutine.yield(new_frame(body))
+    else
+        error("eval: " .. tostring(body))
+    end
+end
+
+function Interpreter:enter_new_frame(body)
+    enter_child_frame(self, new_frame(body))
+end
+
+function Interpreter:do_uplevel(body)
+    if self:is_toplevel() then return self:error("root-uplevel") end
+    local prev = enter_parent_frame(self)
+    self:eval(body)
+    enter_child_frame(self, prev)
+end
+
+-- returns nil on completion, base.Error on error, any other value on pause
+function Interpreter:run()
+    while true do
+        local frame = table.remove(self.frame.childs)
+        if frame and base.is_a(frame.body, "thread") then
+            -- thread/function frames are run in their parent context
+            if coroutine.status(frame.body) == "dead" then
+                -- drop it
+            else
+                local ok, res = coroutine.resume(frame.body, self)
+                if coroutine.status(frame.body) ~= "dead" then
+                    table.insert(self.frame.childs, frame)
+                end
+                if not ok then
+                    -- necessary? wrap non-Error in Error? ditch Error? idk
+                    self:error(res)
+                elseif base.is_a(res, Frame) then
+                    table.insert(self.frame.childs, res)
+                elseif res ~= nil then
+                    return res
+                end
+            end
+        elseif frame then
+            enter_child_frame(self, frame)
+        elseif base.is_a(self.frame.body, List) then
+            local v
+            self.frame.body, v = self.frame.body:pop()
+            -- print("read", v, self.frame.body)
+            if v == nil then
+            elseif base.is_a(v, Symbol) then
+                -- call in frame coroutine to catch 'undefined'
+                table.insert(self.frame.childs, new_frame(function(i) i:call(v) end))
+            else
+                self:stack_push(v)
+            end
+        elseif self.frame.body == nil then
+            if not enter_parent_frame(self) then
+                return nil
+            end
+        else
+            error("bad body " .. tostring(self.frame.body) .. debug.traceback(""))
+        end
+    end
+end
+
+function Interpreter:call(name)
+    local def = self:try_resolve(name)
+    self:eval(def)
+end
+
+function Interpreter:quote(purpose)
+    local v = read_body(self)
+    if v == nil then
+        self:error("quote-nothing", purpose)
+        v = self:stack_pop(nil, base.value(purpose and ("quote: " .. purpose) or "quote"))
+    end
+    return v
+end
+
+function Interpreter:resolve(name)
+    if self.frame.defs[name] ~= nil then
+        return self.frame.defs[name]
+    else
+        local namestack = self.defstacks[name]
+        return namestack and namestack[#namestack]
+    end
 end
 
 function Interpreter:define(name, def)
@@ -111,7 +185,7 @@ function Interpreter:define(name, def)
     elseif def == nil then
         self:error("define(_, nil)", name)
     else
-        self.frame.defs[name] = base.value(def)
+        self.frame.defs[name] = base.meta.set(base.value(def), "name", name)
     end
 end
 
@@ -142,146 +216,14 @@ function Interpreter:all_definitions()
     return m
 end
 
-function Interpreter:pause(v) coroutine.yield(v) end
+function Interpreter:pause(v)
+    -- check current? remove this and just yield?
+    coroutine.yield(v)
+end
 
 function Interpreter:error(name, ...)
+    -- move into base.error?
     coroutine.yield(Error.new(name, List.new {...}))
-end
-
--- current is at the front
-function Interpreter:call_stack()
-    local st = List.new()
-    for _,  p in ipairs(self.parents) do
-        st = List.push(st, p.name or false)
-    end
-    st = List.push(st, self.frame.name or false)
-    return st
-end
-
-function Interpreter:set_trace_port(p) self.trace_port = p end
-
-function start_eval_trace(i, name)
-    local out = i.trace_port
-    if not out then return end
-    local t = os.clock()
-
-    local unknown = Symbol.new("???")
-    local prefix = " worst`"
-
-    local st = {}
-    function write_st(name)
-        if name then
-            table.insert(st, prefix .. base.write_string(name or unknown))
-        end
-    end
-
-    write_st(name)
-    write_st(i.frame.name)
-    for pt = #i.parents, 1, -1 do
-        local p = i.parents[pt]
-        write_st(p.name)
-    end
-
-    -- for _,  p in ipairs(i.parents) do
-    --     write_st(p.name)
-    -- end
-    -- write_st(i.frame.name)
-    -- write_st(name)
-
-    local trace = table.concat(st, "\n")
-    return out, trace, t
-end
-
-function write_eval_trace(out, trace, t0)
-    if not out then return end
-
-    local t = os.clock()
-
-    -- convert to float for some more precise rounding than just floor
-    local ns = math.floor(tonumber(string.format("%f", ((t - t0) * 1000000))))
-
-    out:write_string(trace .. "\n" .. tostring(ns) .. "\n\n")
-end
-
-local EVAL_BREAK = {}
-
-function Interpreter:eval(v, name)
-    -- local out, trace, t = start_eval_trace(self, name)
-    if List.is(v) then
-        self:step_into_new(v, name)
-        self:into_parent()
-        self:pause(EVAL_BREAK)
-    elseif base.is_a(v, "function") then
-        local out, trace, t = start_eval_trace(self, name)
-        v(self)
-        write_eval_trace(out, trace, t)
-    else
-        self:stack_push(v)
-    end
-    -- write_eval_trace(out, trace, t)
-end
-
--- prepare something to eval for next call to run()
-function Interpreter:eval_next(v, name)
-    if List.is(v) then
-        -- set toplevel body
-        -- TODO and name == nil?
-        if self:is_toplevel() and List.length(self.frame.body) == 0 then
-            self:set_body(v)
-        else
-            self:step_into_new(v, name)
-            self:into_parent()
-        end
-    elseif base.is_a(v, "function") then
-        table.insert(self.frame.threads, coroutine.create(base.unwrap_lua(v)))
-    else
-        -- TODO step_into_new(List.new{v})
-        if v == nil then v = "<nil>" end -- ?
-        self:error("eval_next", v)
-    end
-end
-
--- returns nil on completion, error on error, any other value on pause
-function Interpreter:run()
-    while true do
-        -- leave uplevels
-        while true do
-            local child = table.remove(self.frame.childs)
-            if child then
-                enter_child_frame(self, child)
-            else
-                break
-            end
-        end
-
-        -- take paused coroutine first
-        local thread = table.remove(self.frame.threads)
-        if thread then
-            local ok, res = coroutine.resume(thread, self)
-            if coroutine.status(thread) ~= "dead" then
-                table.insert(self.frame.threads, thread)
-            end
-            if not ok then self:error(res) end
-            if res ~= nil and res ~= EVAL_BREAK then return res end
-        else
-            local c = self:body_read()
-            if c == nil then
-                if enter_parent_frame(self) == nil then
-                    return nil
-                end
-            elseif Symbol.is(c) then
-                local thread = coroutine.create(Interpreter.call)
-                local ok, res = coroutine.resume(thread, self, c)
-                if coroutine.status(thread) ~= "dead" then
-                    table.insert(self.frame.threads, thread)
-                end
-                if not ok then self:error(res) end
-                if res ~= nil and res ~= EVAL_BREAK then return res end
-            else
-                self:stack_push(c)
-            end
-        end
-    end
 end
 
 function Interpreter:try_resolve(name)
@@ -291,20 +233,6 @@ function Interpreter:try_resolve(name)
         def = self:stack_pop()
     end
     return def
-end
-
-function Interpreter:call(name)
-    local def = self:try_resolve(name)
-    self:eval(def, name)
-end
-
-function Interpreter:quote(purpose)
-    local v = self:body_read()
-    if v == nil then
-        self:error("quote-nothing", purpose)
-        v = self:stack_pop()
-    end
-    return v
 end
 
 function Interpreter:stack_push(v)
@@ -319,13 +247,16 @@ function Interpreter:stack_push(v)
 end
 
 function Interpreter:assert_type(v, ty, purpose)
+    -- could move to base if error is
     if not base.is_a(v, ty) then
         local type_name = ty
-        if type(ty) == "table" then
-            type_name = List.new_pairs(ty)
+        if type(ty) == "table" and not getmetatable(ty) then
+            local tt = {}
+            for _, v in ipairs(ty) do table.insert(tt, tostring(v)) end
+            type_name = table.concat(tt, ", ")
         end
 
-        self:error("wrong-type", tostring(ty), v, purpose)
+        self:error("wrong-type", type_name, v, purpose)
         return nil
     elseif type(ty) == "string" then
         return base.unwrap_lua(v)
@@ -337,23 +268,28 @@ end
 function Interpreter:stack_ref(i, ty)
     local v = self.stack[#self.stack - (i - 1)]
     if v == nil then
-        self:error("stack-empty")
+        self:error("stack-empty", ty)
     elseif ty ~= nil then
-        return self:assert_type(v, ty)
+        return self:assert_type(v, ty, "stack_ref " .. i)
     else
         return v
     end
 end
 
 function Interpreter:stack_pop(ty, purpose)
-    local v = table.remove(self.stack)
-    if v == nil then
-        self:error("stack-empty")
-        return self:stack_pop(ty)
-    elseif ty ~= nil then
-        return self:assert_type(v, ty, purpose)
-    else
-        return v
+    while true do
+        local v = table.remove(self.stack)
+        if v == nil then
+            local type_name = ty
+            if type(ty) == "table" and not getmetatable(ty) then
+                type_name = List.new_pairs(ty)
+            end
+            self:error("stack-empty", type_name or "<any>", purpose)
+        elseif ty ~= nil then
+            return self:assert_type(v, ty, purpose)
+        else
+            return v
+        end
     end
 end
 

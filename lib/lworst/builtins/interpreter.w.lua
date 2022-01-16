@@ -11,7 +11,7 @@ return function(i)
 -- i:define("current-interpreter", function(i) i:stack_push(i) end)
 
 i:define("interpreter-empty", function(i)
-    i:stack_push(Interpreter.empty())
+    i:stack_push(Interpreter.new())
 end)
 
 i:define("interpreter-eval", function(i)
@@ -33,6 +33,7 @@ i:define("interpreter-run", function(i)
     i:stack_push(res or false)
 end)
 
+-- TODO remove, instead get-defs, interpreter-empty, set-defs
 i:define("interpreter-reset", function(i)
     local interp = i:stack_ref(1, Interpreter)
     interp:reset()

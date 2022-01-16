@@ -5,16 +5,15 @@ local List = require "lworst/list"
 return function(i)
 
 i:define("quote", function(i)
-    i:stack_push(i:quote())
+    local q = i:quote("quote")
+    i:stack_push(q)
 end)
 
 i:define("uplevel", function(i)
-    if not i:into_parent() then
-        i:error("root-uplevel")
-    else
+    i:do_uplevel(function(i)
         local v = i:stack_pop(base.Symbol)
         i:call(v)
-    end
+    end)
 end)
 
 i:define("eval", function(i)

@@ -13,11 +13,10 @@ return function(i)
 
 -- [ quote quote quote uplevel uplevel ] quote upquote definition-add
 i:define("upquote", function(i)
-    if not i:into_parent() then
-        i:error("root-uplevel")
-    else
-        i:stack_push(i:quote("upquote"))
-    end
+    i:do_uplevel(function(i)
+        local uq = i:quote("upquote")
+        i:stack_push(uq)
+    end)
 end)
 
 -- define const [
@@ -26,8 +25,8 @@ end)
 --     quote definition-add uplevel
 -- ]
 i:define("const", function(i)
-    local c = i:stack_pop()
     local name = i:quote("const")
+    local c = i:stack_pop(nil, ("const " .. tostring(name)))
     i:define(name, function(i)
         i:stack_push(c)
     end)

@@ -1,13 +1,17 @@
 
 local Type = {}
 
+local meta = setmetatable({}, {
+    __tostring = function() return "meta" end
+})
+
 function Type.new(name)
     local ty = {name=name}
     ty.__index = ty
     function ty.is(v) return getmetatable(v) == ty end
     return setmetatable(ty, Type)
 end
-function Type:__tostring() return "<" .. self.name .. ">" end
+function Type:__tostring() return "<type " .. self.name .. ">" end
 
 local lua_types = {}
 function new_lua_type(ty)
@@ -40,7 +44,9 @@ end
 local Number = new_lua_type("number")
 function Number.__tostring(v) return tostring(v.value) end
 local Function = new_lua_type("function")
-function Function.__tostring(v) return "<" .. tostring(v.value) .. ">" end
+function Function.__tostring(v)
+    return "<" .. tostring(meta.get(v, "name") or v.value) .. ">"
+end
 function Function:__call(...)
     return self.value(...)
 end
@@ -54,13 +60,9 @@ function value(v)
     if wrapper then
         return wrapper.new(v)
     else
-        error("cannot use value " .. tostring(v))
+        error("cannot use value " .. tostring(v) .. debug.traceback(""))
     end
 end
-
-local meta = setmetatable({}, {
-    __tostring = function() return "meta" end
-})
 
 function clone(v)
     if getmetatable(getmetatable(v)) == Type and type(v.clone) == "function" then
@@ -90,8 +92,8 @@ function is_a(v, ...)
     local mt = getmetatable(v)
     for _, ty in ipairs(types) do
         if mt == ty
-            or (mt and mt.lua_type and mt.lua_type == ty)
             or luaty == ty
+            or (mt and mt.lua_type and mt.lua_type == ty)
         then
             return true
         elseif type(ty) == "table" and #ty > 0 and is_a(v, unpack(ty)) then
@@ -163,7 +165,8 @@ function Error.new(message, irritants)
     }, Error)
 end
 Error.__tostring = function(e)
-    return "<error " .. tostring(e.message) .. tostring(e.irritants) .. ">"
+    return "error: " ..
+        tostring(e.message) .. " " .. tostring(e.irritants) .. ": " .. e.lua_stack
 end
 function Error:to_list()
     return self.irritants:push(self.message)

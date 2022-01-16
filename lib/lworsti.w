@@ -8,7 +8,6 @@ import {
     ; Useful stuff for programming in general
     worst/misc
     data/list
-    ; data/dict
     worst/doc
 }
 

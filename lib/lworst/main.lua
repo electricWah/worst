@@ -23,7 +23,7 @@ function mod.run_file(path, ...)
         table.insert(body, stx)
     end
 
-    local interp = Interpreter.create(body)
+    local interp = Interpreter.new(List.new(body))
 
     local arglist = List.new({...})
     interp:define(Symbol.new("command-line-arguments"), function(i)

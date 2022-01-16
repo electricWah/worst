@@ -27,29 +27,14 @@ i:define("definition-resolve", function(i)
     i:stack_push(i:resolve(name) or false)
 end)
 
--- -- "lexical scope"
--- i:define("definition-wrap-definitions", function(i)
---     local defs = i:stack_pop(Map)
---     local body = i:stack_pop(List)
---     i:stack_push(function(i)
---         for k, v in Map.iter(defs) do
---             i:define(k, v)
---         end
---         i:eval(body)
---     end)
--- end)
-
 local next_dynamic = false
+i:define("dynamic", function(i) next_dynamic = true end)
 
-i:define("dynamic", function(i)
-    next_dynamic = true
-end)
+local export_def = true
+i:define("private", function(i) export_def = false end)
 
 -- attribute: wrap body in current definitions
 function wrap_lexical_attr(i)
-    -- this means it should probably be the last thing?
-    -- also not sure why it's here?
-    i:into_parent()
 
     if next_dynamic then
         next_dynamic = false
@@ -61,7 +46,7 @@ function wrap_lexical_attr(i)
     local all_defs = i:all_definitions()
     
     function wrapped(i)
-        i:step_into_new(body)
+        i:enter_new_frame(body)
         for k, v in pairs(all_defs) do
             i:define(k, v)
         end
@@ -92,21 +77,27 @@ i:define("define", function(i)
     i:stack_push(name)
     i:stack_push(body)
 
-    -- ugly nonsense, don't know why it works
-    i:step_into_new()
-    i:define(S"%eval-attributes", List.new({true}))
-    i:eval(attrs)
-    i:call(S"default-attributes")
-    i:into_parent()
+    i:eval(function(i)
+        i:enter_new_frame()
+        i:define(S"%eval-attributes", List.new({true}))
+        i:eval(attrs)
+        i:call(S"default-attributes")
+    end)
 
     local def = i:stack_pop({List, "function"})
     local name = i:stack_pop(Symbol)
     def = base.meta.set_all(def, {
-        name = name,
         attributes = attrs,
         body = body
     })
     i:define(name, def)
+    if export_def then
+        i:stack_push(def)
+        i:stack_push(name)
+        i:call(S"export-definition")
+    else
+        export_def = true
+    end
 end)
 
 end
