@@ -1,4 +1,6 @@
 
+local base = require "lworst/base"
+
 local mod = {}
 
 local scope = {}
@@ -17,7 +19,7 @@ function mod.check_equal_with(a, b, f, msg)
 end
 
 function mod.check_equal(a, b, msg)
-    mod.check(a == b, tostring(msg or "not equal") .. ": "
+    mod.check(base.value(a) == base.value(b), tostring(msg or "not equal") .. ": "
         .. fmt_str(a) ..  " ~= " .. fmt_str(b))
 end
 

@@ -14,7 +14,7 @@ rworst: worst.rkt
 
 .PHONY: tests
 tests:
-	@LUA_PATH="${LUA_PATH};./lib/?.lua;./test/?.lua" luajit test/main.lua
+	test/test.sh
 
 .PHONY: deps
 deps:
