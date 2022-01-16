@@ -72,7 +72,7 @@ function enter_child_frame(interp, frame)
 end
 
 function Interpreter:set_body(body) self.frame.body = List.new(body) end
-function Interpreter:get_body(body) return self.frame.body end
+function Interpreter:get_body(body) return self.frame.body or List.new() end
 function Interpreter:is_toplevel() return #self.parents == 0 end
 
 function read_body(interp)
@@ -254,6 +254,8 @@ function Interpreter:assert_type(v, ty, purpose)
             local tt = {}
             for _, v in ipairs(ty) do table.insert(tt, tostring(v)) end
             type_name = table.concat(tt, ", ")
+        else
+            type_name = tostring(ty)
         end
 
         self:error("wrong-type", type_name, v, purpose)

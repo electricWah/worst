@@ -11,8 +11,7 @@ define worst-repl [
 
     interpreter-empty
     interpreter-inherit-definitions
-
-    const %interp
+    const interp
 
     ansi [
         "Welcome to the Worst interactive environment. Type " print
@@ -20,8 +19,8 @@ define worst-repl [
         reset " for assistance.\n" print
     ]
 
-    define display-prompt [
-        const stack
+    define standard-prompt [
+        interp interpreter-stack-get const stack drop
         ansi [
             green fg
             "worst " print
@@ -37,90 +36,106 @@ define worst-repl [
         ]
     ]
 
-    current-input-port 
-    []
-    while [
-        %interp
-        swap list-reverse interpreter-body-set
-        interpreter-run
+    define continuation-prompt [
+        ansi [ cyan fg "... " print yellow fg "> " print reset ]
+    ]
 
-        ; don't display regular prompt if the quote prompt came up
-        false? if [ drop #t ] [
-            error? if [
-                clone
-                error->list list-pop swap drop "quote-nothing" equal? bury drop drop
-                if [
-                    ; if it's toplevel then more syntax is required
-                    swap interpreter-toplevel bury swap dig
-                    if [
-                        drop
-                        ansi [ cyan fg "... " print yellow fg "> " print reset ]
-                        ; unintelligent read
-                        swap port-read-value const v swap
-                        v interpreter-stack-push
-                        #f
-                    ] [
-                        ; quote-nothing but not at toplevel, reset
-                        ->string ansi [ bright red fg print reset ]
-                        "\n" print
-                        interpreter-reset
-                        #t
-                    ]
-                ] [
-                    ; some other error, reset
-                    ->string ansi [ bright red fg print reset ]
-                    "\n" print
-                    interpreter-reset
-                    #t
-                ]
-            ] [
-                ; some other pause, TODO debugging?
-                ansi [
-                    bright blue fg
-                    "Paused (resetting): " print
-                    cyan fg
-                    ->string print
-                    reset
-                ]
-                "\n" print
-                interpreter-reset
-                #t
-            ]
-        ]
-        if [ interpreter-stack-get display-prompt ] []
-        drop
-
-        []
-        swap
-
-        ; eat whitespace
+    ; read-one -> value #t | continue? #f
+    define read-one [
         while [
+            current-input-port
             port-peek-char
             cond [
-                ; eof: escape both loops
-                [eof-object?] [ drop #f #f ]
-                ; newline: escape this loop
-                ["\n" equal? swap drop] [
-                    drop port-read-char drop
-                    #t #f
+                [eof-object?] [
+                    ; leave loop, don't continue
+                    drop drop drop #f #f #f
                 ]
-                ; whitespace?
+                ; newline: leave loop, maybe continue
+                ["\n" equal? swap drop] [
+                    drop port-read-char drop drop
+                    #t #f #f
+                ]
+                ; drop whitespace
                 [ "%s" string-contains-match? ] [
-                    drop port-read-char drop
+                    drop port-read-char drop drop
                     #t
                 ]
-                ; anything else: read a value
+                ; anything else: read a value, leave loop
                 [#t] [
                     drop
                     port-read-value
-                    bury swap dig list-push swap
-                    #t
+                    swap drop
+                    #t #f
                 ]
             ]
         ] []
-        bury swap dig
-    ] [ ]
-    drop drop
+    ]
+
+    ; read-more -> [values] | #f
+    define read-more [
+        []
+        while [
+            read-one
+            if [ list-push #t ] [ ; value
+                ; newline / eof
+                if [ list-reverse ] [ #f ]
+                #f
+            ]
+        ] []
+    ]
+
+    define stack-prompt [
+        while [
+            continuation-prompt
+            read-one
+            if [
+                interp swap
+                interpreter-stack-push
+                drop
+                #f
+            ] []
+        ] []
+    ]
+
+    define toplevel-quote-error? [
+        error? if [
+            interp interpreter-toplevel swap drop if [
+                clone error->list list-pop swap drop
+                "quote-nothing" equal? bury drop drop
+            ] [ #f ]
+        ] [ #f ]
+    ]
+
+    define eval/prompt [
+        interp interpreter-run swap drop
+        cond [
+            [false?] [ drop standard-prompt ]
+            [toplevel-quote-error?] [
+                drop
+                stack-prompt ; eval/prompt
+            ]
+            [#t] [
+                ansi [ red fg ->string print reset ] "\n" print
+                interp interpreter-reset drop
+                standard-prompt
+            ]
+        ]
+    ]
+
+    define interp-give [
+        const more
+        interp interpreter-body-get
+        more list-append
+        interpreter-body-set
+        drop
+    ]
+
+    while [
+        eval/prompt
+        read-more
+        false? if [ ] [ interp-give #t ]
+    ] []
+
 ]
 
 export worst-repl

@@ -9,21 +9,17 @@ doc [
     ; tags []
 ]
 define cond [
-
-    import syntax/variable
-
-    upquote variable %conds
+    upquote
     while [
-        %conds get
         list-empty? if [ "cond: no matching condition" error ] []
-        list-pop swap %conds set
+        list-pop swap const %%conds
         eval
         not
+        %%conds swap
     ] [
-        %conds get
-        list-pop drop %conds set
+        list-pop drop
     ]
-    %conds get list-pop swap drop
+    list-pop swap drop
     eval
 ]
 
