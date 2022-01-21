@@ -17,6 +17,9 @@
 ;   ... any more...
 ; ]
 
+import worst/doc/builtins
+export (swap drop)
+
 ; import worst/doc/builtins
 import worst/doc/attribute
 export (doc default-attributes)

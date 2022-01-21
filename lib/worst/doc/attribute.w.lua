@@ -14,6 +14,12 @@ i:define("value-doc", function(i)
     i:stack_push(base.meta.get(i:stack_ref(1), "doc") or false)
 end)
 
+i:define("value-doc-set", function(i)
+    local doc = i:stack_pop()
+    local value = i:stack_pop()
+    i:stack_push(base.meta.set(value, "doc", doc))
+end)
+
 -- maybe re-resolve this
 local default_attributes = i:resolve(S"default-attributes")
 i:define("default-attributes", function(i)

@@ -27,13 +27,12 @@ doc [
 ]
 define info [
     upquote const topic
-    topic definition-resolve
+    topic updo definition-resolve
     value-doc
     bury drop drop
     cond [
         (false?) [
-            drop
-            ansi [ bright red fg "No info available.\n" print reset ]
+            drop ansi [ bright red fg "No info available.\n" print reset ]
         ]
         (string?) [
             ansi [
