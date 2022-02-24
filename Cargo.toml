@@ -1,0 +1,12 @@
+[package]
+name = "worst"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+[dependencies]
+genawaiter = "0.99"
+downcast-rs = "1.2"
+
+wasm-bindgen = "0.2"
