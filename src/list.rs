@@ -7,10 +7,19 @@ pub struct List<T> {
 }
 
 impl<T> From<Vec<T>> for List<T> {
-    fn from(mut v: Vec<T>) -> List<T> {
-        v.reverse();
-        List { data: v }
+    fn from(mut data: Vec<T>) -> List<T> {
+        data.reverse();
+        List { data }
     }
+}
+
+impl<T> FromIterator<T> for List<T> {
+    fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> Self {
+        let mut data = Vec::from_iter(iter);
+        data.reverse();
+        List { data }
+    }
+
 }
 
 impl<T: PartialEq> PartialEq for List<T> {

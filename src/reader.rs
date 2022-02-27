@@ -3,269 +3,125 @@ use crate::base::*;
 use crate::list::*;
 use std::collections::VecDeque;
 
-struct PeekManyable<T: Iterator> {
-    // peeked is basically base::Stack?
-    peeked: VecDeque<T::Item>,
-    source: T,
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReadError {
+    UnclosedString,
+    UnmatchedHash,
+    UnknownHash(char),
+    UnmatchedList(char),
+    UnknownChar(char),
+    UnparseableNumber(String),
 }
 
-impl<T: Iterator> PeekManyable<T> {
-    fn new(source: T) -> Self { Self { peeked: VecDeque::new(), source } }
-
-    fn peek(&mut self) -> Option<&T::Item> {
-        if self.peeked.len() == 0 {
-            if let Some(v) = self.source.next() {
-                self.peeked.push_back(v);
-            } else { return None; }
-        }
-        self.peeked.front()
+fn read_hash(src: &mut impl Iterator<Item=char>) -> Result<Val, ReadError> {
+    match src.next() {
+        Some('t') => Ok(true.into()),
+        Some('f') => Ok(false.into()),
+        Some(c) => Err(ReadError::UnknownHash(c)),
+        None => Err(ReadError::UnmatchedHash),
     }
+}
 
-    // fn unpeek(&mut self, v: T::Item) { self.peeked.push_front(v); }
-
-    fn peek_at(&mut self, n: usize) -> Option<&T::Item> {
-        for _ in self.peeked.len() ..= n {
-            if let Some(next) = self.source.next() {
-                self.peeked.push_back(next);
-            } else { return None; }
-        }
-        self.peeked.get(n)
-    }
-
-    fn peek_n(&mut self, n: usize) -> Option<&[T::Item]> {
-        if self.peek_at(n).is_none() { return None; }
-        self.peeked.make_contiguous();
-        Some(&self.peeked.as_slices().0[..n])
-    }
-
-    fn peek_while<F: Fn(&T::Item) -> bool> (&mut self, f: F) -> &[T::Item] {
-        let mut len = 0;
-        loop {
-            if let Some(v) = self.peek_at(len) {
-                if f(v) { len = len + 1; } else { break; }
-            } else {
-                break;
+fn read_string(src: &mut impl Iterator<Item=char>) -> Result<String, ReadError> {
+    // single-char escape for now
+    let mut acc = String::new();
+    let mut escaping = false;
+    while let Some(c) = src.next() {
+        if escaping {
+            escaping = false;
+            acc.push(match c {
+                'n' => '\n',
+                c => c, // includes \ and "
+            });
+        } else {
+            match c {
+                '"' => return Ok(acc),
+                '\\' => escaping = true,
+                c => acc.push(c),
             }
         }
-        self.peeked.make_contiguous();
-        &self.peeked.as_slices().0[..len]
     }
-
-    fn drop_n(&mut self, n: usize) -> usize {
-        for i in 0 .. n {
-            if self.next().is_none() { return i; }
-        }
-        return n;
-    }
+    Err(ReadError::UnclosedString)
 }
 
-impl<T: Iterator> Iterator for PeekManyable<T> {
-    type Item = T::Item;
-    fn next(&mut self) -> Option<Self::Item> {
-        self.peeked.pop_front().or_else(|| self.source.next())
-    }
-}
-
-#[cfg(test)]
-mod peekmanyable_tests {
-    use super::PeekManyable;
-    #[test]
-    fn peek_manyable() {
-        let mut p = PeekManyable::new(Box::new(vec![1, 2, 3, 4, 5].into_iter()));
-        assert_eq!(p.peek(), Some(&1));
-        assert_eq!(p.peek(), Some(&1));
-        assert_eq!(p.peek_n(2), Some(&vec![1, 2][..])); //slice lol
-        assert_eq!(p.peek(), Some(&1));
-        assert_eq!(p.peek_n(3), Some(&vec![1, 2, 3][..]));
-        assert_eq!(p.peek_n(3), Some(&vec![1, 2, 3][..]));
-        assert_eq!(p.peek(), Some(&1));
-        assert_eq!(p.peek_at(1), Some(&2));
-        assert_eq!(p.peek_at(2), Some(&3));
-        assert_eq!(p.peek_at(0), Some(&1));
-        assert_eq!(p.peek_at(3), Some(&4));
-        assert_eq!(p.next(), Some(1));
-        assert_eq!(p.peek(), Some(&2));
-        assert_eq!(p.peek_while(|_| false), &vec![][..]);
-        assert_eq!(p.peek_while(|x| *x < 5), &vec![2, 3, 4][..]);
-        assert_eq!(p.next(), Some(2));
-        assert_eq!(p.next(), Some(3));
-        assert_eq!(p.next(), Some(4));
-        assert_eq!(p.next(), Some(5));
-    }
-}
-
-struct Reader {
-    source: PeekManyable<Box<dyn Iterator<Item = char>>>,
-}
-
-impl<T: AsRef<str>> From<T> for Reader {
-    fn from(s: T) -> Reader {
-        let chars: Vec<char> = s.as_ref().chars().collect();
-        Reader { source: PeekManyable::new(Box::new(chars.into_iter())) }
-    }
-}
-
-impl From<Reader> for String {
-    fn from(r: Reader) -> String { r.source.collect() }
-}
-
-impl Reader {
-
-    fn drop_blanks(&mut self) {
-        'blanks: loop {
-            let mut did_stuff = false;
-            'whitespace: while let Some(c) = self.source.peek() {
-                if c.is_whitespace() {
-                    did_stuff = true;
-                    self.source.next();
-                } else {
-                    break 'whitespace;
-                }
-            }
-            // single-line comment
-            if let Some(';') = self.source.peek() {
-                did_stuff = true;
-                'until_newline: while let Some(c) = self.source.next() {
-                    if c == '\n' {
-                        break 'until_newline;
-                    }
-                }
-            }
-            if !did_stuff { break 'blanks; }
-        }
-    }
-
-    fn read_bool(&mut self) -> Option<Val> {
-        match self.source.peek_n(2) {
-            Some(['#', 't']) => {
-                self.source.drop_n(2);
-                Some(true.into())
+fn read_i32(start: char, src: &mut impl Iterator<Item=char>) -> Result<(i32, Option<char>), ReadError> {
+    // maybe just take_while instead
+    let mut acc = String::from(start);
+    let cr = loop {
+        match src.next() {
+            Some(c) if c.is_numeric() => {
+                acc.push(c);
             },
-            Some(['#', 'f']) => {
-                self.source.drop_n(2);
-                Some(false.into())
-            },
-            _ => None,
+            cr => break cr,
         }
-    }
+    };
 
-    fn read_list(&mut self) -> Option<Val> {
-        let endch =
-            match self.source.peek() {
-                Some('(') => ')',
-                Some('[') => ']',
-                Some('{') => '}',
-                _ => return None,
-            };
-        let _startch = self.source.next();
-        let mut acc = vec![];
-        loop {
-            self.drop_blanks();
-            match self.source.peek() {
-                Some(c) if c == &endch => {
-                    let _endch = self.source.next();
-                    return Some(List::from(acc).into());
-                }
-                None => return None,
-                _ => {},
-            }
-
-            match self.read_val() {
-                Some(v) => acc.push(v),
-                None => return None,
-            }
-        }
-    }
-
-    fn read_string(&mut self) -> Option<Val> {
-        // currently take until "
-        // but maybe instead peek() to show unmatched start location
-        if self.source.peek() != Some(&'"') { return None; }
-        let _dq = self.source.next();
-        let mut acc = vec![];
-        // single-char escape for now
-        let mut escaping = false;
-        while let Some(c) = self.source.next() {
-            if escaping {
-                escaping = false;
-                acc.push(match c {
-                    'n' => '\n',
-                    c => c, // includes \ and "
-                });
-            } else {
-                match c {
-                    '"' => return Some(acc.into_iter().collect::<String>().into()),
-                    '\\' => escaping = true,
-                    c => acc.push(c),
-                }
-            }
-        }
-        None
-    }
-
-    fn read_i32(&mut self) -> Option<Val> {
-        // maybe just take_while instead
-        let nums = self.source.peek_while(|x| x.is_numeric());
-        let len = nums.len();
-        if len > 0 {
-            if let Ok(v) = str::parse::<i32>(&nums.iter().collect::<String>()) {
-                self.source.drop_n(len);
-                Some(v.into())
-            } else { None }
-        } else { None }
-    }
-
-    fn read_symbol(&mut self) -> Option<Val> {
-        let mut src = "".to_string();
-        'symbol: loop {
-            match self.source.peek() {
-                Some('('|')' | '['|']' | '{'|'}' | '"') | None => break 'symbol,
-                Some(c) if c.is_whitespace() => break 'symbol,
-                Some(c) => {
-                    src.push(*c);
-                    let _ = self.source.next();
-                },
-            }
-        };
-        if src.len() > 0 {
-            Some(Symbol::new(src).into())
-        } else { None }
-    }
-
-    fn read_val(&mut self) -> Option<Val> {
-        self.drop_blanks();
-        if let v@Some(_) = self.read_bool() { v }
-        else if let v@Some(_) = self.read_list() { v }
-        else if let v@Some(_) = self.read_string() { v }
-        else if let v@Some(_) = self.read_i32() { v }
-        else if let v@Some(_) = self.read_symbol() { v }
-        else { None }
-    }
-
+    if let Ok(v) = str::parse::<i32>(&acc) {
+        Ok((v, cr))
+    } else { Err(ReadError::UnparseableNumber(acc)) }
 }
 
-impl Iterator for Reader {
-    type Item = Val;
-    fn next(&mut self) -> Option<Self::Item> { self.read_val() }
+fn read_list(open: char, src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+    let endch = match open {
+        '(' => ')',
+        '[' => ']',
+        '{' => '}',
+        _ => return Err(ReadError::UnmatchedList(open)),
+    };
+    read_until(Some(endch), src)
+}
+fn read_symbol(start: char, src: &mut impl Iterator<Item=char>) -> (Symbol, Option<char>) {
+    let mut acc = String::from(start);
+    let next = loop {
+        match src.next() {
+            c@(Some('('|')' | '['|']' | '{'|'}' | '"') | None) => break c,
+            c@Some(s) if s.is_whitespace() => break c,
+            Some(c) => acc.push(c),
+        }
+    };
+    (Symbol::new(acc), next)
+}
+
+fn read_until(until: Option<char>, src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+    let mut buf = vec![];
+    let mut next = None;
+    while let Some(c) = next.take().or_else(|| src.next()) {
+        match c {
+            ';' => { while src.next() != Some('\n') {} },
+            '#' => buf.push(read_hash(src)?),
+            '"' => buf.push(read_string(src)?.into()),
+            '(' | '{' | '[' => buf.push(List::from(read_list(c, src)?).into()),
+            c =>
+                if c.is_whitespace() {}
+                else if c.is_numeric() {
+                    let (d, n) = read_i32(c, src)?;
+                    next = n;
+                    buf.push(d.into());
+                }
+                else if Some(c) == until { return Ok(buf); }
+                else {
+                    let (d, n) = read_symbol(c, src);
+                    next = n;
+                    buf.push(d.into());
+                }
+        }
+    }
+    Ok(buf)
+}
+
+pub fn read_all(src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+    read_until(None, src)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn drop_blanks() {
-        let mut r: Reader = "".into();
-        r.drop_blanks();
-        assert_eq!(String::from(r), "");
-
-        r = " ; test \n ok".into();
-        r.drop_blanks();
-        assert_eq!(String::from(r), "ok");
-    }
-
     // assert nothing trailing here?
-    fn vec_read(s: &str) -> Vec<Val> { Vec::from_iter(Reader::from(s)) }
+    fn vec_read(s: &str) -> Vec<Val> {
+        read_all(&mut s.chars()).unwrap()
+        // Vec::from_iter(Reader::from(s))
+    }
 
     #[test]
     fn read_none() {

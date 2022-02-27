@@ -11,7 +11,7 @@ use crate::list::List;
 
 // Code frame with a body being a list of data
 #[derive(Default)]
-struct ListFrame {
+pub struct ListFrame {
     childs: Stack<ChildFrame>,
     body: List<Val>,
     defs: HashMap<String, Definition>,
@@ -29,18 +29,18 @@ enum FrameYield {
     Uplevel(ChildFrame),
 }
 
-struct InterpHandle {
+pub struct Handle {
     co: Co<FrameYield>,
 }
 // not sure if these all have to be mut
-impl InterpHandle {
+impl Handle {
     async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into())).await;
     }
     async fn call(&mut self, s: Symbol) {
         self.co.yield_(FrameYield::Call(s)).await;
     }
-    async fn stack_push(&mut self, v: impl Into<Val>) {
+    pub async fn stack_push(&mut self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
     async fn pause(&mut self) {
@@ -58,13 +58,13 @@ impl InterpHandle {
 
 // Rust code function
 
-trait Eval: Into<ChildFrame> + Into<Definition> {}
-trait EvalOnce: Into<ChildFrame> {}
+pub trait Eval: Into<ChildFrame> + Into<Definition> {}
+pub trait EvalOnce: Into<ChildFrame> {}
 
 type BuiltinFnRet = Pin<Box<dyn Future<Output = ()> + 'static>>;
 
 #[derive(Clone)]
-struct Builtin(Rc<dyn Fn(InterpHandle) -> BuiltinFnRet>);
+pub struct Builtin(Rc<dyn Fn(Handle) -> BuiltinFnRet>);
 
 impl std::fmt::Debug for Builtin {
     fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -72,10 +72,10 @@ impl std::fmt::Debug for Builtin {
     }
 }
 impl<F: 'static + Future<Output=()>,
-     T: 'static + Eval + Fn(InterpHandle) -> F>
+     T: 'static + Eval + Fn(Handle) -> F>
         From<T> for Builtin {
     fn from(f: T) -> Self {
-        Builtin(Rc::new(move |i: InterpHandle| { Box::pin(f(i)) }))
+        Builtin(Rc::new(move |i: Handle| { Box::pin(f(i)) }))
     }
 }
 impl PartialEq for Builtin {
@@ -85,18 +85,18 @@ impl Eq for Builtin {}
 impl ImplValue for Builtin {}
 
 impl<F: 'static + Future<Output=()>,
-     T: 'static + Fn(InterpHandle) -> F>
+     T: 'static + Fn(Handle) -> F>
      Eval for T {}
 
 impl<F: 'static + Future<Output=()>,
-     T: 'static + FnOnce(InterpHandle) -> F>
+     T: 'static + FnOnce(Handle) -> F>
      EvalOnce for T {}
 
 impl Eval for List<Val> {}
 impl EvalOnce for List<Val> {}
 
 // Code frame with a body being an in-progress Rust function
-struct PausedFrame {
+pub struct PausedFrame {
     body: Box<dyn Iterator<Item=FrameYield>>,
 }
 impl PausedFrame {
@@ -105,7 +105,7 @@ impl PausedFrame {
     }
 }
 
-enum ChildFrame {
+pub enum ChildFrame {
     ListFrame(ListFrame),
     PausedFrame(PausedFrame),
 }
@@ -116,12 +116,12 @@ impl From<List<Val>> for ChildFrame {
 }
 
 impl<F: 'static + Future<Output=()>,
-     T: 'static + FnOnce(InterpHandle) -> F>
+     T: 'static + FnOnce(Handle) -> F>
         From<T> for ChildFrame {
     fn from(f: T) -> Self {
         ChildFrame::PausedFrame(PausedFrame {
             body: Box::new(Gen::new(move |co| async move {
-                f(InterpHandle { co }).await;
+                f(Handle { co }).await;
             }).into_iter()),
         })
     }
@@ -130,14 +130,14 @@ impl From<Builtin> for ChildFrame {
     fn from(b: Builtin) -> Self {
         ChildFrame::PausedFrame(PausedFrame {
             body: Box::new(Gen::new(move |co| async move {
-                b.0(InterpHandle { co }).await;
+                b.0(Handle { co }).await;
             }).into_iter()),
         })
     }
 }
 
 #[derive(Debug, Clone)]
-enum Definition {
+pub enum Definition {
     List(List<Val>),
     Builtin(Builtin),
 }
@@ -158,19 +158,24 @@ impl Definition {
 }
 
 #[derive(Default)]
-pub struct Interpreter {
+pub struct Paused {
     frame: ListFrame,
     parents: Stack<ListFrame>,
     stack: Stack<Val>,
     defstacks: HashMap<String, Stack<Definition>>,
 }
 
-impl Interpreter {
+impl Paused {
+
+    // pub fn eval(&mut self, f: impl EvalOnce) {
+    //     self.handle_eval(f.into());
+    //     while !self.run() {}
+    // }
 
     fn new(body: impl Into<List<Val>>) -> Self {
-        Interpreter {
+        Paused {
             frame: ListFrame { body: body.into(), ..ListFrame::default() },
-            ..Interpreter::default()
+            ..Paused::default()
         }
     }
 
@@ -190,7 +195,7 @@ impl Interpreter {
 
     fn is_toplevel(&self) -> bool { self.parents.empty() }
 
-    // pub fn reset(&mut self) // in Interpreter only
+    // pub fn reset(&mut self) // in Paused only
     // maybe not needed with like, eval_in_new_body?
     // pub fn enter_new_frame(&mut self, body: List<Val>)
     // pub fn definitions()
@@ -205,9 +210,9 @@ impl Interpreter {
     // also stack_pop_purpose() etc etc
     // maybe stack() + stack_mut() -> StackRef
     // with pop_any() and pop::<T> and ref etc?
-    fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
-    fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
-    fn stack_len(&self) -> usize { self.stack.len() }
+    pub fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
+    pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
+    pub fn stack_len(&self) -> usize { self.stack.len() }
 
     fn resolve_ref(&self, s: &Symbol) -> Option<&Definition> {
         if let Some(def) = self.frame.defs.get(s.value()) {
@@ -221,7 +226,6 @@ impl Interpreter {
 
     fn read_body(&mut self) -> Option<Val> { self.frame.body.pop() }
 
-    /// return complete
     fn run(&mut self) -> bool {
         loop {
             match self.frame.childs.pop() {
@@ -249,7 +253,7 @@ impl Interpreter {
         }
     }
 
-    // only used from InterpHandle
+    // only used from Handle
     // return whether to pause evaluation
     fn handle_yield(&mut self, y: FrameYield) -> bool {
         match y {
@@ -266,7 +270,7 @@ impl Interpreter {
     }
 
     fn create_call(&mut self, s: Symbol) {
-        self.frame.childs.push((move |mut i: InterpHandle| async move {
+        self.frame.childs.push((move |mut i: Handle| async move {
             i.call(s).await;
         }).into());
     }
@@ -324,6 +328,36 @@ impl Interpreter {
     }
 }
 
+#[derive(Default)]
+pub struct Builder {
+    stack: Stack<Val>,
+    defs: HashMap<String, Definition>,
+}
+
+impl Builder {
+    pub fn eval(&self, f: impl EvalOnce) -> Result<(), Paused> {
+        match f.into() {
+            ChildFrame::ListFrame(frame) => {
+                let mut i = Paused { frame, ..Paused::default() };
+                if i.run() { Ok(()) } else { Err(i) }
+            },
+            paused@ChildFrame::PausedFrame(_) => {
+                let mut i = Paused::new(vec![]);
+                i.handle_eval(paused);
+                if i.run() { Ok(()) } else { Err(i) }
+            },
+        }
+    }
+    pub fn with_stack(mut self, s: impl Into<Stack<Val>>) -> Self {
+        self.stack = s.into();
+        self
+    }
+    pub fn define(mut self, name: impl Into<String>, def: impl Eval) -> Self {
+        self.defs.insert(name.into(), def.into());
+        self
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -331,27 +365,27 @@ mod tests {
     #[test]
     fn interp_basic() {
         // empty
-        assert_eq!(Interpreter::new(vec![]).run(), true);
+        assert!(Builder::default().eval(List::from(vec![])).is_ok());
         // stack
-        let mut i = Interpreter::new(vec![7.into()]);
+        let mut i = Paused::new(vec![7.into()]);
         assert_eq!(i.stack_pop_val(), None);
         assert_eq!(i.run(), true);
         assert_eq!(i.stack_pop_val(), Some(7.into()));
         assert_eq!(i.stack_pop_val(), None);
     }
 
-    async fn toplevel_def(mut i: InterpHandle) {
+    async fn toplevel_def(mut i: Handle) {
         i.stack_push("yay").await;
     }
 
     #[test]
     fn interp_def() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("thingy").into(),
                 Symbol::new("test").into(),
             ]);
-        i.define("test", |mut i: InterpHandle| async move {
+        i.define("test", |mut i: Handle| async move {
             i.stack_push("hello").await;
         });
         i.define("thingy", toplevel_def);
@@ -364,11 +398,11 @@ mod tests {
     #[test]
     fn test_quote() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("quote").into(),
                 Symbol::new("egg").into(),
             ]);
-        i.define("quote", |mut i: InterpHandle| async move {
+        i.define("quote", |mut i: Handle| async move {
             if let Some(q) = i.quote().await {
                 i.stack_push(q).await;
             }
@@ -381,13 +415,13 @@ mod tests {
     #[test]
     fn test_uplevel() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("thing").into(),
                 Symbol::new("egg").into(),
             ]);
         i.define("thing", List::from(vec![ Symbol::new("upquote").into() ]));
-        i.define("upquote", |mut i: InterpHandle| async move {
-            i.uplevel(|mut i: InterpHandle| async move {
+        i.define("upquote", |mut i: Handle| async move {
+            i.uplevel(|mut i: Handle| async move {
                 if let Some(q) = i.quote().await {
                     i.stack_push(q).await;
                 }
@@ -401,13 +435,13 @@ mod tests {
     #[test]
     fn test_uplevel_closure() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("thing").into(),
             ]);
         i.define("thing", List::from(vec![ Symbol::new("upfive").into() ]));
-        i.define("upfive", |mut i: InterpHandle| async move {
+        i.define("upfive", |mut i: Handle| async move {
             let five = Symbol::new("five");
-            i.uplevel(move |mut i: InterpHandle| async move {
+            i.uplevel(move |mut i: Handle| async move {
                 i.stack_push(five).await;
             }).await;
         });
@@ -419,15 +453,15 @@ mod tests {
     #[test]
     fn test_uplevel2() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("thing1").into(),
                 Symbol::new("egg").into(),
             ]);
         i.define("thing1", List::from(vec![ Symbol::new("thing2").into() ]));
         i.define("thing2", List::from(vec![ Symbol::new("upquote2").into() ]));
-        i.define("upquote2", |mut i: InterpHandle| async move {
-            i.uplevel(move |mut i: InterpHandle| async move {
-                i.uplevel(move |mut i: InterpHandle| async move {
+        i.define("upquote2", |mut i: Handle| async move {
+            i.uplevel(move |mut i: Handle| async move {
+                i.uplevel(move |mut i: Handle| async move {
                     if let Some(q) = i.quote().await {
                         i.stack_push(q).await;
                     }
@@ -442,14 +476,14 @@ mod tests {
     #[test]
     fn test_eval() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("eval").into(),
             ]);
-        i.define("eval", |mut i: InterpHandle| async move {
+        i.define("eval", |mut i: Handle| async move {
             i.eval(List::from(vec![ Symbol::new("inner").into() ])).await;
         });
-        i.define("inner", |mut i: InterpHandle| async move {
-            i.eval(|mut i: InterpHandle| async move {
+        i.define("inner", |mut i: Handle| async move {
+            i.eval(|mut i: Handle| async move {
                 i.stack_push(5).await;
             }).await;
         });
@@ -461,12 +495,12 @@ mod tests {
     #[test]
     fn test_eval_closure() {
         let mut i =
-            Interpreter::new(vec![
+            Paused::new(vec![
                 Symbol::new("five").into(),
             ]);
-        i.define("five", |mut i: InterpHandle| async move {
+        i.define("five", |mut i: Handle| async move {
             let five = Symbol::new("five");
-            i.eval(move |mut i: InterpHandle| async move {
+            i.eval(move |mut i: Handle| async move {
                 i.stack_push(five).await;
             }).await;
         });
