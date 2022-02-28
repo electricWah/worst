@@ -4,6 +4,7 @@ use std::io::Read;
 use clap::Parser;
 
 use worst::interpreter::*;
+use worst::builtins;
 use worst::list::List;
 use worst::reader::read_all;
 
@@ -24,7 +25,9 @@ fn main() -> std::io::Result<()> {
         println!("{:?}", e);
         vec![]
     }));
-    if let Err(mut interp) = Builder::default().eval(List::from(body)) {
+    let interp = builtins::install(Builder::default());
+
+    if let Err(mut interp) = interp.eval(List::from(body)) {
         println!("{:?}", interp.stack_pop_val());
     }
     Ok(())

@@ -1,7 +1,6 @@
 
 use crate::base::*;
 use crate::list::*;
-use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReadError {

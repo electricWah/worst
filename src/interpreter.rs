@@ -9,57 +9,79 @@ use genawaiter::{ rc::Gen, rc::Co };
 use crate::base::*;
 use crate::list::List;
 
-// Code frame with a body being a list of data
-#[derive(Default)]
-pub struct ListFrame {
-    childs: Stack<ChildFrame>,
-    body: List<Val>,
-    defs: HashMap<String, Definition>,
-}
-
 type YieldReturn<T> = Rc<Cell<Option<T>>>;
 
-enum FrameYield {
-    Pause,
-    ChildFrame(ChildFrame),
-    Eval(ChildFrame),
-    Call(Symbol),
-    StackPush(Val),
-    Quote(YieldReturn<Val>),
-    Uplevel(ChildFrame),
+// Don't want to leak ChildFrame required by Eval/EvalOnce
+mod private {
+    use super::*;
+
+    #[derive(Default)]
+    pub struct ListFrame {
+        pub childs: Stack<ChildFrame>,
+        pub body: List<Val>,
+        pub defs: HashMap<String, Definition>,
+    }
+
+    pub enum FrameYield {
+        Pause,
+        Eval(ChildFrame),
+        Call(Symbol),
+        StackPush(Val),
+        StackGet(YieldReturn<Stack<Val>>),
+        Quote(YieldReturn<Val>),
+        Uplevel(ChildFrame),
+    }
+
+    pub struct PausedFrame {
+        pub body: Box<dyn Iterator<Item=FrameYield>>,
+    }
+
+    pub enum ChildFrame {
+        ListFrame(ListFrame),
+        PausedFrame(PausedFrame),
+    }
+    pub trait IntoChildFrame: Into<ChildFrame> {}
 }
+use private::*;
 
 pub struct Handle {
     co: Co<FrameYield>,
 }
 // not sure if these all have to be mut
 impl Handle {
-    async fn eval(&mut self, f: impl EvalOnce) {
+    pub async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into())).await;
     }
-    async fn call(&mut self, s: Symbol) {
+    pub async fn call(&mut self, s: Symbol) {
         self.co.yield_(FrameYield::Call(s)).await;
     }
     pub async fn stack_push(&mut self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
-    async fn pause(&mut self) {
+    pub async fn stack_get(&mut self) -> Stack<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
+        r.take().unwrap()
+    }
+    pub async fn pause(&mut self) {
         self.co.yield_(FrameYield::Pause).await;
     }
-    async fn quote(&mut self) -> Option<Val> {
+    pub async fn quote(&mut self) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
         r.take()
     }
-    async fn uplevel(&mut self, f: impl EvalOnce) {
+    pub async fn uplevel(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Uplevel(f.into())).await;
     }
 }
 
 // Rust code function
 
-pub trait Eval: Into<ChildFrame> + Into<Definition> {}
-pub trait EvalOnce: Into<ChildFrame> {}
+pub trait Eval: IntoChildFrame + Into<Definition> {}
+pub trait EvalOnce: IntoChildFrame {}
+
+impl<T: Into<ChildFrame>> IntoChildFrame for T {}
 
 type BuiltinFnRet = Pin<Box<dyn Future<Output = ()> + 'static>>;
 
@@ -94,21 +116,15 @@ impl<F: 'static + Future<Output=()>,
 
 impl Eval for List<Val> {}
 impl EvalOnce for List<Val> {}
+impl Eval for Definition {}
 
 // Code frame with a body being an in-progress Rust function
-pub struct PausedFrame {
-    body: Box<dyn Iterator<Item=FrameYield>>,
-}
 impl PausedFrame {
     fn next(&mut self) -> Option<FrameYield> {
         self.body.next()
     }
 }
 
-pub enum ChildFrame {
-    ListFrame(ListFrame),
-    PausedFrame(PausedFrame),
-}
 impl From<List<Val>> for ChildFrame {
     fn from(body: List<Val>) -> Self {
         ChildFrame::ListFrame(ListFrame { body, .. Default::default() })
@@ -148,9 +164,9 @@ impl<T: Into<Builtin>> From<T> for Definition {
     fn from(v: T) -> Self { Definition::Builtin(v.into()) }
 }
 
-impl Definition {
-    fn start(self) -> ChildFrame {
-        match self {
+impl From<Definition> for ChildFrame {
+    fn from(def: Definition) -> Self {
+        match def {
             Definition::List(body) => body.into(),
             Definition::Builtin(b) => b.into(),
         }
@@ -179,21 +195,24 @@ impl Paused {
         }
     }
 
-    fn define(&mut self, name: impl Into<String>, def: impl Eval) {
+    pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
         self.frame.defs.insert(name.into(), def.into());
+    }
+    fn add_def(&mut self, name: impl Into<String>, def: Definition) {
+        self.frame.defs.insert(name.into(), def);
     }
 
     // pub fn definition_get(&self, name: impl AsRef<str>) -> Option<&Definition> {
     // }
 
-    fn definition_remove(&mut self, name: impl AsRef<String>) {
+    pub fn definition_remove(&mut self, name: impl AsRef<String>) {
         self.frame.defs.remove(name.as_ref());
     }
 
-    fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
-    fn body_ref(&self) -> &List<Val> { &self.frame.body }
+    // pub fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
+    // fn body_ref(&self) -> &List<Val> { &self.frame.body }
 
-    fn is_toplevel(&self) -> bool { self.parents.empty() }
+    pub fn is_toplevel(&self) -> bool { self.parents.empty() }
 
     // pub fn reset(&mut self) // in Paused only
     // maybe not needed with like, eval_in_new_body?
@@ -259,10 +278,10 @@ impl Paused {
         match y {
             FrameYield::Pause => return true,
             // FrameYield::Value(v) => { return Some(v); },
-            FrameYield::ChildFrame(c) => self.frame.childs.push(c),
             FrameYield::Eval(v) => self.handle_eval(v),
             FrameYield::Call(v) => if !self.handle_call(v) { return true; },
             FrameYield::StackPush(v) => self.stack_push(v),
+            FrameYield::StackGet(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => self.handle_quote(yr),
             FrameYield::Uplevel(v) => if !self.handle_uplevel(v) { return true; },
         }
@@ -283,7 +302,7 @@ impl Paused {
     fn handle_call(&mut self, s: Symbol) -> bool {
         if let Some(def) = self.resolve_ref(&s) {
             let d = def.clone();
-            self.frame.childs.push(d.start());
+            self.frame.childs.push(d.into());
             true
         } else {
             self.stack_push(List::from(vec![Symbol::new("undefined").into(), s.into()]));
@@ -339,10 +358,12 @@ impl Builder {
         match f.into() {
             ChildFrame::ListFrame(frame) => {
                 let mut i = Paused { frame, ..Paused::default() };
+                for (k, v) in self.defs.iter() { i.add_def(k, v.clone()); }
                 if i.run() { Ok(()) } else { Err(i) }
             },
             paused@ChildFrame::PausedFrame(_) => {
                 let mut i = Paused::new(vec![]);
+                for (k, v) in self.defs.iter() { i.add_def(k, v.clone()); }
                 i.handle_eval(paused);
                 if i.run() { Ok(()) } else { Err(i) }
             },

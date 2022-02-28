@@ -47,3 +47,13 @@ impl<T> List<T> {
     pub fn push(&mut self, v: T) { self.data.push(v); }
 }
 
+impl<T> From<Stack<T>> for List<T> {
+    fn from(mut s: Stack<T>) -> Self {
+        let mut data = vec![];
+        while let Some(v) = s.pop() {
+            data.push(v);
+        }
+        List::from(data)
+    }
+}
+
