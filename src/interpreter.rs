@@ -17,7 +17,7 @@ mod private {
 
     #[derive(Default)]
     pub struct ListFrame {
-        pub childs: Stack<ChildFrame>,
+        pub childs: List<ChildFrame>,
         pub body: List<Val>,
         pub defs: HashMap<String, Definition>,
     }
@@ -27,7 +27,7 @@ mod private {
         Eval(ChildFrame),
         Call(Symbol),
         StackPush(Val),
-        StackGet(YieldReturn<Stack<Val>>),
+        StackGet(YieldReturn<List<Val>>),
         Quote(YieldReturn<Val>),
         Uplevel(ChildFrame),
     }
@@ -58,7 +58,7 @@ impl Handle {
     pub async fn stack_push(&mut self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
-    pub async fn stack_get(&mut self) -> Stack<Val> {
+    pub async fn stack_get(&mut self) -> List<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
@@ -176,9 +176,9 @@ impl From<Definition> for ChildFrame {
 #[derive(Default)]
 pub struct Paused {
     frame: ListFrame,
-    parents: Stack<ListFrame>,
-    stack: Stack<Val>,
-    defstacks: HashMap<String, Stack<Definition>>,
+    parents: List<ListFrame>,
+    stack: List<Val>,
+    defstacks: HashMap<String, List<Definition>>,
 }
 
 impl Paused {
@@ -212,7 +212,7 @@ impl Paused {
     // pub fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
     // fn body_ref(&self) -> &List<Val> { &self.frame.body }
 
-    pub fn is_toplevel(&self) -> bool { self.parents.empty() }
+    pub fn is_toplevel(&self) -> bool { self.parents.is_empty() }
 
     // pub fn reset(&mut self) // in Paused only
     // maybe not needed with like, eval_in_new_body?
@@ -334,7 +334,7 @@ impl Paused {
 
             for name in self.frame.defs.keys() {
                 let _ = self.defstacks.get_mut(name).and_then(|x| x.pop());
-                if self.defstacks.get(name).map_or(false, |x| x.empty()) {
+                if self.defstacks.get(name).map_or(false, |x| x.is_empty()) {
                     self.defstacks.remove(name);
                 }
             }
@@ -349,7 +349,7 @@ impl Paused {
 
 #[derive(Default)]
 pub struct Builder {
-    stack: Stack<Val>,
+    stack: List<Val>,
     defs: HashMap<String, Definition>,
 }
 
@@ -369,7 +369,7 @@ impl Builder {
             },
         }
     }
-    pub fn with_stack(mut self, s: impl Into<Stack<Val>>) -> Self {
+    pub fn with_stack(mut self, s: impl Into<List<Val>>) -> Self {
         self.stack = s.into();
         self
     }

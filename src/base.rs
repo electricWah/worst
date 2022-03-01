@@ -51,21 +51,3 @@ impl From<&'static str> for Val {
     fn from(s: &'static str) -> Val { String::from(s).into() }
 }
 
-#[derive(Clone, Debug)]
-pub struct Stack<T> {
-    data: Vec<T>,
-}
-impl<T> Default for Stack<T> {
-    fn default() -> Self { Stack { data: vec![] } }
-}
-
-impl<T> Stack<T> {
-    pub fn len(&self) -> usize { self.data.len() }
-    pub fn empty(&self) -> bool { self.len() == 0 }
-    pub fn push(&mut self, v: T) { self.data.push(v) }
-    pub fn pop(&mut self) -> Option<T> { self.data.pop() }
-    pub fn top(&self) -> Option<&T> {
-        if self.empty() { None } else { Some(&self.data[self.data.len() - 1]) }
-    }
-}
-

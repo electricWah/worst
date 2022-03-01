@@ -45,15 +45,8 @@ impl<T> List<T> {
     pub fn is_empty(&self) -> bool { self.data.len() == 0 }
     pub fn pop(&mut self) -> Option<T> { self.data.pop() }
     pub fn push(&mut self, v: T) { self.data.push(v); }
-}
-
-impl<T> From<Stack<T>> for List<T> {
-    fn from(mut s: Stack<T>) -> Self {
-        let mut data = vec![];
-        while let Some(v) = s.pop() {
-            data.push(v);
-        }
-        List::from(data)
+    pub fn top(&self) -> Option<&T> {
+        if self.is_empty() { None } else { Some(&self.data[self.data.len() - 1]) }
     }
 }
 
