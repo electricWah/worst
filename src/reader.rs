@@ -78,7 +78,7 @@ fn read_symbol(start: char, src: &mut impl Iterator<Item=char>) -> (Symbol, Opti
             Some(c) => acc.push(c),
         }
     };
-    (Symbol::new(acc), next)
+    (acc.to_symbol(), next)
 }
 
 fn read_until(until: Option<char>, src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
@@ -139,7 +139,7 @@ mod tests {
     fn read_string() {
         assert_eq!(vec_read("\"egg\" \"blub\\nbo\"\"\" \"ok\\\"ok\""),
                     Vec::from_iter(["egg", "blub\nbo", "", "ok\"ok"]
-                                   .map(ToString::to_string)
+                                   .map(String::from)
                                    .map(Val::from)));
     }
 
@@ -151,29 +151,29 @@ mod tests {
 
     #[test]
     fn read_symbol() {
-        assert_eq!(vec_read("eggs"), vec![Symbol::new("eggs").into()]);
+        assert_eq!(vec_read("eggs"), vec!["eggs".to_symbol().into()]);
         assert_eq!(vec_read("time for-some\n.cool.beans"),
                     Vec::from_iter(["time", "for-some", ".cool.beans"]
-                                   .map(|x| Symbol::new(x).into())));
+                                   .map(|x| x.to_symbol().into())));
     }
 
     #[test]
     fn read_list() {
         assert_eq!(vec_read("bean (bag muffins) ok{}[y(e p)s]"),
-            vec![Symbol::new("bean").into(),
+            vec!["bean".to_symbol().into(),
                 List::from(vec![
-                    Symbol::new("bag").into(),
-                    Symbol::new("muffins").into(),
+                    "bag".to_symbol().into(),
+                    "muffins".to_symbol().into(),
                 ]).into(),
-                Symbol::new("ok").into(),
+                "ok".to_symbol().into(),
                 List::default().into(),
                 List::from(vec![
-                    Symbol::new("y").into(),
+                    "y".to_symbol().into(),
                     List::from(vec![
-                        Symbol::new("e").into(),
-                        Symbol::new("p").into(),
+                        "e".to_symbol().into(),
+                        "p".to_symbol().into(),
                     ]).into(),
-                    Symbol::new("s").into(),
+                    "s".to_symbol().into(),
                 ]).into()]);
     }
 

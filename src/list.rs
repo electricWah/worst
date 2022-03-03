@@ -19,7 +19,19 @@ impl<T> FromIterator<T> for List<T> {
         data.reverse();
         List { data }
     }
+}
 
+impl<T> Iterator for List<T> {
+    type Item = T;
+    fn next(&mut self) -> Option<T> { self.pop() }
+}
+
+impl List<Val> {
+    pub fn from_vals<T: Into<Val>, I: IntoIterator<Item=T>>(iter: I) -> Self {
+        let mut data = Vec::from_iter(iter.into_iter().map(|v| v.into()));
+        data.reverse();
+        List { data }
+    }
 }
 
 impl<T: PartialEq> PartialEq for List<T> {

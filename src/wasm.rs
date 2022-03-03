@@ -7,7 +7,7 @@ use crate::list::List;
 
 #[wasm_bindgen]
 pub fn run_some_code(code: &str) {
-    let mut interp = Builder::default().eval(List::from(Vec::from_iter(Reader::from(code))));
+    let mut interp = Builder::default().eval(List::from_vals(Reader::from(code)));
 }
 
 #[cfg(test)]

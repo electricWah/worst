@@ -21,15 +21,22 @@ mod private {
         pub body: List<Val>,
         pub defs: HashMap<String, Definition>,
     }
+    impl ListFrame {
+        pub fn new_body(body: List<Val>) -> Self {
+            ListFrame { body, ..ListFrame::default() }
+        }
+    }
 
     pub enum FrameYield {
         Pause,
         Eval(ChildFrame),
         Call(Symbol),
         StackPush(Val),
+        StackPop(YieldReturn<Val>),
         StackGet(YieldReturn<List<Val>>),
         Quote(YieldReturn<Val>),
         Uplevel(ChildFrame),
+        Define(String, Definition),
     }
 
     pub struct PausedFrame {
@@ -49,22 +56,45 @@ pub struct Handle {
 }
 // not sure if these all have to be mut
 impl Handle {
+    pub async fn pause(&mut self) {
+        self.co.yield_(FrameYield::Pause).await;
+    }
     pub async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into())).await;
     }
-    pub async fn call(&mut self, s: Symbol) {
-        self.co.yield_(FrameYield::Call(s)).await;
+    pub async fn eval_child(&mut self, body: List<Val>, child: impl EvalOnce) {
+        let mut frame = ListFrame::new_body(body);
+        frame.childs.push(child.into());
+        self.co.yield_(FrameYield::Eval(ChildFrame::ListFrame(frame))).await;
+    }
+    pub async fn call(&mut self, s: impl Into<Symbol>) {
+        self.co.yield_(FrameYield::Call(s.into())).await;
     }
     pub async fn stack_push(&mut self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
+    }
+    pub async fn stack_pop_val(&mut self) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
+        r.take()
+    }
+    pub async fn stack_pop<T: Value>(&mut self) -> Option<T> {
+        match self.stack_pop_val().await {
+            Some(v) =>
+                match v.downcast::<T>() {
+                    Ok(r) => Some(*r),
+                    Err(e) => {
+                        self.stack_push(e).await;
+                        None
+                    },
+                },
+            None => None,
+        }
     }
     pub async fn stack_get(&mut self) -> List<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
-    }
-    pub async fn pause(&mut self) {
-        self.co.yield_(FrameYield::Pause).await;
     }
     pub async fn quote(&mut self) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
@@ -73,6 +103,9 @@ impl Handle {
     }
     pub async fn uplevel(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Uplevel(f.into())).await;
+    }
+    pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
+        self.co.yield_(FrameYield::Define(name.into(), def.into())).await;
     }
 }
 
@@ -116,6 +149,8 @@ impl<F: 'static + Future<Output=()>,
 
 impl Eval for List<Val> {}
 impl EvalOnce for List<Val> {}
+impl Eval for Builtin {}
+impl EvalOnce for Builtin {}
 impl Eval for Definition {}
 
 // Code frame with a body being an in-progress Rust function
@@ -127,7 +162,7 @@ impl PausedFrame {
 
 impl From<List<Val>> for ChildFrame {
     fn from(body: List<Val>) -> Self {
-        ChildFrame::ListFrame(ListFrame { body, .. Default::default() })
+        ChildFrame::ListFrame(ListFrame::new_body(body))
     }
 }
 
@@ -190,7 +225,7 @@ impl Paused {
 
     fn new(body: impl Into<List<Val>>) -> Self {
         Paused {
-            frame: ListFrame { body: body.into(), ..ListFrame::default() },
+            frame: ListFrame::new_body(body.into()),
             ..Paused::default()
         }
     }
@@ -234,9 +269,9 @@ impl Paused {
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
     fn resolve_ref(&self, s: &Symbol) -> Option<&Definition> {
-        if let Some(def) = self.frame.defs.get(s.value()) {
+        if let Some(def) = self.frame.defs.get(s.as_string()) {
             Some(def)
-        } else if let Some(defstack) = self.defstacks.get(s.value()) {
+        } else if let Some(defstack) = self.defstacks.get(s.as_string()) {
             if let Some(def) = defstack.top() {
                 Some(def)
             } else { None }
@@ -277,13 +312,14 @@ impl Paused {
     fn handle_yield(&mut self, y: FrameYield) -> bool {
         match y {
             FrameYield::Pause => return true,
-            // FrameYield::Value(v) => { return Some(v); },
             FrameYield::Eval(v) => self.handle_eval(v),
             FrameYield::Call(v) => if !self.handle_call(v) { return true; },
             FrameYield::StackPush(v) => self.stack_push(v),
+            FrameYield::StackPop(yr) => yr.set(self.stack_pop_val()),
             FrameYield::StackGet(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => self.handle_quote(yr),
             FrameYield::Uplevel(v) => if !self.handle_uplevel(v) { return true; },
+            FrameYield::Define(name, def) => self.add_def(name, def),
         }
         false
     }
@@ -305,7 +341,7 @@ impl Paused {
             self.frame.childs.push(d.into());
             true
         } else {
-            self.stack_push(List::from(vec![Symbol::new("undefined").into(), s.into()]));
+            self.stack_push(List::from(vec!["undefined".to_symbol().into(), s.into()]));
             false
         }
     }
@@ -403,8 +439,8 @@ mod tests {
     fn interp_def() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("thingy").into(),
-                Symbol::new("test").into(),
+                "thingy".to_symbol().into(),
+                "test".to_symbol().into(),
             ]);
         i.define("test", |mut i: Handle| async move {
             i.stack_push("hello").await;
@@ -420,8 +456,8 @@ mod tests {
     fn test_quote() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("quote").into(),
-                Symbol::new("egg").into(),
+                "quote".to_symbol().into(),
+                "egg".to_symbol().into(),
             ]);
         i.define("quote", |mut i: Handle| async move {
             if let Some(q) = i.quote().await {
@@ -429,7 +465,7 @@ mod tests {
             }
         });
         assert_eq!(i.run(), true);
-        assert_eq!(i.stack_pop_val(), Some(Symbol::new("egg").into()));
+        assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
 
@@ -437,10 +473,10 @@ mod tests {
     fn test_uplevel() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("thing").into(),
-                Symbol::new("egg").into(),
+                "thing".to_symbol().into(),
+                "egg".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ Symbol::new("upquote").into() ]));
+        i.define("thing", List::from(vec![ "upquote".to_symbol().into() ]));
         i.define("upquote", |mut i: Handle| async move {
             i.uplevel(|mut i: Handle| async move {
                 if let Some(q) = i.quote().await {
@@ -449,7 +485,7 @@ mod tests {
             }).await;
         });
         assert_eq!(i.run(), true);
-        assert_eq!(i.stack_pop_val(), Some(Symbol::new("egg").into()));
+        assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
 
@@ -457,17 +493,17 @@ mod tests {
     fn test_uplevel_closure() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("thing").into(),
+                "thing".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ Symbol::new("upfive").into() ]));
+        i.define("thing", List::from(vec![ "upfive".to_symbol().into() ]));
         i.define("upfive", |mut i: Handle| async move {
-            let five = Symbol::new("five");
+            let five = "five".to_symbol();
             i.uplevel(move |mut i: Handle| async move {
                 i.stack_push(five).await;
             }).await;
         });
         assert_eq!(i.run(), true);
-        assert_eq!(i.stack_pop_val(), Some(Symbol::new("five").into()));
+        assert_eq!(i.stack_pop_val(), Some("five".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
 
@@ -475,11 +511,11 @@ mod tests {
     fn test_uplevel2() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("thing1").into(),
-                Symbol::new("egg").into(),
+                "thing1".to_symbol().into(),
+                "egg".to_symbol().into(),
             ]);
-        i.define("thing1", List::from(vec![ Symbol::new("thing2").into() ]));
-        i.define("thing2", List::from(vec![ Symbol::new("upquote2").into() ]));
+        i.define("thing1", List::from(vec![ "thing2".to_symbol().into() ]));
+        i.define("thing2", List::from(vec![ "upquote2".to_symbol().into() ]));
         i.define("upquote2", |mut i: Handle| async move {
             i.uplevel(move |mut i: Handle| async move {
                 i.uplevel(move |mut i: Handle| async move {
@@ -490,7 +526,7 @@ mod tests {
             }).await;
         });
         assert_eq!(i.run(), true);
-        assert_eq!(i.stack_pop_val(), Some(Symbol::new("egg").into()));
+        assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
 
@@ -498,10 +534,10 @@ mod tests {
     fn test_eval() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("eval").into(),
+                "eval".to_symbol().into(),
             ]);
         i.define("eval", |mut i: Handle| async move {
-            i.eval(List::from(vec![ Symbol::new("inner").into() ])).await;
+            i.eval(List::from(vec![ "inner".to_symbol().into() ])).await;
         });
         i.define("inner", |mut i: Handle| async move {
             i.eval(|mut i: Handle| async move {
@@ -517,16 +553,16 @@ mod tests {
     fn test_eval_closure() {
         let mut i =
             Paused::new(vec![
-                Symbol::new("five").into(),
+                "five".to_symbol().into(),
             ]);
         i.define("five", |mut i: Handle| async move {
-            let five = Symbol::new("five");
+            let five = "five".to_symbol();
             i.eval(move |mut i: Handle| async move {
                 i.stack_push(five).await;
             }).await;
         });
         assert_eq!(i.run(), true);
-        assert_eq!(i.stack_pop_val(), Some(Symbol::new("five").into()));
+        assert_eq!(i.stack_pop_val(), Some("five".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
 

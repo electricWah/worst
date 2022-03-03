@@ -38,8 +38,18 @@ pub struct Symbol {
     v: String,
 }
 impl Symbol {
-    pub fn new<T: ToString>(t: T) -> Self { Symbol { v: t.to_string() } }
-    pub fn value(&self) -> &String { &self.v }
+    pub fn as_string(&self) -> &String { &self.v }
+}
+pub trait ToSymbol { fn to_symbol(self) -> Symbol; }
+impl<T: Into<Symbol>> ToSymbol for T {
+    fn to_symbol(self) -> Symbol { self.into() }
+}
+
+impl From<&str> for Symbol {
+    fn from(s: &str) -> Symbol { Symbol { v: s.to_string() } }
+}
+impl From<Symbol> for String {
+    fn from(s: Symbol) -> Self { s.v }
 }
 
 impl ImplValue for Symbol {}

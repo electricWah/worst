@@ -28,7 +28,9 @@ fn main() -> std::io::Result<()> {
     let interp = builtins::install(Builder::default());
 
     if let Err(mut interp) = interp.eval(List::from(body)) {
-        println!("{:?}", interp.stack_pop_val());
+        while let Some(sp) = interp.stack_pop_val() {
+            println!("{:?}", sp);
+        }
     }
     Ok(())
 }
