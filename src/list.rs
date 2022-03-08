@@ -60,5 +60,6 @@ impl<T> List<T> {
     pub fn top(&self) -> Option<&T> {
         if self.is_empty() { None } else { Some(&self.data[self.data.len() - 1]) }
     }
+
 }
 

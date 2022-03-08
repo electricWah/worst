@@ -1,10 +1,107 @@
 
 use std::io::Read;
+use std::collections::HashMap;
+use match_downcast::*;
 
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
-use crate::interpreter::{Builder, Handle};
+use crate::interpreter::{Builder, Paused, Handle, Definition};
+
+fn eval_module(m: List<Val>, defs: HashMap<String, Definition>)
+        -> Result<HashMap<String, Definition>, Paused> {
+    let mut ib = Builder::default();
+    for (name, def) in defs.into_iter() {
+        ib = ib.define(name, def);
+    }
+
+    let exports_orig = Place::wrap(List::default());
+    let exports_final = exports_orig.clone();
+    ib = ib.define("%exports", move |mut i: Handle| {
+        let e = exports_orig.clone();
+        async move {
+            i.stack_push(e.clone()).await;
+        }
+    });
+
+    ib = ib.define("export", |mut i: Handle| async move {
+        i.call("%exports").await;
+        let mut exports = i.stack_pop::<Place>().await.unwrap();
+        if let Some(q) = i.quote().await {
+            match_downcast::match_downcast!(q, {
+                all: bool => {
+                    if all {
+                        exports.set(true);
+                    } else {
+                        dbg!("not sure how to export #f");
+                    }
+                },
+                name: Symbol => {
+                    match exports.get().downcast::<List<Val>>() {
+                        Ok(mut l) => {
+                            l.push(name.into());
+                            exports.set(l);
+                        },
+                        Err(oe) => {
+                            dbg!("export symbol failed", &name, &oe);
+                        },
+                    }
+                },
+                coll: List<Val> => {
+                    match exports.get().downcast::<List<Val>>() {
+                        Ok(mut l) => {
+                            for v in coll {
+                                l.push(v);
+                            }
+                            exports.set(l);
+                        },
+                        Err(oe) => {
+                            dbg!("export list failed", &oe);
+                        },
+                    }
+                },
+                _ => {
+                    todo!("export this thing {:?}", q);
+                }
+            })
+        } else {
+            i.stack_push("quote-nothing".to_symbol()).await;
+            return i.pause().await;
+        }
+    });
+
+    let mut i = ib.eval(List::from(m));
+    while !i.run() {
+        return Err(i);
+    }
+
+    i.definition_remove("%exports");
+    // TODO make sure it's not an overridden 'export' somehow
+    i.definition_remove("export");
+
+    let all_defs = i.all_definitions();
+    let mut exmap = HashMap::default();
+    let exportsion = exports_final.get();
+    match_downcast::match_downcast!(exportsion, {
+        _t: bool => {
+            exmap = all_defs;
+        },
+        l: List<Val> => {
+            for ex in l.into_iter() {
+                let name = ex.downcast::<Symbol>().unwrap().into();
+                if let Some(def) = all_defs.get(&name) {
+                    exmap.insert(name, def.clone());
+                } else {
+                    dbg!("coudldn't see def", name);
+                }
+            }
+        },
+        _ => {
+            todo!("exporting failure {:?}", exportsion);
+        }
+    });
+    Ok(exmap)
+}
 
 fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List<Val>> {
     let mut resolve_errors = vec![];
@@ -41,17 +138,14 @@ pub fn install(i: Builder) -> Builder {
     .define("import", |mut i: Handle| async move {
         let imports =
             if let Some(q) = i.quote().await {
-                match q.downcast::<List<Val>>() {
-                    Ok(l) => *l,
-                    Err(qq) =>
-                        match qq.downcast::<Symbol>() {
-                            Ok(s) => List::from(vec![(*s).into()]),
-                            Err(_) => {
-                                i.stack_push("expected list or symbol").await;
-                                return i.pause().await;
-                            }
-                        },
-                }
+                match_downcast!(q, {
+                    l: List<Val> => l,
+                    s: Symbol => List::from(vec![s.into()]),
+                    _ => {
+                        i.stack_push("expected list or symbol").await;
+                        return i.pause().await;
+                    }
+                })
             } else {
                 return i.stack_push("quote-nothing".to_symbol()).await;
             };
@@ -62,7 +156,7 @@ pub fn install(i: Builder) -> Builder {
                     let mut v = vec![];
                     for l in lp {
                         if let Ok(s) = l.downcast::<String>() {
-                            v.push(*s);
+                            v.push(s);
                         } else {
                             i.stack_push("WORST_LIBPATH contained a not-string").await;
                             return i.pause().await;
@@ -78,8 +172,21 @@ pub fn install(i: Builder) -> Builder {
         
         for import in imports {
             if let Ok(s) = import.downcast::<Symbol>() {
-                if let Some(r) = resolve_module((*s).into(), &libpath) {
-                    i.stack_push(r).await;
+                let modname = s.clone();
+                if let Some(r) = resolve_module(s.into(), &libpath) {
+                    match eval_module(r, i.all_definitions().await) {
+                        Ok(defs) => {
+                            for (name, def) in defs {
+                                println!("import def {:?} {:?}", modname, name);
+                                i.define(name, def).await;
+                            }
+                        },
+                        Err(p) => {
+                            dbg!(modname, p.stack_ref());
+                            i.stack_push("error in eval_module").await;
+                            return i.pause().await;
+                        },
+                    }
                 } else {
                     i.stack_push("couldn't resolve module").await;
                     return i.pause().await;

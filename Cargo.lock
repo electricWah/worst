@@ -162,6 +162,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "match-downcast"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e16c54c7135c60d5cf6c089559a0d542cb29204b493cdff7978227688272b6a"
+
+[[package]]
 name = "memchr"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -397,5 +403,6 @@ dependencies = [
  "clap",
  "downcast-rs",
  "genawaiter",
+ "match-downcast",
  "wasm-bindgen",
 ]

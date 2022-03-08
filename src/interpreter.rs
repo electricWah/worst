@@ -37,6 +37,8 @@ mod private {
         Quote(YieldReturn<Val>),
         Uplevel(ChildFrame),
         Define(String, Definition),
+        /// true: all definitions, false: only in current frame
+        Definitions(bool, YieldReturn<HashMap<String, Definition>>),
     }
 
     pub struct PausedFrame {
@@ -82,7 +84,7 @@ impl Handle {
         match self.stack_pop_val().await {
             Some(v) =>
                 match v.downcast::<T>() {
-                    Ok(r) => Some(*r),
+                    Ok(r) => Some(r),
                     Err(e) => {
                         self.stack_push(e).await;
                         None
@@ -106,6 +108,17 @@ impl Handle {
     }
     pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
         self.co.yield_(FrameYield::Define(name.into(), def.into())).await;
+    }
+    async fn get_definitions(&mut self, global: bool) -> HashMap<String, Definition> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::Definitions(global, Rc::clone(&r))).await;
+        r.take().unwrap()
+    }
+    pub async fn local_definitions(&mut self) -> HashMap<String, Definition> {
+        self.get_definitions(false).await
+    }
+    pub async fn all_definitions(&mut self) -> HashMap<String, Definition> {
+        self.get_definitions(true).await
     }
 }
 
@@ -187,7 +200,7 @@ impl From<Builtin> for ChildFrame {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Definition {
     List(List<Val>),
     Builtin(Builtin),
@@ -240,8 +253,18 @@ impl Paused {
     // pub fn definition_get(&self, name: impl AsRef<str>) -> Option<&Definition> {
     // }
 
-    pub fn definition_remove(&mut self, name: impl AsRef<String>) {
+    pub fn definition_remove(&mut self, name: impl AsRef<str>) {
         self.frame.defs.remove(name.as_ref());
+    }
+
+    pub fn all_definitions(&self) -> HashMap<String, Definition> {
+        let mut defs = self.frame.defs.clone();
+        for (name, s) in self.defstacks.iter() {
+            if let Some(def) = s.top() {
+                defs.insert(name.clone(), def.clone());
+            }
+        }
+        defs
     }
 
     // pub fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
@@ -264,6 +287,8 @@ impl Paused {
     // also stack_pop_purpose() etc etc
     // maybe stack() + stack_mut() -> StackRef
     // with pop_any() and pop::<T> and ref etc?
+
+    pub fn stack_ref(&self) -> &List<Val> { &self.stack }
     pub fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     pub fn stack_len(&self) -> usize { self.stack.len() }
@@ -280,7 +305,8 @@ impl Paused {
 
     fn read_body(&mut self) -> Option<Val> { self.frame.body.pop() }
 
-    fn run(&mut self) -> bool {
+    /// returns complete
+    pub fn run(&mut self) -> bool {
         loop {
             match self.frame.childs.pop() {
                 Some(ChildFrame::ListFrame(f)) => {
@@ -320,6 +346,8 @@ impl Paused {
             FrameYield::Quote(yr) => self.handle_quote(yr),
             FrameYield::Uplevel(v) => if !self.handle_uplevel(v) { return true; },
             FrameYield::Define(name, def) => self.add_def(name, def),
+            FrameYield::Definitions(false, yr) => yr.set(Some(self.frame.defs.clone())),
+            FrameYield::Definitions(true, yr) => yr.set(Some(self.all_definitions())),
         }
         false
     }
@@ -390,21 +418,26 @@ pub struct Builder {
 }
 
 impl Builder {
-    pub fn eval(&self, f: impl EvalOnce) -> Result<(), Paused> {
+    fn install(&self, i: &mut Paused) {
+        i.stack = self.stack.clone();
+        for (k, v) in self.defs.iter() { i.add_def(k, v.clone()); }
+    }
+    pub fn eval(&self, f: impl EvalOnce) -> Paused {
         match f.into() {
             ChildFrame::ListFrame(frame) => {
                 let mut i = Paused { frame, ..Paused::default() };
-                for (k, v) in self.defs.iter() { i.add_def(k, v.clone()); }
-                if i.run() { Ok(()) } else { Err(i) }
+                self.install(&mut i);
+                i
             },
             paused@ChildFrame::PausedFrame(_) => {
                 let mut i = Paused::new(vec![]);
-                for (k, v) in self.defs.iter() { i.add_def(k, v.clone()); }
+                self.install(&mut i);
                 i.handle_eval(paused);
-                if i.run() { Ok(()) } else { Err(i) }
+                i
             },
         }
     }
+
     pub fn with_stack(mut self, s: impl Into<List<Val>>) -> Self {
         self.stack = s.into();
         self
@@ -422,7 +455,7 @@ mod tests {
     #[test]
     fn interp_basic() {
         // empty
-        assert!(Builder::default().eval(List::from(vec![])).is_ok());
+        assert!(Builder::default().eval(List::from(vec![])).run());
         // stack
         let mut i = Paused::new(vec![7.into()]);
         assert_eq!(i.stack_pop_val(), None);

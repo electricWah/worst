@@ -8,6 +8,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 genawaiter = "^0.99"
 downcast-rs = "^1.2"
+match-downcast = "^0.1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "^3", features = ["derive"] }

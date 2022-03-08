@@ -25,10 +25,10 @@ fn main() -> std::io::Result<()> {
         println!("{:?}", e);
         vec![]
     }));
-    let interp = builtins::install(Builder::default());
 
-    if let Err(mut interp) = interp.eval(List::from(body)) {
-        while let Some(sp) = interp.stack_pop_val() {
+    let mut i = builtins::install(Builder::default()).eval(List::from(body));
+    if !i.run() {
+        while let Some(sp) = i.stack_pop_val() {
             println!("{:?}", sp);
         }
     }
