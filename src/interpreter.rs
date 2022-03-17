@@ -3,6 +3,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 use core::pin::Pin;
 use core::future::Future;
+use std::collections::hash_map;
 use std::collections::HashMap;
 use genawaiter::{ rc::Gen, rc::Co };
 
@@ -19,11 +20,15 @@ mod private {
     pub struct ListFrame {
         pub childs: List<ChildFrame>,
         pub body: List<Val>,
-        pub defs: HashMap<String, Definition>,
+        pub defs: DefSet,
     }
     impl ListFrame {
         pub fn new_body(body: List<Val>) -> Self {
             ListFrame { body, ..ListFrame::default() }
+        }
+        pub fn with_defs(mut self, defs: DefSet) -> Self {
+            self.defs = defs;
+            self
         }
     }
 
@@ -36,9 +41,9 @@ mod private {
         StackGet(YieldReturn<List<Val>>),
         Quote(YieldReturn<Val>),
         Uplevel(ChildFrame),
-        Define(String, Definition),
+        Define(String, Val),
         /// true: all definitions, false: only in current frame
-        Definitions(bool, YieldReturn<HashMap<String, Definition>>),
+        Definitions(bool, YieldReturn<DefSet>),
     }
 
     pub struct PausedFrame {
@@ -50,6 +55,8 @@ mod private {
         PausedFrame(PausedFrame),
     }
     pub trait IntoChildFrame: Into<ChildFrame> {}
+    // separate to Value::to_val, maybe Fn should auto-wrap in Builtin
+    pub trait IntoVal { fn into_val(self) -> Val; }
 }
 use private::*;
 
@@ -98,6 +105,9 @@ impl Handle {
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
     }
+    pub async fn stack_empty(&mut self) -> bool {
+        self.stack_get().await.len() == 0
+    }
     pub async fn quote(&mut self) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
@@ -107,35 +117,36 @@ impl Handle {
         self.co.yield_(FrameYield::Uplevel(f.into())).await;
     }
     pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.co.yield_(FrameYield::Define(name.into(), def.into())).await;
+        self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
     }
-    async fn get_definitions(&mut self, global: bool) -> HashMap<String, Definition> {
+    pub async fn define_closure(&mut self, name: impl Into<String>,
+                                body: List<Val>, env: DefSet) {
+        let v = body.to_val().with_meta(ClosureEnv(env));
+        self.co.yield_(FrameYield::Define(name.into(), v)).await;
+    }
+    async fn get_definitions(&mut self, global: bool) -> DefSet {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::Definitions(global, Rc::clone(&r))).await;
         r.take().unwrap()
     }
-    pub async fn local_definitions(&mut self) -> HashMap<String, Definition> {
+    pub async fn local_definitions(&mut self) -> DefSet {
         self.get_definitions(false).await
     }
-    pub async fn all_definitions(&mut self) -> HashMap<String, Definition> {
+    pub async fn all_definitions(&mut self) -> DefSet {
         self.get_definitions(true).await
     }
 }
 
-// Rust code function
-
-pub trait Eval: IntoChildFrame + Into<Definition> {}
+pub trait Eval: IntoVal {}
 pub trait EvalOnce: IntoChildFrame {}
 
-impl<T: Into<ChildFrame>> IntoChildFrame for T {}
-
-type BuiltinFnRet = Pin<Box<dyn Future<Output = ()> + 'static>>;
-
+// Concrete type for an Eval fn
 #[derive(Clone)]
-pub struct Builtin(Rc<dyn Fn(Handle) -> BuiltinFnRet>);
+pub struct Builtin(Rc<dyn Fn(Handle) -> Pin<Box<dyn Future<Output = ()> + 'static>>>);
 
 impl std::fmt::Debug for Builtin {
-    fn fmt(&self, _: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<Builtin>")?;
         Ok(())
     }
 }
@@ -154,30 +165,16 @@ impl ImplValue for Builtin {}
 
 impl<F: 'static + Future<Output=()>,
      T: 'static + Fn(Handle) -> F>
+     IntoVal for T {
+    fn into_val(self) -> Val { Builtin::from(self).to_val() }
+}
+impl<F: 'static + Future<Output=()>,
+     T: 'static + Fn(Handle) -> F>
      Eval for T {}
 
 impl<F: 'static + Future<Output=()>,
      T: 'static + FnOnce(Handle) -> F>
      EvalOnce for T {}
-
-impl Eval for List<Val> {}
-impl EvalOnce for List<Val> {}
-impl Eval for Builtin {}
-impl EvalOnce for Builtin {}
-impl Eval for Definition {}
-
-// Code frame with a body being an in-progress Rust function
-impl PausedFrame {
-    fn next(&mut self) -> Option<FrameYield> {
-        self.body.next()
-    }
-}
-
-impl From<List<Val>> for ChildFrame {
-    fn from(body: List<Val>) -> Self {
-        ChildFrame::ListFrame(ListFrame::new_body(body))
-    }
-}
 
 impl<F: 'static + Future<Output=()>,
      T: 'static + FnOnce(Handle) -> F>
@@ -190,35 +187,88 @@ impl<F: 'static + Future<Output=()>,
         })
     }
 }
+impl<F: 'static + Future<Output=()>,
+     T: 'static + FnOnce(Handle) -> F>
+     IntoChildFrame for T {}
+
+impl Eval for Val {}
+impl IntoVal for Val { fn into_val(self) -> Val { self } }
+impl EvalOnce for Val {}
+impl IntoChildFrame for Val {}
+impl From<Val> for ChildFrame {
+    fn from(v: Val) -> Self {
+        let (vv, meta) = v.deconstruct();
+        match_downcast::match_downcast!(vv, {
+            b: Builtin => (*b).into(),
+            l: List<Val> => child_frame_closure(*l, meta),
+            _ => todo!("eval")
+        })
+    }
+}
+
+// impl Eval for List<Val> {}
+// impl IntoVal for List<Val> { fn into_val(self) -> Val { Val::new(self) } }
+// impl EvalOnce for List<Val> {}
+// impl IntoChildFrame for List<Val> {}
+// impl From<List<Val>> for ChildFrame {
+//     fn from(v: List<Val>) -> Self {
+//         dbg!("list", &v);
+//         ChildFrame::ListFrame(ListFrame::new_body(v))
+//     }
+// }
+fn child_frame_closure(l: List<Val>, meta: Vec<Val>) -> ChildFrame {
+    let mut frame = ListFrame::new_body(l);
+    if let Some(ClosureEnv(ds)) =
+            meta.iter().find_map(|v| v.downcast_ref::<ClosureEnv>()) {
+        frame = frame.with_defs(ds.clone());
+    }
+    ChildFrame::ListFrame(frame)
+}
+
+impl Eval for Builtin {}
+impl IntoVal for Builtin { fn into_val(self) -> Val { self.to_val() } }
+impl EvalOnce for Builtin {}
+impl IntoChildFrame for Builtin {}
 impl From<Builtin> for ChildFrame {
-    fn from(b: Builtin) -> Self {
+    fn from(v: Builtin) -> Self {
         ChildFrame::PausedFrame(PausedFrame {
             body: Box::new(Gen::new(move |co| async move {
-                b.0(Handle { co }).await;
+                v.0(Handle { co }).await;
             }).into_iter()),
         })
     }
 }
 
+/// Key for List meta to add env when evaling
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Definition {
-    List(List<Val>),
-    Builtin(Builtin),
-}
-impl From<List<Val>> for Definition {
-    fn from(v: List<Val>) -> Self { Definition::List(v) }
-}
-impl<T: Into<Builtin>> From<T> for Definition {
-    fn from(v: T) -> Self { Definition::Builtin(v.into()) }
+struct ClosureEnv(DefSet);
+impl ImplValue for ClosureEnv {}
+
+// Code frame with a body being an in-progress Rust function
+impl PausedFrame {
+    fn next(&mut self) -> Option<FrameYield> {
+        self.body.next()
+    }
 }
 
-impl From<Definition> for ChildFrame {
-    fn from(def: Definition) -> Self {
-        match def {
-            Definition::List(body) => body.into(),
-            Definition::Builtin(b) => b.into(),
-        }
+/// Clone-on-write definition environment for list definitions
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct DefSet(Rc<HashMap<String, Val>>);
+impl DefSet {
+    pub fn insert(&mut self, key: String, val: impl Value) {
+        Rc::make_mut(&mut self.0).insert(key, val.to_val());
     }
+    pub fn remove(&mut self, key: &str) {
+        Rc::make_mut(&mut self.0).remove(key);
+    }
+    pub fn get(&self, key: impl AsRef<str>) -> Option<&Val> {
+        self.0.get(key.as_ref())
+    }
+    pub fn keys(&self) -> hash_map::Keys<String, Val> { self.0.keys() }
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Val)> {
+        self.0.iter()
+    }
+    pub fn len(&self) -> usize { self.0.len() }
 }
 
 #[derive(Default)]
@@ -226,7 +276,13 @@ pub struct Paused {
     frame: ListFrame,
     parents: List<ListFrame>,
     stack: List<Val>,
-    defstacks: HashMap<String, List<Definition>>,
+    defstacks: HashMap<String, List<Val>>, // TODO could be a Vec<Val>?
+}
+
+impl std::fmt::Debug for Paused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<paused interpreter>")
+    }
 }
 
 impl Paused {
@@ -244,10 +300,7 @@ impl Paused {
     }
 
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.frame.defs.insert(name.into(), def.into());
-    }
-    fn add_def(&mut self, name: impl Into<String>, def: Definition) {
-        self.frame.defs.insert(name.into(), def);
+        self.frame.defs.insert(name.into(), def.into_val());
     }
 
     // pub fn definition_get(&self, name: impl AsRef<str>) -> Option<&Definition> {
@@ -257,7 +310,7 @@ impl Paused {
         self.frame.defs.remove(name.as_ref());
     }
 
-    pub fn all_definitions(&self) -> HashMap<String, Definition> {
+    pub fn all_definitions(&self) -> DefSet {
         let mut defs = self.frame.defs.clone();
         for (name, s) in self.defstacks.iter() {
             if let Some(def) = s.top() {
@@ -293,7 +346,7 @@ impl Paused {
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
-    fn resolve_ref(&self, s: &Symbol) -> Option<&Definition> {
+    fn resolve_ref(&self, s: &Symbol) -> Option<&Val> {
         if let Some(def) = self.frame.defs.get(s.as_string()) {
             Some(def)
         } else if let Some(defstack) = self.defstacks.get(s.as_string()) {
@@ -323,7 +376,7 @@ impl Paused {
                         if let Some(s) = next.downcast_ref::<Symbol>() {
                             self.create_call(s.clone());
                         } else {
-                            self.stack.push(next);
+                            self.stack_push(next);
                         }
                     } else {
                         if !self.enter_parent_frame() { return true; }
@@ -345,7 +398,7 @@ impl Paused {
             FrameYield::StackGet(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => self.handle_quote(yr),
             FrameYield::Uplevel(v) => if !self.handle_uplevel(v) { return true; },
-            FrameYield::Define(name, def) => self.add_def(name, def),
+            FrameYield::Define(name, def) => self.define(name, def),
             FrameYield::Definitions(false, yr) => yr.set(Some(self.frame.defs.clone())),
             FrameYield::Definitions(true, yr) => yr.set(Some(self.all_definitions())),
         }
@@ -386,7 +439,7 @@ impl Paused {
 
     fn enter_child_frame(&mut self, mut frame: ListFrame) {
         std::mem::swap(&mut self.frame, &mut frame);
-        for (name, def) in &frame.defs {
+        for (name, def) in frame.defs.iter() {
             self.defstacks.entry(name.clone()).or_default().push(def.clone());
         }
         self.parents.push(frame);
@@ -411,16 +464,16 @@ impl Paused {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Builder {
     stack: List<Val>,
-    defs: HashMap<String, Definition>,
+    defs: HashMap<String, Val>,
 }
 
 impl Builder {
     fn install(&self, i: &mut Paused) {
         i.stack = self.stack.clone();
-        for (k, v) in self.defs.iter() { i.add_def(k, v.clone()); }
+        for (k, v) in self.defs.iter() { i.define(k, v.clone()); }
     }
     pub fn eval(&self, f: impl EvalOnce) -> Paused {
         match f.into() {
@@ -432,7 +485,7 @@ impl Builder {
             paused@ChildFrame::PausedFrame(_) => {
                 let mut i = Paused::new(vec![]);
                 self.install(&mut i);
-                i.handle_eval(paused);
+                i.frame.childs.push(paused);
                 i
             },
         }
@@ -442,8 +495,16 @@ impl Builder {
         self.stack = s.into();
         self
     }
-    pub fn define(mut self, name: impl Into<String>, def: impl Eval) -> Self {
-        self.defs.insert(name.into(), def.into());
+    pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
+        self.defs.insert(name.into(), def.into_val());
+    }
+    pub fn with_define(mut self, name: impl Into<String>, def: impl Eval) -> Self {
+        self.define(name, def);
+        self
+    }
+    pub fn define_closure(mut self, name: impl Into<String>,
+                          body: List<Val>, env: DefSet) -> Self {
+        self.defs.insert(name.into(), body.to_val().with_meta(ClosureEnv(env)));
         self
     }
 }

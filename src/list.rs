@@ -54,6 +54,9 @@ impl ImplValue for List<Val> { }
 
 impl<T> List<T> {
     pub fn len(&self) -> usize { self.data.len() }
+    pub fn get(&self, i: usize) -> Option<&T> {
+        self.data.get(self.data.len() - 1 - i)
+    }
     pub fn is_empty(&self) -> bool { self.data.len() == 0 }
     pub fn pop(&mut self) -> Option<T> { self.data.pop() }
     pub fn push(&mut self, v: T) { self.data.push(v); }
@@ -61,5 +64,44 @@ impl<T> List<T> {
         if self.is_empty() { None } else { Some(&self.data[self.data.len() - 1]) }
     }
 
+    pub fn from_pairs<K: Into<T>, V: Into<T>>(src: impl Iterator<Item=(K, V)>) -> Self {
+        let mut data = vec![];
+        for (k, v) in src {
+            data.push(v.into());
+            data.push(k.into());
+        }
+        List { data }
+    }
+}
+
+impl List<Val> {
+    pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {
+        for i in 0 .. self.len()/2 {
+            if let Some(k) = self.get(i * 2) {
+                // dbg!(i, &k);
+                if v.equal(&k) {
+                    return self.get(i * 2 + 1);
+                }
+            }
+        }
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pairs() {
+        let thing =
+            List::from_pairs(vec![
+                ("test".to_string().into(), 5.into()),
+                (Val::from("beans".to_string()), Val::from(7)),
+            ].into_iter());
+        assert_eq!(Some(&5.into()), thing.pairs_find_key("test".to_string()));
+        assert_eq!(Some(&7.into()), thing.pairs_find_key("beans".to_string()));
+        assert_eq!(None, thing.pairs_find_key(123));
+    }
 }
 

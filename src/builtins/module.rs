@@ -1,30 +1,28 @@
 
 use std::io::Read;
-use std::collections::HashMap;
 use match_downcast::*;
 
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
-use crate::interpreter::{Builder, Paused, Handle, Definition};
+use crate::interpreter::{Builder, Paused, Handle, DefSet};
 
-fn eval_module(m: List<Val>, defs: HashMap<String, Definition>)
-        -> Result<HashMap<String, Definition>, Paused> {
+fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
     let mut ib = Builder::default();
-    for (name, def) in defs.into_iter() {
-        ib = ib.define(name, def);
+    for (name, def) in defs.iter() {
+        ib.define(name, def.clone());
     }
 
     let exports_orig = Place::wrap(List::default());
     let exports_final = exports_orig.clone();
-    ib = ib.define("%exports", move |mut i: Handle| {
+    ib.define("%exports", move |mut i: Handle| {
         let e = exports_orig.clone();
         async move {
             i.stack_push(e.clone()).await;
         }
     });
 
-    ib = ib.define("export", |mut i: Handle| async move {
+    ib.define("export", |mut i: Handle| async move {
         i.call("%exports").await;
         let mut exports = i.stack_pop::<Place>().await.unwrap();
         if let Some(q) = i.quote().await {
@@ -70,7 +68,7 @@ fn eval_module(m: List<Val>, defs: HashMap<String, Definition>)
         }
     });
 
-    let mut i = ib.eval(List::from(m));
+    let mut i = ib.eval(List::from(m).to_val());
     while !i.run() {
         return Err(i);
     }
@@ -80,7 +78,7 @@ fn eval_module(m: List<Val>, defs: HashMap<String, Definition>)
     i.definition_remove("export");
 
     let all_defs = i.all_definitions();
-    let mut exmap = HashMap::default();
+    let mut exmap = DefSet::default();
     let exportsion = exports_final.get();
     match_downcast::match_downcast!(exportsion, {
         _t: bool => {
@@ -127,15 +125,14 @@ fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List<Val>> {
     None // TODO Ok(List) | Err([name + resolve_error]) | Err(read_error)
 }
 
-pub fn install(i: Builder) -> Builder {
-    i
-    .define("WORST_LIBPATH", |mut i: Handle| async move {
+pub fn install(mut i: Builder) -> Builder {
+    i.define("WORST_LIBPATH", |mut i: Handle| async move {
         let s =
             if let Ok(s) = std::env::var("WORST_LIBPATH") { s }
             else { String::new() };
         i.stack_push(List::from_vals(s.split(':').map(String::from))).await;
-    })
-    .define("import", |mut i: Handle| async move {
+    });
+    i.define("import", |mut i: Handle| async move {
         let imports =
             if let Some(q) = i.quote().await {
                 match_downcast!(q, {
@@ -176,9 +173,8 @@ pub fn install(i: Builder) -> Builder {
                 if let Some(r) = resolve_module(s.into(), &libpath) {
                     match eval_module(r, i.all_definitions().await) {
                         Ok(defs) => {
-                            for (name, def) in defs {
-                                println!("import def {:?} {:?}", modname, name);
-                                i.define(name, def).await;
+                            for (name, def) in defs.iter() {
+                                i.define(name, def.clone()).await;
                             }
                         },
                         Err(p) => {
@@ -196,7 +192,8 @@ pub fn install(i: Builder) -> Builder {
                 return i.pause().await;
             }
         }
-    })
+    });
+    i
 }
 
 

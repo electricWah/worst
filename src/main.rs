@@ -5,6 +5,7 @@ use clap::Parser;
 
 use worst::interpreter::*;
 use worst::builtins;
+use worst::base::*;
 use worst::list::List;
 use worst::reader::read_all;
 
@@ -26,7 +27,7 @@ fn main() -> std::io::Result<()> {
         vec![]
     }));
 
-    let mut i = builtins::install(Builder::default()).eval(List::from(body));
+    let mut i = builtins::install(Builder::default()).eval(List::from(body).to_val());
     if !i.run() {
         while let Some(sp) = i.stack_pop_val() {
             println!("{:?}", sp);

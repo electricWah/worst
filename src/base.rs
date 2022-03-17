@@ -5,37 +5,44 @@ use std::rc::Rc;
 use downcast_rs::Downcast;
 
 pub trait Value: Downcast + Debug {
+    fn to_val(self) -> Val; // saves dorking around with meta in pub Val::new
     fn dup(&self) -> Val;
-    fn eq(&self, other: &Val) -> bool;
-    // fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error>;
+    fn equal(&self, other: &Val) -> bool;
 }
 downcast_rs::impl_downcast!(Value);
 
 #[derive(Debug)]
 pub struct Val {
     v: Box<dyn Value>,
+    pub meta: Vec<Val>,
     // meta..?
 }
 
 impl Clone for Val {
-    fn clone(&self) -> Val { self.dup() }
+    fn clone(&self) -> Val {
+        Val {
+            v: self.v.dup().v,
+            meta: self.meta.clone(),
+        }
+    }
 }
 impl PartialEq for Val {
-    fn eq(&self, that: &Self) -> bool { Value::eq(self.v.as_ref(), that) }
+    fn eq(&self, that: &Self) -> bool { Value::equal(self.v.as_ref(), that) }
 }
 impl Eq for Val { }
 
 impl Value for Val {
-    fn dup(&self) -> Val { self.v.dup() }
-    fn eq(&self, other: &Val) -> bool { self.v.eq(other) }
+    fn to_val(self) -> Val { self }
+    fn dup(&self) -> Val { self.clone() }
+    fn equal(&self, other: &Val) -> bool { self.v.equal(other) }
 }
 
 impl Val {
-    fn new<T: Value>(v: T) -> Self { Val { v: Box::new(v) } }
+    fn new(v: impl Value) -> Self { Val { v: Box::new(v), meta: vec![] } }
     pub fn downcast<T: Value>(self) -> Result<T, Val> {
         match self.v.downcast::<T>() {
             Ok(v) => Ok(*v),
-            Err(v) => Err(Val { v }),
+            Err(v) => Err(Val { v, meta: self.meta }),
         }
     }
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
@@ -44,14 +51,16 @@ impl Val {
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
+    pub fn deconstruct(self) -> (Box<dyn Value>, Vec<Val>) { (self.v, self.meta) }
+    pub fn add_meta(&mut self, v: impl Value) { self.meta.push(Val::new(v)); }
+    pub fn with_meta(mut self, v: impl Value) -> Self { self.add_meta(v); self }
 }
 
 pub trait ImplValue: Clone + Eq {}
 impl<T: 'static> Value for T where T: ImplValue + Debug {
-    fn dup(&self) -> Val {
-        Val::new(self.clone())
-    }
-    fn eq(&self, that: &Val) -> bool {
+    fn to_val(self) -> Val { Val::new(self) }
+    fn dup(&self) -> Val { Val::new(self.clone()) }
+    fn equal(&self, that: &Val) -> bool {
         if let Some(t) = that.downcast_ref::<T>() { self == t } else { false }
     }
 }

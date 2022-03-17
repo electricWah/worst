@@ -4,7 +4,7 @@ use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Builder, Handle};
 
-async fn default_attributes(mut i: Handle) {
+async fn default_attributes(mut _i: Handle) {
     // TODO into_new_frame
 }
 
@@ -63,15 +63,37 @@ pub async fn define(mut i: Handle) {
 
     // println!("define {:?} {:?} {:?}", attrs, name, body);
 
-    i.eval_child(attrs, |mut i: Handle| async move {
+    i.eval_child(attrs, |mut _i: Handle| async move {
         // TODO default attributes
     }).await;
 
-    i.define(name, body).await;
+    let env = i.all_definitions().await;
+
+    i.define_closure(name, body, env).await;
 }
 
-pub fn install(i: Builder) -> Builder {
-    i.define("define", define)
-        .define("default-attributes", default_attributes)
+pub fn install(mut i: Builder) -> Builder {
+    i.define("define", define);
+    i.define("default-attributes", default_attributes);
+    i.define("definition-add", |mut i: Handle| async move {
+        if let Some(name) = i.stack_pop::<Symbol>().await {
+            if let Some(def) = i.stack_pop_val().await {
+                i.define(name, def).await;
+            } else {
+                dbg!("stack enfioen");
+            }
+        } else {
+            dbg!("no");
+        }
+    });
+    i.define("all-definitions", |mut i: Handle| async move {
+        let p = i.all_definitions().await;
+        i.stack_push(List::from_pairs(p.iter().map(|(k, v)| (k.to_symbol(), v.clone())))).await;
+    });
+    i
+    // local name = i:stack_pop(Symbol)
+    // local body = i:stack_pop({List, "function"})
+    // local interp = i:stack_ref(1, Interpreter)
+    // interp:define(name, body)
 }
 
