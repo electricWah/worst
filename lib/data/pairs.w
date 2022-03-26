@@ -18,5 +18,20 @@ define pairs-iterate [
     drop
 ]
 
+; [ k1 v1 ... ] k pairs-get -> <vN where kN == k> | #f
+define pairs-get [
+    const %kq
+    #f swap
+    while [ list-empty? not ] [
+        list-pop %kq equal?
+        bury drop drop if [
+            list-pop bury drop drop []
+        ] [
+            list-pop drop
+        ]
+    ]
+    drop
+]
+
 export #t
 

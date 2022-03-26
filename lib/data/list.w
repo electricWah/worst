@@ -13,6 +13,21 @@ define list-iterate [
     drop
 ]
 
+; [ k v ... ] list-iterate-pairs [ k v -> ... ]
+define list-iterate-pairs [
+    upquote quote %body definition-add
+    while [list-empty? not] [
+        list-pop const %k
+        list-empty? if [] [
+            list-pop const %v
+            const %l
+            %v %k %body
+            %l
+        ]
+    ]
+    drop
+]
+
 ; [l...] list-map [ body : l -> l' ] -> [l' ...]
 define list-map [
     upquote quote %body definition-add

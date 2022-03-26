@@ -1,8 +1,7 @@
 
-use match_downcast::*;
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Builtin, Builder, Handle};
+use crate::interpreter::{Builder, Handle};
 
 pub async fn quote(mut i: Handle) {
     if let Some(q) = i.quote().await {
@@ -14,91 +13,51 @@ pub async fn quote(mut i: Handle) {
 }
 
 pub async fn drop(mut i: Handle) {
-    if i.stack_pop_val().await.is_none() {
-        i.stack_push("stack-empty".to_symbol()).await;
-        return i.pause().await;
-    }
+    i.stack_pop_val().await;
 }
 
 pub async fn dig(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
     let c = i.stack_pop_val().await;
-    match (a, b, c) {
-        (Some(a), Some(b), Some(c)) => {
-            i.stack_push(b).await;
-            i.stack_push(a).await;
-            i.stack_push(c).await;
-        },
-        _ => {
-            i.stack_push("stack-empty".to_symbol()).await;
-            return i.pause().await;
-        },
-    }
+    i.stack_push(b).await;
+    i.stack_push(a).await;
+    i.stack_push(c).await;
 }
 
 pub async fn bury(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
     let c = i.stack_pop_val().await;
-    match (a, b, c) {
-        (Some(a), Some(b), Some(c)) => {
-            i.stack_push(a).await;
-            i.stack_push(c).await;
-            i.stack_push(b).await;
-        },
-        _ => {
-            i.stack_push("stack-empty".to_symbol()).await;
-            return i.pause().await;
-        },
-    }
+    i.stack_push(a).await;
+    i.stack_push(c).await;
+    i.stack_push(b).await;
 }
 
 pub async fn equal(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
-    match (a, b) {
-        (Some(a), Some(b)) => {
-            let eq = a.equal(&b);
-            i.stack_push(b).await;
-            i.stack_push(a).await;
-            i.stack_push(eq).await;
-        },
-        _ => {
-            i.stack_push("stack-empty".to_symbol()).await;
-            return i.pause().await;
-        },
-    }
+    let eq = a.equal(&b);
+    i.stack_push(b).await;
+    i.stack_push(a).await;
+    i.stack_push(eq).await;
 }
 
 pub async fn false_(mut i: Handle) {
-    if let Some(v) = i.stack_pop_val().await {
-        let is = Some(&false) == v.downcast_ref::<bool>();
-        i.stack_push(v).await;
-        i.stack_push(is).await;
-    } else {
-        i.stack_push("stack-empty".to_symbol()).await;
-        return i.pause().await;
-    }
+    let v = i.stack_pop_val().await;
+    let is = Some(&false) == v.downcast_ref::<bool>();
+    i.stack_push(v).await;
+    i.stack_push(is).await;
 }
 
 pub async fn eval(mut i: Handle) {
-    let e =
-        if let Some(e) = i.stack_pop_val().await { e }
-        else {
-            i.stack_push("stack-empty".to_symbol()).await;
-            return i.pause().await;
-        };
+    let e = i.stack_pop_val().await;
     i.eval(e).await;
 }
 
 pub async fn call(mut i: Handle) {
-    if let Some(c) = i.stack_pop::<Symbol>().await {
-        i.call(c).await;
-    } else {
-        i.stack_push("stack-empty".to_symbol()).await;
-        return i.pause().await;
-    }
+    let c = i.stack_pop::<Symbol>().await;
+    i.call(c).await;
 }
 
 /// define const [
@@ -107,12 +66,7 @@ pub async fn call(mut i: Handle) {
 ///     quote definition-add uplevel
 /// ]
 pub async fn const_(mut i: Handle) {
-    let v =
-        if let Some(e) = i.stack_pop_val().await { e }
-        else {
-            i.stack_push("stack-empty".to_symbol()).await;
-            return i.pause().await;
-        };
+    let v = i.stack_pop_val().await;
     let name =
         if let Some(q) = i.quote().await {
             match q.downcast::<Symbol>() {
@@ -153,16 +107,8 @@ pub async fn upquote(mut i: Handle) {
 pub async fn swap(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
-    match (a, b) {
-        (Some(a), Some(b)) => {
-            i.stack_push(a).await;
-            i.stack_push(b).await;
-        },
-        _ => {
-            i.stack_push("stack-empty".to_symbol()).await;
-            return i.pause().await;
-        }
-    }
+    i.stack_push(a).await;
+    i.stack_push(b).await;
 }
 
 /// ; while [-> bool] [body ...]
@@ -179,7 +125,7 @@ pub async fn while_(mut i: Handle) {
         if let Some(body) = i.quote().await {
             loop {
                 i.eval(cond.clone()).await;
-                if i.stack_pop::<bool>().await != Some(true) { break; }
+                if i.stack_pop::<bool>().await != true { break; }
                 i.eval(body.clone()).await;
             }
         }
@@ -197,10 +143,10 @@ pub async fn while_(mut i: Handle) {
 pub async fn if_(mut i: Handle) {
     if let Some(ift) = i.quote().await {
         if let Some(iff) = i.quote().await {
-            if let Some(false) = i.stack_pop::<bool>().await {
-                i.eval(iff).await;
-            } else {
+            if i.stack_pop::<bool>().await {
                 i.eval(ift).await;
+            } else {
+                i.eval(iff).await;
             }
         }
     }
@@ -211,21 +157,14 @@ pub async fn command_line_arguments(mut i: Handle) {
 }
 
 pub async fn print(mut i: Handle) {
-    if let Some(s) = i.stack_pop::<String>().await {
-        print!("{}", s);
-    } // else?
+    let s = i.stack_pop::<String>().await;
+    print!("{}", s);
 }
 
 pub async fn add(mut i: Handle) {
     let a = i.stack_pop::<i32>().await;
     let b = i.stack_pop::<i32>().await;
-    match (a, b) {
-        (Some(a), Some(b)) => i.stack_push(a + b).await,
-        _ => {
-            i.stack_push("coould'nt add").await;
-            i.pause().await;
-        }
-    }
+    i.stack_push(a + b).await;
 }
 
 pub fn install(mut i: Builder) -> Builder {

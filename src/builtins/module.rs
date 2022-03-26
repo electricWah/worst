@@ -24,7 +24,7 @@ fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
 
     ib.define("export", |mut i: Handle| async move {
         i.call("%exports").await;
-        let mut exports = i.stack_pop::<Place>().await.unwrap();
+        let mut exports = i.stack_pop::<Place>().await;
         if let Some(q) = i.quote().await {
             match_downcast::match_downcast!(q, {
                 all: bool => {
@@ -110,7 +110,7 @@ fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List<Val>> {
                 let mut s = String::new();
                 match f.read_to_string(&mut s) {
                     Ok(_) => {
-                        match reader::read_all(&mut s.chars()) {
+                        match reader::read_all(&mut s.chars().map(Result::Ok)) {
                             Ok(data) => return Some(data.into()),
                             Err(e) => todo!("{:?}", e),
                         }
@@ -147,25 +147,19 @@ pub fn install(mut i: Builder) -> Builder {
                 return i.stack_push("quote-nothing".to_symbol()).await;
             };
         i.call("WORST_LIBPATH").await;
-        let libpath =
-            match i.stack_pop::<List<Val>>().await {
-                Some(lp) => {
-                    let mut v = vec![];
-                    for l in lp {
-                        if let Ok(s) = l.downcast::<String>() {
-                            v.push(s);
-                        } else {
-                            i.stack_push("WORST_LIBPATH contained a not-string").await;
-                            return i.pause().await;
-                        }
-                    }
-                    v
-                },
-                None => {
-                    i.stack_push("WORST_LIBPATH was not a list").await;
+        let libpath = {
+            let lp = i.stack_pop::<List<Val>>().await;
+            let mut v = vec![];
+            for l in lp {
+                if let Ok(s) = l.downcast::<String>() {
+                    v.push(s);
+                } else {
+                    i.stack_push("WORST_LIBPATH contained a not-string").await;
                     return i.pause().await;
-                },
-            };
+                }
+            }
+            v
+        };
         
         for import in imports {
             if let Ok(s) = import.downcast::<Symbol>() {

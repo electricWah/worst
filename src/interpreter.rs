@@ -20,11 +20,15 @@ mod private {
     pub struct ListFrame {
         pub childs: List<ChildFrame>,
         pub body: List<Val>,
+        pub meta: Vec<Val>,
         pub defs: DefSet,
     }
     impl ListFrame {
         pub fn new_body(body: List<Val>) -> Self {
             ListFrame { body, ..ListFrame::default() }
+        }
+        pub fn new_body_meta(body: List<Val>, meta: Vec<Val>) -> Self {
+            ListFrame { body, meta, ..ListFrame::default() }
         }
         pub fn with_defs(mut self, defs: DefSet) -> Self {
             self.defs = defs;
@@ -44,6 +48,7 @@ mod private {
         Define(String, Val),
         /// true: all definitions, false: only in current frame
         Definitions(bool, YieldReturn<DefSet>),
+        GetCallStack(YieldReturn<Vec<Option<String>>>),
     }
 
     pub struct PausedFrame {
@@ -59,6 +64,19 @@ mod private {
     pub trait IntoVal { fn into_val(self) -> Val; }
 }
 use private::*;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DefineMeta {
+    name: String,
+}
+impl ImplValue for DefineMeta {}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InterpError {
+    StackEmpty(Vec<Option<String>>),
+    WrongType(Val, &'static str, Vec<Option<String>>),
+}
+impl ImplValue for InterpError {}
 
 pub struct Handle {
     co: Co<FrameYield>,
@@ -79,25 +97,37 @@ impl Handle {
     pub async fn call(&mut self, s: impl Into<Symbol>) {
         self.co.yield_(FrameYield::Call(s.into())).await;
     }
-    pub async fn stack_push(&mut self, v: impl Into<Val>) {
-        self.co.yield_(FrameYield::StackPush(v.into())).await;
+    pub async fn stack_push(&mut self, v: impl Value) {
+        self.co.yield_(FrameYield::StackPush(v.to_val())).await;
     }
-    pub async fn stack_pop_val(&mut self) -> Option<Val> {
+
+    pub async fn stack_pop_val(&mut self) -> Val {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
-        r.take()
+        loop {
+            self.co.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
+            match r.take() {
+                Some(v) => return v,
+                None => {
+                    let cs = self.call_stack_names().await;
+                    self.stack_push(InterpError::StackEmpty(cs)).await;
+                }
+            }
+        }
     }
-    pub async fn stack_pop<T: Value>(&mut self) -> Option<T> {
-        match self.stack_pop_val().await {
-            Some(v) =>
-                match v.downcast::<T>() {
-                    Ok(r) => Some(r),
-                    Err(e) => {
-                        self.stack_push(e).await;
-                        None
-                    },
+    // TODO stack_pop_meta
+    pub async fn stack_pop<T: Value>(&mut self) -> T {
+        loop {
+            let v = self.stack_pop_val().await;
+            match v.downcast::<T>() {
+                Ok(r) => return r,
+                Err(e) => {
+                    self.stack_push(e.clone()).await;
+                    let name = core::any::type_name::<T>();
+                    let cs = self.call_stack_names().await;
+                    self.stack_push(dbg!(InterpError::WrongType(e, name, cs))).await;
+                    self.pause().await;
                 },
-            None => None,
+            }
         }
     }
     pub async fn stack_get(&mut self) -> List<Val> {
@@ -105,6 +135,13 @@ impl Handle {
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
     }
+
+    pub async fn with_stack_top_mut<T: Value>(&mut self, f: impl FnOnce(&mut T)) {
+        let mut t = self.stack_pop::<T>().await;
+        f(&mut t); 
+        self.stack_push(t).await;
+    }
+
     pub async fn stack_empty(&mut self) -> bool {
         self.stack_get().await.len() == 0
     }
@@ -134,6 +171,11 @@ impl Handle {
     }
     pub async fn all_definitions(&mut self) -> DefSet {
         self.get_definitions(true).await
+    }
+    pub async fn call_stack_names(&mut self) -> Vec<Option<String>> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;
+        r.take().unwrap()
     }
 }
 
@@ -217,7 +259,7 @@ impl From<Val> for ChildFrame {
 //     }
 // }
 fn child_frame_closure(l: List<Val>, meta: Vec<Val>) -> ChildFrame {
-    let mut frame = ListFrame::new_body(l);
+    let mut frame = ListFrame::new_body_meta(l, meta.clone());
     if let Some(ClosureEnv(ds)) =
             meta.iter().find_map(|v| v.downcast_ref::<ClosureEnv>()) {
         frame = frame.with_defs(ds.clone());
@@ -274,9 +316,9 @@ impl DefSet {
 #[derive(Default)]
 pub struct Paused {
     frame: ListFrame,
-    parents: List<ListFrame>,
+    parents: Vec<ListFrame>,
     stack: List<Val>,
-    defstacks: HashMap<String, List<Val>>, // TODO could be a Vec<Val>?
+    defstacks: HashMap<String, Vec<Val>>,
 }
 
 impl std::fmt::Debug for Paused {
@@ -300,7 +342,9 @@ impl Paused {
     }
 
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.frame.defs.insert(name.into(), def.into_val());
+        let name = name.into();
+        let defmeta = DefineMeta { name: name.clone() };
+        self.frame.defs.insert(name, def.into_val().with_meta(defmeta));
     }
 
     // pub fn definition_get(&self, name: impl AsRef<str>) -> Option<&Definition> {
@@ -313,7 +357,7 @@ impl Paused {
     pub fn all_definitions(&self) -> DefSet {
         let mut defs = self.frame.defs.clone();
         for (name, s) in self.defstacks.iter() {
-            if let Some(def) = s.top() {
+            if let Some(def) = s.last() {
                 defs.insert(name.clone(), def.clone());
             }
         }
@@ -323,7 +367,7 @@ impl Paused {
     // pub fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
     // fn body_ref(&self) -> &List<Val> { &self.frame.body }
 
-    pub fn is_toplevel(&self) -> bool { self.parents.is_empty() }
+    pub fn is_toplevel(&self) -> bool { self.parents.len() == 0 }
 
     // pub fn reset(&mut self) // in Paused only
     // maybe not needed with like, eval_in_new_body?
@@ -336,7 +380,6 @@ impl Paused {
     // pub fn stack_get()
     // pub fn stack_set(l)
 
-    // also stack_pop::<T>() -> Option<T>
     // also stack_pop_purpose() etc etc
     // maybe stack() + stack_mut() -> StackRef
     // with pop_any() and pop::<T> and ref etc?
@@ -350,7 +393,7 @@ impl Paused {
         if let Some(def) = self.frame.defs.get(s.as_string()) {
             Some(def)
         } else if let Some(defstack) = self.defstacks.get(s.as_string()) {
-            if let Some(def) = defstack.top() {
+            if let Some(def) = defstack.last() {
                 Some(def)
             } else { None }
         } else { None }
@@ -401,6 +444,7 @@ impl Paused {
             FrameYield::Define(name, def) => self.define(name, def),
             FrameYield::Definitions(false, yr) => yr.set(Some(self.frame.defs.clone())),
             FrameYield::Definitions(true, yr) => yr.set(Some(self.all_definitions())),
+            FrameYield::GetCallStack(yr) => yr.set(Some(self.call_stack_names())),
         }
         false
     }
@@ -462,6 +506,29 @@ impl Paused {
             true
         } else { false }
     }
+
+    // basic look at all the ListFrame and see
+    fn call_stack_names(&self) -> Vec<Option<String>> {
+        let mut r = vec![];
+        if let Some(DefineMeta { name }) =
+            self.frame.meta.iter().find_map(|v| v.downcast_ref::<DefineMeta>()) {
+            r.push(Some(name.clone()));
+        } else {
+            r.push(None);
+        }
+
+        for p in self.parents.iter().rev() {
+            if let Some(DefineMeta { name }) =
+                p.meta.iter().find_map(|v| v.downcast_ref::<DefineMeta>()) {
+                r.push(Some(name.clone()));
+            } else {
+                r.push(None);
+            }
+        }
+
+        r
+    }
+
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -496,7 +563,9 @@ impl Builder {
         self
     }
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.defs.insert(name.into(), def.into_val());
+        let name = name.into();
+        let defmeta = DefineMeta { name: name.clone() };
+        self.defs.insert(name, def.into_val().with_meta(defmeta));
     }
     pub fn with_define(mut self, name: impl Into<String>, def: impl Eval) -> Self {
         self.define(name, def);

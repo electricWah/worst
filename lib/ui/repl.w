@@ -3,11 +3,18 @@ import {
     worst/interpreter
     syntax/cond
     data/string
+    data/pairs
 }
 
 define worst-repl [
 
+    ; all-definitions
+    ; quote interpreter-inherit-definitions pairs-get
+    ; stack-dump drop
+
     define clear-stack [ [] stack-set ]
+
+    ; TODO move reading stuff into worst/reader
 
     interpreter-empty
     interpreter-inherit-definitions
@@ -40,13 +47,25 @@ define worst-repl [
         ansi [ cyan fg "... " print yellow fg "> " print reset ]
     ]
 
+    new-string-port const %stdin-buffer
+    ; buffers stdin line-by-line into %stdin-buffer
+    define buffered-input-port [
+        %stdin-buffer
+        port-peek-char
+        false? swap drop if [
+            current-input-port port-read-line swap drop
+            port-write-string
+        ] [
+        ]
+    ]
+
     ; read-one -> value #t | continue? #f
     define read-one [
         while [
-            current-input-port
+            buffered-input-port
             port-peek-char
             cond [
-                [eof-object?] [
+                [false?] [
                     ; leave loop, don't continue
                     drop drop drop #f #f #f
                 ]
@@ -56,10 +75,10 @@ define worst-repl [
                     #t #f #f
                 ]
                 ; drop whitespace
-                [ "%s" string-contains-match? ] [
-                    drop port-read-char drop drop
-                    #t
-                ]
+                ; [ "%s" string-contains-match? ] [
+                ;     drop port-read-char drop drop
+                ;     #t
+                ; ]
                 ; anything else: read a value, leave loop
                 [#t] [
                     drop
@@ -107,19 +126,24 @@ define worst-repl [
     ]
 
     define eval/prompt [
-        interp interpreter-run swap drop
-        cond [
-            [false?] [ drop standard-prompt ]
-            [toplevel-quote-error?] [
-                drop
-                stack-prompt ; eval/prompt
-            ]
-            [#t] [
-                ansi [ red fg ->string print reset ] "\n" print
-                interp interpreter-reset drop
-                standard-prompt
-            ]
-        ]
+        interp interpreter-run
+        stack-dump
+        ; swap drop if [
+        ;     standard-prompt
+        ; ] [
+        ; ]
+        ; cond [
+        ;     [false?] [ drop standard-prompt ]
+        ;     [toplevel-quote-error?] [
+        ;         drop
+        ;         stack-prompt ; eval/prompt
+        ;     ]
+        ;     [#t] [
+        ;         ansi [ red fg ->string print reset ] "\n" print
+        ;         interp interpreter-reset drop
+        ;         standard-prompt
+        ;     ]
+        ; ]
     ]
 
     define interp-give [

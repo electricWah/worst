@@ -1,4 +1,5 @@
 
+use std::io as io;
 use crate::base::*;
 use crate::list::*;
 
@@ -10,10 +11,23 @@ pub enum ReadError {
     UnmatchedList(char),
     UnknownChar(char),
     UnparseableNumber(String),
+    IoError(String),
 }
 
-fn read_hash(src: &mut impl Iterator<Item=char>) -> Result<Val, ReadError> {
-    match src.next() {
+type Res<T> = Result<T, ReadError>;
+
+impl From<io::Error> for ReadError {
+    fn from(e: io::Error) -> Self {
+        ReadError::IoError(format!("{:?}", e.kind()))
+    }
+}
+
+// fn src_next(src: &mut impl Iterator<Item=io::Result<char>>) -> Result<Option<char>, ReadError> {
+//     Ok(src.next().transpose()?)
+// }
+
+fn read_hash(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Val> {
+    match src.next().transpose()? {
         Some('t') => Ok(true.into()),
         Some('f') => Ok(false.into()),
         Some(c) => Err(ReadError::UnknownHash(c)),
@@ -21,15 +35,16 @@ fn read_hash(src: &mut impl Iterator<Item=char>) -> Result<Val, ReadError> {
     }
 }
 
-fn read_string(src: &mut impl Iterator<Item=char>) -> Result<String, ReadError> {
+fn read_string(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<String> {
     // single-char escape for now
     let mut acc = String::new();
     let mut escaping = false;
-    while let Some(c) = src.next() {
+    while let Some(c) = src.next().transpose()? {
         if escaping {
             escaping = false;
             acc.push(match c {
                 'n' => '\n',
+                'e' => '\u{1b}', // escape
                 c => c, // includes \ and "
             });
         } else {
@@ -43,11 +58,11 @@ fn read_string(src: &mut impl Iterator<Item=char>) -> Result<String, ReadError> 
     Err(ReadError::UnclosedString)
 }
 
-fn read_i32(start: char, src: &mut impl Iterator<Item=char>) -> Result<(i32, Option<char>), ReadError> {
+fn read_i32(start: char, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<(i32, Option<char>)> {
     // maybe just take_while instead
     let mut acc = String::from(start);
     let cr = loop {
-        match src.next() {
+        match src.next().transpose()? {
             Some(c) if c.is_numeric() => {
                 acc.push(c);
             },
@@ -60,7 +75,7 @@ fn read_i32(start: char, src: &mut impl Iterator<Item=char>) -> Result<(i32, Opt
     } else { Err(ReadError::UnparseableNumber(acc)) }
 }
 
-fn read_list(open: char, src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+fn read_list(open: char, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Vec<Val>> {
     let endch = match open {
         '(' => ')',
         '[' => ']',
@@ -69,24 +84,24 @@ fn read_list(open: char, src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>,
     };
     read_until(Some(endch), src)
 }
-fn read_symbol(start: char, src: &mut impl Iterator<Item=char>) -> (Symbol, Option<char>) {
+fn read_symbol(start: char, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<(Symbol, Option<char>)> {
     let mut acc = String::from(start);
     let next = loop {
-        match src.next() {
+        match src.next().transpose()? {
             c@(Some('('|')' | '['|']' | '{'|'}' | '"') | None) => break c,
             c@Some(s) if s.is_whitespace() => break c,
             Some(c) => acc.push(c),
         }
     };
-    (acc.to_symbol(), next)
+    Ok((acc.to_symbol(), next))
 }
 
-fn read_until(until: Option<char>, src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+fn read_until(until: Option<char>, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Vec<Val>> {
     let mut buf = vec![];
     let mut next = None;
-    while let Some(c) = next.take().or_else(|| src.next()) {
+    while let Some(c) = next.take().map(Result::Ok).or_else(|| src.next()).transpose()? {
         match c {
-            ';' => { while src.next() != Some('\n') {} },
+            ';' => { while src.next().transpose()? != Some('\n') {} },
             '#' => buf.push(read_hash(src)?),
             '"' => buf.push(read_string(src)?.into()),
             '(' | '{' | '[' => buf.push(List::from(read_list(c, src)?).into()),
@@ -99,7 +114,7 @@ fn read_until(until: Option<char>, src: &mut impl Iterator<Item=char>) -> Result
                 }
                 else if Some(c) == until { return Ok(buf); }
                 else {
-                    let (d, n) = read_symbol(c, src);
+                    let (d, n) = read_symbol(c, src)?;
                     next = n;
                     buf.push(d.into());
                 }
@@ -108,7 +123,7 @@ fn read_until(until: Option<char>, src: &mut impl Iterator<Item=char>) -> Result
     Ok(buf)
 }
 
-pub fn read_all(src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+pub fn read_all(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Vec<Val>> {
     read_until(None, src)
 }
 

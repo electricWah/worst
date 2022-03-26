@@ -72,6 +72,7 @@ impl<T> List<T> {
         }
         List { data }
     }
+    pub fn reverse(&mut self) { self.data.reverse() }
 }
 
 impl List<Val> {

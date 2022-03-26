@@ -93,8 +93,10 @@ impl ImplValue for String {}
 impl ImplValue for bool {}
 impl ImplValue for i32 {} // TODO any numeric
 
-impl From<&'static str> for Val {
-    fn from(s: &'static str) -> Val { String::from(s).into() }
+impl Value for &'static str {
+    fn to_val(self) -> Val { self.to_string().to_val() }
+    fn dup(&self) -> Val { self.to_string().dup() }
+    fn equal(&self, other: &Val) -> bool { self.to_string().equal(other) }
 }
 
 #[derive(Debug, Clone, Eq)]

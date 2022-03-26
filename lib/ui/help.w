@@ -1,5 +1,5 @@
 
-import worst/doc/attribute
+; import worst/doc/attribute
 import ui/ansi
 
 doc [

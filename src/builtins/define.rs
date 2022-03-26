@@ -76,15 +76,9 @@ pub fn install(mut i: Builder) -> Builder {
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {
-        if let Some(name) = i.stack_pop::<Symbol>().await {
-            if let Some(def) = i.stack_pop_val().await {
-                i.define(name, def).await;
-            } else {
-                dbg!("stack enfioen");
-            }
-        } else {
-            dbg!("no");
-        }
+        let name = i.stack_pop::<Symbol>().await;
+        let def = i.stack_pop_val().await;
+        i.define(name, def).await;
     });
     i.define("all-definitions", |mut i: Handle| async move {
         let p = i.all_definitions().await;
