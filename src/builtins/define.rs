@@ -84,6 +84,15 @@ pub fn install(mut i: Builder) -> Builder {
         let p = i.all_definitions().await;
         i.stack_push(List::from_pairs(p.iter().map(|(k, v)| (k.to_symbol(), v.clone())))).await;
     });
+    i.define("definition-resolve", |mut i: Handle| async move {
+        let name = i.stack_pop::<Symbol>().await;
+        let res = i.resolve_definition(name.clone()).await;
+        i.stack_push(name).await;
+        match res {
+            Some(def) => i.stack_push(def).await,
+            None => i.stack_push(false).await,
+        }
+    });
     i
     // local name = i:stack_pop(Symbol)
     // local body = i:stack_pop({List, "function"})

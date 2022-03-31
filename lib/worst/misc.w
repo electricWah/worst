@@ -18,7 +18,10 @@ define evaluate [ upquote symbol? quote call quote when uplevel ]
 
 ; a equals? b => a bool
 define equals? [ upquote equal? swap drop ]
+; a == b => bool
+; define == [ upquote equal? bury drop drop ]
 
+define not [ false? swap drop ]
 define abs [ 0 ascending? swap drop if [negate] [] ]
 define max [ ascending? if [swap] [] drop ]
 define min [ ascending? if [] [swap] drop ]

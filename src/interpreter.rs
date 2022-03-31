@@ -48,6 +48,7 @@ mod private {
         Define(String, Val),
         /// true: all definitions, false: only in current frame
         Definitions(bool, YieldReturn<DefSet>),
+        ResolveDefinition(String, YieldReturn<Val>),
         GetCallStack(YieldReturn<Vec<Option<String>>>),
     }
 
@@ -135,13 +136,6 @@ impl Handle {
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
     }
-
-    pub async fn with_stack_top_mut<T: Value>(&mut self, f: impl FnOnce(&mut T)) {
-        let mut t = self.stack_pop::<T>().await;
-        f(&mut t); 
-        self.stack_push(t).await;
-    }
-
     pub async fn stack_empty(&mut self) -> bool {
         self.stack_get().await.len() == 0
     }
@@ -171,6 +165,11 @@ impl Handle {
     }
     pub async fn all_definitions(&mut self) -> DefSet {
         self.get_definitions(true).await
+    }
+    pub async fn resolve_definition(&mut self, name: impl Into<String>) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::ResolveDefinition(name.into(), Rc::clone(&r))).await;
+        r.take()
     }
     pub async fn call_stack_names(&mut self) -> Vec<Option<String>> {
         let r = Rc::new(Cell::new(None));
@@ -243,7 +242,7 @@ impl From<Val> for ChildFrame {
         match_downcast::match_downcast!(vv, {
             b: Builtin => (*b).into(),
             l: List<Val> => child_frame_closure(*l, meta),
-            _ => todo!("eval")
+            _ => todo!("eval {:?}", vv)
         })
     }
 }
@@ -389,10 +388,10 @@ impl Paused {
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
-    fn resolve_ref(&self, s: &Symbol) -> Option<&Val> {
-        if let Some(def) = self.frame.defs.get(s.as_string()) {
+    fn resolve_ref(&self, s: impl AsRef<str>) -> Option<&Val> {
+        if let Some(def) = self.frame.defs.get(s.as_ref()) {
             Some(def)
-        } else if let Some(defstack) = self.defstacks.get(s.as_string()) {
+        } else if let Some(defstack) = self.defstacks.get(s.as_ref()) {
             if let Some(def) = defstack.last() {
                 Some(def)
             } else { None }
@@ -417,7 +416,7 @@ impl Paused {
                 None => {
                     if let Some(next) = self.read_body() {
                         if let Some(s) = next.downcast_ref::<Symbol>() {
-                            self.create_call(s.clone());
+                            self.call(s.clone());
                         } else {
                             self.stack_push(next);
                         }
@@ -444,12 +443,15 @@ impl Paused {
             FrameYield::Define(name, def) => self.define(name, def),
             FrameYield::Definitions(false, yr) => yr.set(Some(self.frame.defs.clone())),
             FrameYield::Definitions(true, yr) => yr.set(Some(self.all_definitions())),
+            FrameYield::ResolveDefinition(name, yr) => yr.set(self.resolve_ref(&name).map(Val::clone)),
             FrameYield::GetCallStack(yr) => yr.set(Some(self.call_stack_names())),
         }
         false
     }
 
-    fn create_call(&mut self, s: Symbol) {
+    /// Immediately call `name` when the interpreter is next resumed
+    pub fn call(&mut self, name: impl Into<Symbol>) {
+        let s = name.into();
         self.frame.childs.push((move |mut i: Handle| async move {
             i.call(s).await;
         }).into());

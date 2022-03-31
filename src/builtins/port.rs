@@ -81,10 +81,31 @@ impl Port {
         Ok(())
     }
 
+    fn peekable(&self) -> bool {
+        match self {
+            Port::StringBuffer(_) => true,
+            _ => false,
+        }
+    }
+
     fn peek_char(&self) -> Result<Option<char>, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow().front().map(char::clone)),
             _ => Err("not peekable".to_val()),
+        }
+    }
+
+    fn read_char(&mut self) -> Result<Option<char>, Val> {
+        match self {
+            Port::StringBuffer(s) => Ok(s.borrow_mut().pop_front()),
+            _ => Err("TODO port::read_char".to_val()),
+        }
+    }
+
+    fn read_all(&mut self) -> Result<String, Val> {
+        match self {
+            Port::StringBuffer(s) => Ok(s.borrow_mut().iter().collect::<String>()),
+            _ => Err("TODO port::read_all".to_val()),
         }
     }
 
@@ -103,7 +124,7 @@ impl Port {
                     None => Ok(s.borrow_mut().drain(..).collect()),
                 }
             },
-            _ => Err("not readable".to_val()),
+            _ => Err("not read-line-able".to_val()),
         }
     }
 
@@ -149,6 +170,12 @@ pub fn install(mut i: Builder) -> Builder {
         }
     });
 
+    // i.define("port-peekable", |mut i: Handle| async move {
+    //     let p = i.stack_pop::<Port>().await;
+    //     let peekable = p.peekable();
+    //     i.stack_push(p).await;
+    //     i.stack_push(peekable).await;
+    // })
     i.define("port-peek-char", |mut i: Handle| async move {
         let p = i.stack_pop::<Port>().await;
         let ch = p.peek_char();
@@ -156,6 +183,33 @@ pub fn install(mut i: Builder) -> Builder {
         match ch {
             Ok(Some(v)) => i.stack_push(String::from(v)).await,
             Ok(None) => i.stack_push(false).await,
+            Err(v) => {
+                i.stack_push(v).await;
+                i.pause().await;
+            },
+        }
+    });
+
+    i.define("port-read-char", |mut i: Handle| async move {
+        let mut p = i.stack_pop::<Port>().await;
+        let ch = p.read_char();
+        i.stack_push(p).await;
+        match ch {
+            Ok(Some(v)) => i.stack_push(String::from(v)).await,
+            Ok(None) => i.stack_push(false).await,
+            Err(v) => {
+                i.stack_push(v).await;
+                i.pause().await;
+            },
+        }
+    });
+
+    i.define("port-read-all", |mut i: Handle| async move {
+        let mut p = i.stack_pop::<Port>().await;
+        let s = p.read_all();
+        i.stack_push(p).await;
+        match s {
+            Ok(s) => i.stack_push(s).await,
             Err(v) => {
                 i.stack_push(v).await;
                 i.pause().await;

@@ -22,10 +22,6 @@ impl From<io::Error> for ReadError {
     }
 }
 
-// fn src_next(src: &mut impl Iterator<Item=io::Result<char>>) -> Result<Option<char>, ReadError> {
-//     Ok(src.next().transpose()?)
-// }
-
 fn read_hash(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Val> {
     match src.next().transpose()? {
         Some('t') => Ok(true.into()),
@@ -101,7 +97,11 @@ fn read_until(until: Option<char>, src: &mut impl Iterator<Item=io::Result<char>
     let mut next = None;
     while let Some(c) = next.take().map(Result::Ok).or_else(|| src.next()).transpose()? {
         match c {
-            ';' => { while src.next().transpose()? != Some('\n') {} },
+            ';' => {
+                while match src.next().transpose()? {
+                    None | Some('\n') => false, _ => true
+                } {}
+            },
             '#' => buf.push(read_hash(src)?),
             '"' => buf.push(read_string(src)?.into()),
             '(' | '{' | '[' => buf.push(List::from(read_list(c, src)?).into()),

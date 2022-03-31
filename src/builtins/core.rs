@@ -83,7 +83,7 @@ pub async fn const_(mut i: Handle) {
             return i.pause().await;
         };
 
-    i.define(name.as_string(), move |mut i: Handle| {
+    i.define(name.as_ref(), move |mut i: Handle| {
         let vv = v.clone();
         async move {
             i.stack_push(vv.clone()).await;
@@ -181,11 +181,16 @@ pub fn install(mut i: Builder) -> Builder {
     i.define("while", while_);
     i.define("equal?", equal);
     i.define("false?", false_);
+    i.define("pause", |mut i: Handle| async move { i.pause().await; });
     i.define("command-line-arguments", command_line_arguments);
     i.define("add", add);
     i.define("print", print); // temporary
     i.define("stack-dump", |mut i: Handle| async move {
         dbg!(i.stack_get().await);
+    });
+    i.define("stack-get", |mut i: Handle| async move {
+        let s = i.stack_get().await;
+        i.stack_push(s).await;
     });
     i
 }

@@ -73,8 +73,8 @@ impl<T: ImplValue + Debug + 'static> From<T> for Val {
 pub struct Symbol {
     v: String,
 }
-impl Symbol {
-    pub fn as_string(&self) -> &String { &self.v }
+impl AsRef<str> for Symbol {
+    fn as_ref(&self) -> &str { self.v.as_ref() }
 }
 pub trait ToSymbol { fn to_symbol(self) -> Symbol; }
 impl<T: Into<Symbol>> ToSymbol for T {

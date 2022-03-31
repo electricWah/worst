@@ -10,6 +10,13 @@ pub async fn list_empty(mut i: Handle) {
     i.stack_push(len == 0).await;
 }
 
+pub async fn list_push(mut i: Handle) {
+    let v = i.stack_pop_val().await;
+    let mut l = i.stack_pop::<List<Val>>().await;
+    l.push(v);
+    i.stack_push(l).await;
+}
+
 pub async fn list_pop(mut i: Handle) {
     let mut l = i.stack_pop::<List<Val>>().await;
     let v = l.pop().unwrap_or(false.into());
@@ -26,6 +33,7 @@ pub async fn list_reverse(mut i: Handle) {
 pub fn install(mut i: Builder) -> Builder {
     i.define("list-empty?", list_empty);
     i.define("list-reverse", list_reverse);
+    i.define("list-push", list_push);
     i.define("list-pop", list_pop);
     i
 }

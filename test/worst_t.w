@@ -1,10 +1,11 @@
 
+import worst/misc
 import assert_t
 
-equal! (5 5) "5 and 5"
+"5 and 5" equal! (5 5)
 
-equal! (define egg (7) 7 egg) "egg 7"
-test! (quote egg definition-resolve swap drop not) "not egg"
+"egg 7" equal! (define egg (7) 7 egg)
+"not egg" test! (quote egg definition-resolve swap drop not)
 
-equal! (stack-get ()) "stack empty"
+"stack empty" equal! (stack-get ())
 

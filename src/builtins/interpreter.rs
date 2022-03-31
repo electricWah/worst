@@ -18,6 +18,9 @@ impl Interpreter {
     fn define(&mut self, name: impl Into<String>, def: Val) {
         self.0.borrow_mut().define(name, def);
     }
+    fn call(&mut self, name: impl Into<Symbol>) {
+        self.0.borrow_mut().call(name);
+    }
     fn run(&mut self) -> bool {
         self.0.borrow_mut().run()
     }
@@ -39,14 +42,26 @@ pub fn install(mut i: Builder) -> Builder {
         i.stack_push(interp).await;
         i.stack_push(r).await;
     });
+    i.define("interpreter-stack-length",  |mut i: Handle| async move {
+        let interp = i.stack_pop::<Interpreter>().await;
+        let len = interp.0.borrow_mut().stack_len();
+        i.stack_push(interp).await;
+        i.stack_push(len as i32).await;
+    });
     i.define("interpreter-stack-push",  |mut i: Handle| async move {
         let v = i.stack_pop_val().await;
-        let mut interp = i.stack_pop::<Interpreter>().await;
+        let interp = i.stack_pop::<Interpreter>().await;
         interp.0.borrow_mut().stack_push(v);
         i.stack_push(interp).await;
     });
+    i.define("interpreter-stack-pop",  |mut i: Handle| async move {
+        let interp = i.stack_pop::<Interpreter>().await;
+        let v = interp.0.borrow_mut().stack_pop_val().unwrap_or(false.into());
+        i.stack_push(interp).await;
+        i.stack_push(v).await;
+    });
     i.define("interpreter-stack-get",  |mut i: Handle| async move {
-        let mut interp = i.stack_pop::<Interpreter>().await;
+        let interp = i.stack_pop::<Interpreter>().await;
         let s = interp.0.borrow_mut().stack_ref().clone();
         i.stack_push(interp).await;
         i.stack_push(s).await;
@@ -54,8 +69,17 @@ pub fn install(mut i: Builder) -> Builder {
     i.define("interpreter-definition-add", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await;
         let def = i.stack_pop_val().await;
-        i.with_stack_top_mut(move |interp: &mut Interpreter| interp.define(name, def)).await;
+        let mut interp = i.stack_pop::<Interpreter>().await;
+        interp.define(name, def);
+        i.stack_push(interp).await;
     });
+    i.define("interpreter-call", |mut i: Handle| async move {
+        let name = i.stack_pop::<Symbol>().await;
+        let mut interp = i.stack_pop::<Interpreter>().await;
+        interp.call(name);
+        i.stack_push(interp).await;
+    });
+
     i
 }
 

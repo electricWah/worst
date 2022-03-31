@@ -1,5 +1,4 @@
 
-use crate::base::*;
 use crate::interpreter::{Builder, Handle};
 
 pub fn install(mut i: Builder) -> Builder {
@@ -8,6 +7,12 @@ pub fn install(mut i: Builder) -> Builder {
         let mut a = i.stack_pop::<String>().await;
         a.push_str(&b);
         i.stack_push(a).await;
+    });
+    i.define("whitespace?", |mut i:Handle| async move {
+        let s = i.stack_pop::<String>().await;
+        let ws = s.chars().all(char::is_whitespace);
+        i.stack_push(s).await;
+        i.stack_push(ws).await;
     });
     i
 }

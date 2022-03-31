@@ -1,59 +1,79 @@
 
-doc "input-port reader-new -> reader"
+import worst/interpreter
+import syntax/cond
+
+; doc "input-port reader-new -> reader"
 define reader-new [
 
-    new-string-port const %stdin-buffer
-    ; buffers stdin line-by-line into %stdin-buffer
-    define buffered-input-port [
-        %stdin-buffer
-        port-peek-char
-        false? swap drop if [
-            current-input-port port-read-line swap drop
-            port-write-string
-        ] [
+    ; TODO no buffering and just read
+
+    const input-port
+
+    define eof [ #f #f pause ] ; no args
+    define syntax-error [ #f pause ] ; 1 arg
+    define yield [ #t pause ] ; 1 arg
+
+    define read-next [ next-char read-next/char ]
+    define next-char [ input-port port-read-char swap drop ]
+    define read-next/char [
+        cond [
+            [false?] [drop eof]
+            [whitespace?] [drop]
+            [equals? ";"] [
+                while [ next-char cond [
+                    [false?] [eof]
+                    [equals? "\n"] [drop #f]
+                    [#t] [drop #t]
+                ] ] []
+            ]
+            [equals? "#"] [
+                drop
+                next-char cond [
+                    [equals? "t"] [drop #t yield]
+                    [equals? "f"] [drop #f yield]
+                    [#t] [ ["unknown hash thingy"] swap list-push syntax-error ]
+                ]
+            ]
+            [equals? "\""] [
+                drop
+                new-string-port
+                while [ next-char cond [
+                    [false?] [eof]
+                    [equals? "\""] [drop port-read-all swap drop yield #f]
+                    [equals? "\\"] [
+                        drop next-char cond [
+                            [false?] [eof]
+                            [equals? "n"] [drop "\n" port-write-string]
+                            [equals? "e"] [drop "\e" port-write-string]
+                            [#t] [port-write-string]
+                        ]
+                        #t
+                    ]
+                    [#t] [ port-write-string #t ]
+                ] ] []
+            ]
+            [#t] [ ["unknown char"] swap list-push syntax-error ]
         ]
     ]
 
-    ; read-one -> value #t | continue? #f
-    define read-one [
-        while [
-            buffered-input-port
-            port-peek-char
-            cond [
-                [false?] [
-                    ; leave loop, don't continue
-                    drop drop drop #f #f #f
-                ]
-                ; newline: leave loop, maybe continue
-                ["\n" equal? swap drop] [
-                    drop port-read-char drop drop
-                    #t #f #f
-                ]
-                ; drop whitespace
-                ; [ "%s" string-contains-match? ] [
-                ;     drop port-read-char drop drop
-                ;     #t
-                ; ]
-                ; anything else: read a value, leave loop
-                [#t] [
-                    drop
-                    port-read-value
-                    swap drop
-                    #t #f
-                ]
-            ]
-        ] []
-    ]
+    define reader-loop [ while [#t] [ read-next ] ]
 
     interpreter-empty
     interpreter-inherit-definitions
+    quote reader-loop interpreter-call
     const interp
 
     interp
 ]
 
+; reader reader-next -> reader ( read-val #t | #f )
 define reader-next [
+    quote read-next interpreter-call
+    interpreter-run drop
+    interpreter-stack-pop const ok
+    interpreter-stack-pop const res
+    res ok
 ]
 
-
+export #t
 
