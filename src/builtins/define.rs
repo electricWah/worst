@@ -20,7 +20,7 @@ pub async fn define(mut i: Handle) {
             Some(na) =>
                 match_downcast!(na, {
                     s: Symbol => (s, List::default()),
-                    l: List<Val> =>
+                    l: List =>
                         match i.quote().await {
                             Some(qn) =>
                                 match qn.downcast::<Symbol>() {
@@ -47,7 +47,7 @@ pub async fn define(mut i: Handle) {
     let body =
         match i.quote().await {
             Some(q) =>
-                match q.downcast::<List<Val>>() {
+                match q.downcast::<List>() {
                     Ok(l) => l,
                     Err(e) => {
                         i.stack_push(e).await;

@@ -13,7 +13,7 @@ enum Port {
     Stdout,
     Stderr,
     StringBuffer(Rc<RefCell<VecDeque<char>>>),
-    Write(Rc<RefCell<Box<dyn std::io::Write>>>, String),
+    // Write(Rc<RefCell<Box<dyn std::io::Write>>>, String),
 }
 
 impl PartialEq for Port {
@@ -22,8 +22,8 @@ impl PartialEq for Port {
             (Port::Stdin, Port::Stdin) => true,
             (Port::Stdout, Port::Stdout) => true,
             (Port::Stderr, Port::Stderr) => true,
-            (Port::Write(a, _),
-             Port::Write(b, _)) => Rc::ptr_eq(a, b),
+            // (Port::Write(a, _),
+            //  Port::Write(b, _)) => Rc::ptr_eq(a, b),
             (Port::StringBuffer(a),
              Port::StringBuffer(b)) => Rc::ptr_eq(a, b),
             _ => false,
@@ -38,7 +38,7 @@ impl std::fmt::Debug for Port {
             Port::Stdin => write!(f, "<stdin>"),
             Port::Stdout => write!(f, "<stdout>"),
             Port::Stderr => write!(f, "<stderr>"),
-            Port::Write(_, name) => write!(f, "<{}>", name),
+            // Port::Write(_, name) => write!(f, "<{}>", name),
             Port::StringBuffer(s) =>
                 write!(f, "<\"{}\"...>",
                        s.borrow().iter().take(8).map(char::clone).collect::<String>()),
@@ -66,11 +66,11 @@ impl Port {
                     format!("{:?}", e.kind()).to_val()
                 })?;
             },
-            Port::Write(p, _) => {
-                p.borrow_mut().write(v.as_ref().as_bytes()).map_err(|e| {
-                    format!("{:?}", e.kind()).to_val()
-                })?;
-            },
+            // Port::Write(p, _) => {
+            //     p.borrow_mut().write(v.as_ref().as_bytes()).map_err(|e| {
+            //         format!("{:?}", e.kind()).to_val()
+            //     })?;
+            // },
             Port::StringBuffer(s) => {
                 let mut b = s.borrow_mut();
                 for c in v.as_ref().chars() {
@@ -81,12 +81,12 @@ impl Port {
         Ok(())
     }
 
-    fn peekable(&self) -> bool {
-        match self {
-            Port::StringBuffer(_) => true,
-            _ => false,
-        }
-    }
+    // fn peekable(&self) -> bool {
+    //     match self {
+    //         Port::StringBuffer(_) => true,
+    //         _ => false,
+    //     }
+    // }
 
     fn peek_char(&self) -> Result<Option<char>, Val> {
         match self {
@@ -137,6 +137,9 @@ pub fn install(mut i: Builder) -> Builder {
     i.define("current-output-port", |mut i: Handle| async move {
         i.stack_push(Port::Stdout).await;
     });
+    i.define("current-error-port", |mut i: Handle| async move {
+        i.stack_push(Port::Stderr).await;
+    });
     i.define("port-write-string", |mut i: Handle| async move {
         let s = i.stack_pop::<String>().await;
         let mut p = i.stack_pop::<Port>().await;
@@ -148,8 +151,7 @@ pub fn install(mut i: Builder) -> Builder {
         i.stack_push(p).await;
     });
     i.define("value-write-string", |mut i: Handle| async move {
-        // TODO not this, not like this, not here
-        let (v, _) = i.stack_pop_val().await.deconstruct();
+        let v = i.stack_pop::<String>().await;
         i.stack_push(format!("{:?}", v)).await;
     });
 

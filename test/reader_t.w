@@ -40,6 +40,7 @@ define reads-as! [
 "; boing\n\"hello\"\n" reads-as! ("hello")
 
 ; TODO next
+"this next error is correct" stack-dump drop
 "a thingy \n yea" reads-as! (a thingy yea)
 
 "()" reads-as! (())

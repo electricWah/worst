@@ -153,7 +153,7 @@ pub async fn if_(mut i: Handle) {
 }
 
 pub async fn command_line_arguments(mut i: Handle) {
-    i.stack_push(List::from_vals(std::env::args())).await;
+    i.stack_push(List::from_iter(std::env::args())).await;
 }
 
 pub async fn print(mut i: Handle) {

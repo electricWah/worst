@@ -11,23 +11,17 @@ pub trait Value: Downcast + Debug {
 }
 downcast_rs::impl_downcast!(Value);
 
-#[derive(Debug)]
+#[derive(Default, Debug, Clone)]
+pub struct Meta(Rc<Vec<Val>>);
+
+#[derive(Debug, Clone)]
 pub struct Val {
-    v: Box<dyn Value>,
-    pub meta: Vec<Val>,
-    // meta..?
+    v: Rc<Box<dyn Value>>,
+    pub meta: Meta,
 }
 
-impl Clone for Val {
-    fn clone(&self) -> Val {
-        Val {
-            v: self.v.dup().v,
-            meta: self.meta.clone(),
-        }
-    }
-}
 impl PartialEq for Val {
-    fn eq(&self, that: &Self) -> bool { Value::equal(self.v.as_ref(), that) }
+    fn eq(&self, that: &Self) -> bool { Value::equal(self.v.as_ref().as_ref(), that) }
 }
 impl Eq for Val { }
 
@@ -38,22 +32,46 @@ impl Value for Val {
 }
 
 impl Val {
-    fn new(v: impl Value) -> Self { Val { v: Box::new(v), meta: vec![] } }
+    fn new(v: impl Value) -> Self {
+        Val { v: Rc::new(Box::new(v)), meta: Meta::default() }
+    }
     pub fn downcast<T: Value>(self) -> Result<T, Val> {
-        match self.v.downcast::<T>() {
-            Ok(v) => Ok(*v),
-            Err(v) => Err(Val { v, meta: self.meta }),
+        match Rc::try_unwrap(self.v) {
+            Ok(v) => {
+                match v.downcast::<T>() {
+                    Ok(v) => Ok(*v),
+                    Err(v) => Err(Val { v: Rc::new(v), meta: self.meta }),
+                }
+            },
+            Err(e) => { e.dup().downcast::<T>() },
         }
     }
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
         self.v.downcast_ref::<T>()
     }
+    pub fn downcast_mut<T: Value>(&mut self) -> Option<&mut T> {
+        if let Some(v) = Rc::get_mut(&mut self.v) {
+            v.downcast_mut::<T>()
+        } else {
+            None
+            //Rc::make_mut(&mut self.v).downcast_mut::<T>()
+        }
+    }
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
-    pub fn deconstruct(self) -> (Box<dyn Value>, Vec<Val>) { (self.v, self.meta) }
     pub fn add_meta(&mut self, v: impl Value) { self.meta.push(Val::new(v)); }
     pub fn with_meta(mut self, v: impl Value) -> Self { self.add_meta(v); self }
+    pub fn get_meta(&self) -> Meta { self.meta.clone() }
+}
+
+impl Meta {
+    fn push(&mut self, v: impl Into<Val>) {
+        Rc::make_mut(&mut self.0).push(v.into());
+    }
+    pub fn first<T: Value>(&self) -> Option<&T> {
+        self.0.iter().find_map(|v| v.downcast_ref::<T>())
+    }
 }
 
 pub trait ImplValue: Clone + Eq {}

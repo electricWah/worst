@@ -7,7 +7,7 @@ use crate::list::*;
 use crate::reader;
 use crate::interpreter::{Builder, Paused, Handle, DefSet};
 
-fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
+fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Paused> {
     let mut ib = Builder::default();
     for (name, def) in defs.iter() {
         ib.define(name, def.clone());
@@ -35,7 +35,7 @@ fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
                     }
                 },
                 name: Symbol => {
-                    match exports.get().downcast::<List<Val>>() {
+                    match exports.get().downcast::<List>() {
                         Ok(mut l) => {
                             l.push(name.into());
                             exports.set(l);
@@ -45,8 +45,8 @@ fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
                         },
                     }
                 },
-                coll: List<Val> => {
-                    match exports.get().downcast::<List<Val>>() {
+                coll: List => {
+                    match exports.get().downcast::<List>() {
                         Ok(mut l) => {
                             for v in coll {
                                 l.push(v);
@@ -84,7 +84,7 @@ fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
         _t: bool => {
             exmap = all_defs;
         },
-        l: List<Val> => {
+        l: List => {
             for ex in l.into_iter() {
                 let name = ex.downcast::<Symbol>().unwrap().into();
                 if let Some(def) = all_defs.get(&name) {
@@ -101,7 +101,7 @@ fn eval_module(m: List<Val>, defs: DefSet) -> Result<DefSet, Paused> {
     Ok(exmap)
 }
 
-fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List<Val>> {
+fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List> {
     let mut resolve_errors = vec![];
     for base in libpath.iter() {
         let filepath = format!("{}/{}.w", base, path);
@@ -130,13 +130,13 @@ pub fn install(mut i: Builder) -> Builder {
         let s =
             if let Ok(s) = std::env::var("WORST_LIBPATH") { s }
             else { String::new() };
-        i.stack_push(List::from_vals(s.split(':').map(String::from))).await;
+        i.stack_push(List::from_iter(s.split(':').map(String::from))).await;
     });
     i.define("import", |mut i: Handle| async move {
         let imports =
             if let Some(q) = i.quote().await {
                 match_downcast!(q, {
-                    l: List<Val> => l,
+                    l: List => l,
                     s: Symbol => List::from(vec![s.into()]),
                     _ => {
                         i.stack_push("expected list or symbol").await;
@@ -148,7 +148,7 @@ pub fn install(mut i: Builder) -> Builder {
             };
         i.call("WORST_LIBPATH").await;
         let libpath = {
-            let lp = i.stack_pop::<List<Val>>().await;
+            let lp = i.stack_pop::<List>().await;
             let mut v = vec![];
             for l in lp {
                 if let Ok(s) = l.downcast::<String>() {

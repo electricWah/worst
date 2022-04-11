@@ -18,16 +18,16 @@ mod private {
 
     #[derive(Default)]
     pub struct ListFrame {
-        pub childs: List<ChildFrame>,
-        pub body: List<Val>,
-        pub meta: Vec<Val>,
+        pub childs: Vec<ChildFrame>,
+        pub body: List,
+        pub meta: Meta,
         pub defs: DefSet,
     }
     impl ListFrame {
-        pub fn new_body(body: List<Val>) -> Self {
+        pub fn new_body(body: List) -> Self {
             ListFrame { body, ..ListFrame::default() }
         }
-        pub fn new_body_meta(body: List<Val>, meta: Vec<Val>) -> Self {
+        pub fn new_body_meta(body: List, meta: Meta) -> Self {
             ListFrame { body, meta, ..ListFrame::default() }
         }
         pub fn with_defs(mut self, defs: DefSet) -> Self {
@@ -42,7 +42,7 @@ mod private {
         Call(Symbol),
         StackPush(Val),
         StackPop(YieldReturn<Val>),
-        StackGet(YieldReturn<List<Val>>),
+        StackGet(YieldReturn<List>),
         Quote(YieldReturn<Val>),
         Uplevel(ChildFrame),
         Define(String, Val),
@@ -90,7 +90,7 @@ impl Handle {
     pub async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into())).await;
     }
-    pub async fn eval_child(&mut self, body: List<Val>, child: impl EvalOnce) {
+    pub async fn eval_child(&mut self, body: List, child: impl EvalOnce) {
         let mut frame = ListFrame::new_body(body);
         frame.childs.push(child.into());
         self.co.yield_(FrameYield::Eval(ChildFrame::ListFrame(frame))).await;
@@ -131,7 +131,7 @@ impl Handle {
             }
         }
     }
-    pub async fn stack_get(&mut self) -> List<Val> {
+    pub async fn stack_get(&mut self) -> List {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
@@ -151,7 +151,7 @@ impl Handle {
         self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
     }
     pub async fn define_closure(&mut self, name: impl Into<String>,
-                                body: List<Val>, env: DefSet) {
+                                body: List, env: DefSet) {
         let v = body.to_val().with_meta(ClosureEnv(env));
         self.co.yield_(FrameYield::Define(name.into(), v)).await;
     }
@@ -238,29 +238,18 @@ impl EvalOnce for Val {}
 impl IntoChildFrame for Val {}
 impl From<Val> for ChildFrame {
     fn from(v: Val) -> Self {
-        let (vv, meta) = v.deconstruct();
-        match_downcast::match_downcast!(vv, {
-            b: Builtin => (*b).into(),
-            l: List<Val> => child_frame_closure(*l, meta),
-            _ => todo!("eval {:?}", vv)
+        let meta = v.get_meta();
+        match_downcast::match_downcast!(v, {
+            b: Builtin => b.into(),
+            l: List => child_frame_closure(l, meta),
+            _ => todo!("eval {:?}", v)
         })
     }
 }
 
-// impl Eval for List<Val> {}
-// impl IntoVal for List<Val> { fn into_val(self) -> Val { Val::new(self) } }
-// impl EvalOnce for List<Val> {}
-// impl IntoChildFrame for List<Val> {}
-// impl From<List<Val>> for ChildFrame {
-//     fn from(v: List<Val>) -> Self {
-//         dbg!("list", &v);
-//         ChildFrame::ListFrame(ListFrame::new_body(v))
-//     }
-// }
-fn child_frame_closure(l: List<Val>, meta: Vec<Val>) -> ChildFrame {
+fn child_frame_closure(l: List, meta: Meta) -> ChildFrame {
     let mut frame = ListFrame::new_body_meta(l, meta.clone());
-    if let Some(ClosureEnv(ds)) =
-            meta.iter().find_map(|v| v.downcast_ref::<ClosureEnv>()) {
+    if let Some(ClosureEnv(ds)) = meta.first::<ClosureEnv>() {
         frame = frame.with_defs(ds.clone());
     }
     ChildFrame::ListFrame(frame)
@@ -316,7 +305,7 @@ impl DefSet {
 pub struct Paused {
     frame: ListFrame,
     parents: Vec<ListFrame>,
-    stack: List<Val>,
+    stack: List,
     defstacks: HashMap<String, Vec<Val>>,
 }
 
@@ -333,7 +322,7 @@ impl Paused {
     //     while !self.run() {}
     // }
 
-    fn new(body: impl Into<List<Val>>) -> Self {
+    fn new(body: impl Into<List>) -> Self {
         Paused {
             frame: ListFrame::new_body(body.into()),
             ..Paused::default()
@@ -383,7 +372,7 @@ impl Paused {
     // maybe stack() + stack_mut() -> StackRef
     // with pop_any() and pop::<T> and ref etc?
 
-    pub fn stack_ref(&self) -> &List<Val> { &self.stack }
+    pub fn stack_ref(&self) -> &List { &self.stack }
     pub fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     pub fn stack_len(&self) -> usize { self.stack.len() }
@@ -486,7 +475,13 @@ impl Paused {
     fn enter_child_frame(&mut self, mut frame: ListFrame) {
         std::mem::swap(&mut self.frame, &mut frame);
         for (name, def) in frame.defs.iter() {
-            self.defstacks.entry(name.clone()).or_default().push(def.clone());
+            // self.defstacks.entry(name.clone()).or_default().push(def.clone());
+            match self.defstacks.get_mut(name) {
+                Some(d) => d.push(def.clone()),
+                None => {
+                    self.defstacks.insert(name.clone(), vec![def.clone()]);
+                },
+            }
         }
         self.parents.push(frame);
     }
@@ -496,8 +491,9 @@ impl Paused {
             std::mem::swap(&mut self.frame, &mut frame);
 
             for name in self.frame.defs.keys() {
-                let _ = self.defstacks.get_mut(name).and_then(|x| x.pop());
-                if self.defstacks.get(name).map_or(false, |x| x.is_empty()) {
+                if self.defstacks.get_mut(name)
+                    .map(|x| { x.pop(); x.is_empty() })
+                    .unwrap_or(false) {
                     self.defstacks.remove(name);
                 }
             }
@@ -512,16 +508,14 @@ impl Paused {
     // basic look at all the ListFrame and see
     fn call_stack_names(&self) -> Vec<Option<String>> {
         let mut r = vec![];
-        if let Some(DefineMeta { name }) =
-            self.frame.meta.iter().find_map(|v| v.downcast_ref::<DefineMeta>()) {
+        if let Some(DefineMeta { name }) = self.frame.meta.first::<DefineMeta>() {
             r.push(Some(name.clone()));
         } else {
             r.push(None);
         }
 
         for p in self.parents.iter().rev() {
-            if let Some(DefineMeta { name }) =
-                p.meta.iter().find_map(|v| v.downcast_ref::<DefineMeta>()) {
+            if let Some(DefineMeta { name }) = p.meta.first::<DefineMeta>() {
                 r.push(Some(name.clone()));
             } else {
                 r.push(None);
@@ -535,7 +529,7 @@ impl Paused {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Builder {
-    stack: List<Val>,
+    stack: List,
     defs: HashMap<String, Val>,
 }
 
@@ -560,7 +554,7 @@ impl Builder {
         }
     }
 
-    pub fn with_stack(mut self, s: impl Into<List<Val>>) -> Self {
+    pub fn with_stack(mut self, s: impl Into<List>) -> Self {
         self.stack = s.into();
         self
     }
@@ -574,7 +568,7 @@ impl Builder {
         self
     }
     pub fn define_closure(mut self, name: impl Into<String>,
-                          body: List<Val>, env: DefSet) -> Self {
+                          body: List, env: DefSet) -> Self {
         self.defs.insert(name.into(), body.to_val().with_meta(ClosureEnv(env)));
         self
     }
