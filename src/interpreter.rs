@@ -3,9 +3,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 use core::pin::Pin;
 use core::future::Future;
-use std::collections::hash_map;
 use std::collections::HashMap;
 use genawaiter::{ rc::Gen, rc::Co };
+use std::hash::{Hash, Hasher, BuildHasher};
+use std::collections::hash_map::DefaultHasher;
+use std::borrow::Borrow;
 
 use crate::base::*;
 use crate::list::List;
@@ -281,24 +283,110 @@ impl PausedFrame {
     }
 }
 
+#[derive(Debug, Eq, Clone)]
+struct PreHashed(String, u64);
+impl Hash for PreHashed {
+    fn hash<T: Hasher>(&self, h: &mut T) {
+        h.write_u64(self.1);
+    }
+}
+impl PartialEq for PreHashed {
+    fn eq(&self, thee: &Self) -> bool {
+        self.1 == thee.1 || self.0 == thee.0
+    }
+}
+
+#[derive(Default)]
+struct NoHasher(u64);
+impl Hasher for NoHasher {
+    fn finish(&self) -> u64 { let NoHasher(r) = self; r.clone() }
+    fn write(&mut self, data: &[u8]) { todo!("NoHasher write {:?}", data) }
+    fn write_u64(&mut self, v: u64) { self.0 = v; }
+}
+#[derive(Clone, Default)]
+struct BuildNoHasher;
+impl BuildHasher for BuildNoHasher {
+    type Hasher = NoHasher;
+    fn build_hasher(&self) -> Self::Hasher { NoHasher::default() }
+}
+
+impl PreHashed {
+    fn from_str(s: &str) -> Self {
+        let mut h = DefaultHasher::new();
+        s.hash(&mut h);
+        PreHashed(s.to_string(), h.finish())
+    }
+    fn from_string(s: String) -> Self {
+        let mut h = DefaultHasher::new();
+        let st: &str = s.as_ref();
+        st.hash(&mut h);
+        PreHashed(s.to_string(), h.finish())
+    }
+}
+
 /// Clone-on-write definition environment for list definitions
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct DefSet(Rc<HashMap<String, Val>>);
+pub struct DefSet(Rc<HashMap<PreHashed, Val, BuildNoHasher>>);
 impl DefSet {
     pub fn insert(&mut self, key: String, val: impl Value) {
-        Rc::make_mut(&mut self.0).insert(key, val.to_val());
+        Rc::make_mut(&mut self.0).insert(PreHashed::from_string(key), val.to_val());
     }
     pub fn remove(&mut self, key: &str) {
-        Rc::make_mut(&mut self.0).remove(key);
+        Rc::make_mut(&mut self.0).remove(&PreHashed::from_str(key));
     }
     pub fn get(&self, key: impl AsRef<str>) -> Option<&Val> {
-        self.0.get(key.as_ref())
+        self.0.get(&PreHashed::from_str(key.as_ref()))
     }
-    pub fn keys(&self) -> hash_map::Keys<String, Val> { self.0.keys() }
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &Val)> {
+    fn keys_hashed(&self) -> impl Iterator<Item = &PreHashed> {
+        self.0.keys()
+    }
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.0.keys().map(|k| &k.0)
+    }
+    fn iter_hashed(&self) -> impl Iterator<Item = (&PreHashed, &Val)> {
         self.0.iter()
     }
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &Val)> {
+        self.0.iter().map(|(k, v)| (k.0.borrow(), v))
+    }
     pub fn len(&self) -> usize { self.0.len() }
+}
+
+/// Stack of definitions for each def
+#[derive(Default)]
+struct DefStacks {
+    data: HashMap<PreHashed, Vec<Val>, BuildNoHasher>,
+}
+
+impl DefStacks {
+    fn iter_latest(&self) -> impl Iterator<Item=(&String, &Val)> {
+        self.data.iter().filter_map(|(k, v)| match v.last() {
+            Some(l) => Some((&k.0, l)), None => None
+        })
+    }
+    fn get_latest(&self, k: impl AsRef<str>) -> Option<&Val> {
+        self.data.get(&PreHashed::from_str(k.as_ref())).map(|v| v.last()).flatten()
+    }
+    fn push(&mut self, defs: &DefSet) {
+        for (name, def) in defs.iter_hashed() {
+            match self.data.get_mut(&name) {
+                Some(d) => d.push(def.clone()),
+                None => {
+                    self.data.insert(name.clone(), vec![def.clone()]);
+                },
+            }
+        }
+    }
+
+    fn pop(&mut self, defs: &DefSet) {
+        for name in defs.keys_hashed() {
+            if self.data.get_mut(name)
+                .map(|x| { x.pop(); x.is_empty() })
+                    .unwrap_or(false) {
+                        self.data.remove(name);
+                    }
+        }
+    }
 }
 
 #[derive(Default)]
@@ -306,7 +394,7 @@ pub struct Paused {
     frame: ListFrame,
     parents: Vec<ListFrame>,
     stack: List,
-    defstacks: HashMap<String, Vec<Val>>,
+    defstacks: DefStacks,
 }
 
 impl std::fmt::Debug for Paused {
@@ -344,10 +432,8 @@ impl Paused {
 
     pub fn all_definitions(&self) -> DefSet {
         let mut defs = self.frame.defs.clone();
-        for (name, s) in self.defstacks.iter() {
-            if let Some(def) = s.last() {
-                defs.insert(name.clone(), def.clone());
-            }
+        for (name, def) in self.defstacks.iter_latest() {
+            defs.insert(name.clone(), def.clone());
         }
         defs
     }
@@ -380,10 +466,8 @@ impl Paused {
     fn resolve_ref(&self, s: impl AsRef<str>) -> Option<&Val> {
         if let Some(def) = self.frame.defs.get(s.as_ref()) {
             Some(def)
-        } else if let Some(defstack) = self.defstacks.get(s.as_ref()) {
-            if let Some(def) = defstack.last() {
-                Some(def)
-            } else { None }
+        } else if let Some(def) = self.defstacks.get_latest(s) {
+            Some(def)
         } else { None }
     }
 
@@ -474,15 +558,7 @@ impl Paused {
 
     fn enter_child_frame(&mut self, mut frame: ListFrame) {
         std::mem::swap(&mut self.frame, &mut frame);
-        for (name, def) in frame.defs.iter() {
-            // self.defstacks.entry(name.clone()).or_default().push(def.clone());
-            match self.defstacks.get_mut(name) {
-                Some(d) => d.push(def.clone()),
-                None => {
-                    self.defstacks.insert(name.clone(), vec![def.clone()]);
-                },
-            }
-        }
+        self.defstacks.push(&frame.defs);
         self.parents.push(frame);
     }
 
@@ -490,13 +566,7 @@ impl Paused {
         if let Some(mut frame) = self.parents.pop() {
             std::mem::swap(&mut self.frame, &mut frame);
 
-            for name in self.frame.defs.keys() {
-                if self.defstacks.get_mut(name)
-                    .map(|x| { x.pop(); x.is_empty() })
-                    .unwrap_or(false) {
-                    self.defstacks.remove(name);
-                }
-            }
+            self.defstacks.pop(&self.frame.defs);
 
             if !frame.body.is_empty() {
                 self.frame.childs.push(ChildFrame::ListFrame(frame));
