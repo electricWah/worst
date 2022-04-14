@@ -1,6 +1,7 @@
 
 import worst/interpreter
 import syntax/cond
+import data/list
 
 ; doc "input-port reader-new -> reader"
 define reader-new [
@@ -52,7 +53,27 @@ define reader-new [
                     [#t] [ port-write-string #t ]
                 ] ] []
             ]
-            [#t] [ ["unknown char"] swap list-push syntax-error ]
+            [#t] [
+                ; symbol
+                new-string-port swap port-write-string
+                while [
+                    next-char cond [
+                        [false?] [#f]
+                        [whitespace?] [drop #f #f]
+                        [ ["(" ")" "[" "]" "{" "}" "\""] list-member ] [
+                            #t #f
+                        ]
+                        [#t] [ port-write-string #t ]
+                    ]
+                ] []
+                if [
+                    const c
+                    port-read-all string->symbol swap drop yield
+                    c read-next/char
+                ] [
+                    port-read-all string->symbol swap drop yield
+                ]
+            ]
         ]
     ]
 

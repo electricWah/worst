@@ -43,6 +43,19 @@ define list-map [
     list-reverse
 ]
 
+; v [ v1 v2 v3 ... ] -> (whether any vN == v)
+define list-member [
+    #f
+    while [not] [
+        list-pop swap const l
+        equal? if [
+            drop #t []
+        ] [
+            drop #f l
+        ]
+    ]
+]
+
 ; [a1 a2 ...] [b1 b2 ...] list-zip -> [[a1 b1] [a2 b2] ...]
 define list-zip [
     import syntax/variable

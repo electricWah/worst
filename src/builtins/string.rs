@@ -1,4 +1,5 @@
 
+use crate::base::*;
 use crate::interpreter::{Builder, Handle};
 
 pub fn install(mut i: Builder) -> Builder {
@@ -13,6 +14,10 @@ pub fn install(mut i: Builder) -> Builder {
         let ws = s.chars().all(char::is_whitespace);
         i.stack_push(s).await;
         i.stack_push(ws).await;
+    });
+    i.define("string->symbol", |mut i: Handle| async move {
+        let s = i.stack_pop::<String>().await;
+        i.stack_push(s.to_symbol()).await;
     });
     i
 }

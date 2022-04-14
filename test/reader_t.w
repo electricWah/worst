@@ -39,10 +39,9 @@ define reads-as! [
 " \"awooo\"\"ban\nana\" \"coconut\"" reads-as! ("awooo" "ban\nana" "coconut")
 "; boing\n\"hello\"\n" reads-as! ("hello")
 
-; TODO next
-"this next error is correct" stack-dump drop
 "a thingy \n yea" reads-as! (a thingy yea)
 
+; TODO lists
 "()" reads-as! (())
 "()  {}  \n[]" reads-as! (() () ())
 
