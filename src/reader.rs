@@ -1,130 +1,250 @@
 
-use std::io as io;
+use std::rc::Rc;
+use std::cell::RefCell;
+use std::collections::VecDeque;
 use crate::base::*;
 use crate::list::*;
+use crate::interpreter::{Builder, Paused, Handle};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ReadError {
     UnclosedString,
     UnmatchedHash,
     UnknownHash(char),
     UnmatchedList(char),
-    UnknownChar(char),
     UnparseableNumber(String),
-    IoError(String),
+}
+impl ImplValue for ReadError {}
+
+// Interpreter-based reader: feed it text and it will run an interpreter
+// to consume the text and output values
+
+// maybe use Port somehow?
+#[derive(Debug, Default, Clone)]
+// bool eof
+struct StringBuffer(Rc<RefCell<(VecDeque<char>, bool)>>);
+impl PartialEq for StringBuffer {
+    fn eq(&self, other: &Self) -> bool { Rc::ptr_eq(&self.0, &other.0) }
 }
 
-type Res<T> = Result<T, ReadError>;
-
-impl From<io::Error> for ReadError {
-    fn from(e: io::Error) -> Self {
-        ReadError::IoError(format!("{:?}", e.kind()))
+impl StringBuffer {
+    fn write(&mut self, s: impl IntoIterator<Item=char>) {
+        let w = &mut self.0.borrow_mut().0;
+        for c in s.into_iter() { w.push_back(c); }
+    }
+    fn next(&mut self) -> Option<char> {
+        self.0.borrow_mut().0.pop_front()
+    }
+    fn un_next(&mut self, c: char) {
+        self.0.borrow_mut().0.push_front(c)
+    }
+    fn set_eof(&mut self) {
+        self.0.borrow_mut().1 = true;
+    }
+    fn is_empty(&self) -> bool {
+        let veof = self.0.borrow();
+        veof.0.len() == 0 && veof.1
     }
 }
 
-fn read_hash(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Val> {
-    match src.next().transpose()? {
-        Some('t') => Ok(true.into()),
-        Some('f') => Ok(false.into()),
-        Some(c) => Err(ReadError::UnknownHash(c)),
-        None => Err(ReadError::UnmatchedHash),
-    }
+// TODO this could just be struct Eof; + Val + ReadError
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Emit {
+    Eof,
+    Yield(Val),
+    Error(ReadError),
+}
+impl ImplValue for Emit {}
+
+struct ReaderHandle {
+    i: Handle,
+    src: StringBuffer,
+    list_stack: Vec<(char, char, Vec<Val>)>,
+    // TODO source information
 }
 
-fn read_string(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<String> {
-    // single-char escape for now
-    let mut acc = String::new();
-    let mut escaping = false;
-    while let Some(c) = src.next().transpose()? {
-        if escaping {
-            escaping = false;
-            acc.push(match c {
-                'n' => '\n',
-                'e' => '\u{1b}', // escape
-                c => c, // includes \ and "
-            });
-        } else {
-            match c {
-                '"' => return Ok(acc),
-                '\\' => escaping = true,
-                c => acc.push(c),
+impl ReaderHandle {
+    fn new(i: Handle, src: StringBuffer) -> Self {
+        ReaderHandle { i, src, list_stack: vec![] }
+    }
+
+    async fn next(&mut self) -> char {
+        loop {
+            match self.src.next() {
+                None => {
+                    self.i.stack_push(Emit::Eof).await;
+                    self.i.pause().await;
+                },
+                Some(c) => return c,
             }
         }
     }
-    Err(ReadError::UnclosedString)
-}
 
-fn read_i32(start: char, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<(i32, Option<char>)> {
-    // maybe just take_while instead
-    let mut acc = String::from(start);
-    let cr = loop {
-        match src.next().transpose()? {
-            Some(c) if c.is_numeric() => {
-                acc.push(c);
-            },
-            cr => break cr,
+    async fn emit(&mut self, v: impl Value) {
+        if let Some((_, _, l)) = self.list_stack.last_mut() {
+            l.push(v.to_val());
+        } else {
+            self.i.stack_push(Emit::Yield(v.to_val())).await;
+            self.i.pause().await;
         }
-    };
+    }
 
-    if let Ok(v) = str::parse::<i32>(&acc) {
-        Ok((v, cr))
-    } else { Err(ReadError::UnparseableNumber(acc)) }
-}
+    async fn error(&mut self, e: ReadError) {
+        self.i.stack_push(Emit::Error(e)).await;
+        self.i.pause().await;
+    }
 
-fn read_list(open: char, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Vec<Val>> {
-    let endch = match open {
-        '(' => ')',
-        '[' => ']',
-        '{' => '}',
-        _ => return Err(ReadError::UnmatchedList(open)),
-    };
-    read_until(Some(endch), src)
-}
-fn read_symbol(start: char, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<(Symbol, Option<char>)> {
-    let mut acc = String::from(start);
-    let next = loop {
-        match src.next().transpose()? {
-            c@(Some('('|')' | '['|']' | '{'|'}' | '"') | None) => break c,
-            c@Some(s) if s.is_whitespace() => break c,
-            Some(c) => acc.push(c),
-        }
-    };
-    Ok((acc.to_symbol(), next))
-}
+    fn start_list(&mut self, open: char, close: char) {
+        self.list_stack.push((open, close, vec![]));
+    }
 
-fn read_until(until: Option<char>, src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Vec<Val>> {
-    let mut buf = vec![];
-    let mut next = None;
-    while let Some(c) = next.take().map(Result::Ok).or_else(|| src.next()).transpose()? {
-        match c {
-            ';' => {
-                while match src.next().transpose()? {
-                    None | Some('\n') => false, _ => true
-                } {}
-            },
-            '#' => buf.push(read_hash(src)?),
-            '"' => buf.push(read_string(src)?.into()),
-            '(' | '{' | '[' => buf.push(List::from(read_list(c, src)?).into()),
-            c =>
-                if c.is_whitespace() {}
-                else if c.is_numeric() {
-                    let (d, n) = read_i32(c, src)?;
-                    next = n;
-                    buf.push(d.into());
-                }
-                else if Some(c) == until { return Ok(buf); }
-                else {
-                    let (d, n) = read_symbol(c, src)?;
-                    next = n;
-                    buf.push(d.into());
+    async fn end_list(&mut self, close: char) {
+        match self.list_stack.pop() {
+            None => self.error(ReadError::UnmatchedList(close)).await,
+            Some((o, c, l)) =>
+                if c == close {
+                    self.emit(List::from(l).to_val()).await;
+                } else {
+                    self.error(ReadError::UnmatchedList(o)).await;
                 }
         }
     }
-    Ok(buf)
+
+    async fn run(&mut self) -> ! {
+        loop {
+            // TODO self.i.call(thing-specific reader).await
+            // to be able to bail out for e.g. ([}) or #?
+            // also maybe configurable:
+            // list delimiters, reader handlers, character handlers?
+            // for flexible numbers + #X + literal \n + more comment styles etc
+            match self.next().await {
+                v if v.is_whitespace() => {},
+                ';' => while self.next().await != '\n' {},
+
+                '#' => {
+                    if self.src.is_empty() {
+                        self.error(ReadError::UnmatchedHash).await;
+                    }
+                    match self.next().await {
+                        't' => self.emit(true).await,
+                        'f' => self.emit(false).await,
+                        x => self.error(ReadError::UnknownHash(x)).await,
+                    }
+                },
+
+                '"' => {
+                    let mut buf = String::new();
+                    'read_string: loop {
+                        if self.src.is_empty() {
+                            self.error(ReadError::UnclosedString).await;
+                        }
+                        match self.next().await {
+                            '"' => break 'read_string,
+                            '\\' => match self.next().await {
+                                'n' => buf.push('\n'),
+                                'e' => buf.push('\u{1b}'),
+                                c => buf.push(c),
+                            },
+                            c => buf.push(c),
+                        }
+                    }
+                    self.emit(buf).await;
+                },
+
+                '(' => self.start_list('(', ')'),
+                '[' => self.start_list('[', ']'),
+                '{' => self.start_list('{', '}'),
+                c @ (')' | ']' | '}') => self.end_list(c).await,
+
+                c if c.is_numeric() => {
+                    let mut buf = String::from(c);
+                    'number: loop {
+                        if self.src.is_empty() { break 'number; }
+                        let c = self.next().await;
+                        if c.is_numeric() {
+                            buf.push(c);
+                        } else {
+                            self.src.un_next(c);
+                            break 'number;
+                        }
+                    }
+                    if let Ok(v) = str::parse::<i32>(&buf) {
+                        self.emit(v).await;
+                    } else {
+                        self.error(ReadError::UnparseableNumber(buf)).await;
+                    }
+
+                },
+
+                c => {
+                    let mut buf = String::from(c);
+                    'symbol: loop {
+                        if self.src.is_empty() { break 'symbol; }
+                        match self.next().await {
+                            c if c.is_whitespace() => break 'symbol,
+                            c@('(' | ')' | '[' | ']' | '{' | '}' | '"') => {
+                                self.src.un_next(c);
+                                break 'symbol;
+                            },
+                            c => buf.push(c),
+                        }
+                    }
+                    self.emit(Symbol::from(buf)).await;
+                },
+            }
+        }
+    }
 }
 
-pub fn read_all(src: &mut impl Iterator<Item=io::Result<char>>) -> Res<Vec<Val>> {
-    read_until(None, src)
+#[derive(Debug, Clone)]
+pub struct Reader {
+    buf: StringBuffer,
+    i: Rc<RefCell<Paused>>,
+}
+impl PartialEq for Reader {
+    fn eq(&self, other: &Self) -> bool {
+        self.buf == other.buf && Rc::ptr_eq(&self.i, &other.i)
+    }
+}
+impl Eq for Reader {}
+impl ImplValue for Reader {}
+
+impl Reader {
+    pub fn new() -> Reader {
+        let buf = StringBuffer::default();
+        let buf_reader = buf.clone();
+        let i = Builder::default().eval(|i: Handle| async move {
+            ReaderHandle::new(i, buf_reader).run().await;
+        });
+        Reader { buf, i: Rc::new(RefCell::new(i)), }
+    }
+    pub fn write(&mut self, src: &mut impl Iterator<Item=char>) {
+        self.buf.write(src);
+    }
+    pub fn set_eof(&mut self) {
+        self.buf.set_eof();
+    }
+    pub fn next(&mut self) -> Result<Option<Val>, ReadError> {
+        self.i.borrow_mut().run();
+        match self.i.borrow_mut().stack_pop_val() {
+            None => Ok(None), // maybe?
+            Some(v) => match v.downcast::<Emit>() {
+                Ok(Emit::Eof) => Ok(None),
+                Ok(Emit::Yield(v)) => Ok(Some(v)),
+                Ok(Emit::Error(e)) => Err(e),
+                Err(e) => { dbg!("", e); Ok(None) },
+            }
+        }
+    }
+}
+
+pub fn read_all(src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
+    let mut reader = Reader::new();
+    reader.write(src);
+    reader.set_eof();
+    let mut acc = vec![];
+    while let Some(v) = reader.next()? { acc.push(v); }
+    Ok(acc)
 }
 
 #[cfg(test)]

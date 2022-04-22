@@ -69,7 +69,7 @@ pub async fn define(mut i: Handle) {
 
     let env = i.all_definitions().await;
 
-    i.define_closure(name, body, env).await;
+    i.define_closure(name, body.to_val(), env).await;
 }
 
 pub fn install(mut i: Builder) -> Builder {

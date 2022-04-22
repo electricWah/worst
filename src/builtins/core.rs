@@ -192,6 +192,10 @@ pub fn install(mut i: Builder) -> Builder {
     i.define("command-line-arguments", command_line_arguments);
     i.define("add", add);
     i.define("print", print); // temporary
+    i.define("stack-empty", |mut i: Handle| async move {
+        let v = i.stack_empty().await;
+        i.stack_push(v).await;
+    });
     i.define("stack-dump", |mut i: Handle| async move {
         dbg!(i.stack_get().await);
     });

@@ -22,7 +22,7 @@ fn main() -> std::io::Result<()> {
     let mut f = std::fs::File::open(args.file)?;
     let mut s = String::new();
     f.read_to_string(&mut s)?;
-    let body = List::from(read_all(&mut s.chars().map(Result::Ok)).unwrap_or_else(|e| {
+    let body = List::from(read_all(&mut s.chars()).unwrap_or_else(|e| {
         println!("{:?}", e);
         vec![]
     }));

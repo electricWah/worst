@@ -1,14 +1,14 @@
 
 import worst/misc
 import assert_t
-import worst/reader
 
 define reads-as! [
     const src
     upquote const res
 
-    new-string-port src port-write-string
-    reader-new
+    new-reader
+    src reader-write-string
+    reader-set-eof
 
     [] swap
     while [reader-next] [
@@ -41,9 +41,9 @@ define reads-as! [
 
 "a thingy \n yea" reads-as! (a thingy yea)
 
-; TODO lists
-"()" reads-as! (())
+"[ ({ } )]" reads-as! (((())))
 "()  {}  \n[]" reads-as! (() () ())
+"()" reads-as! (())
 
 ; " 4 45\n45.6" ; TODO not i32
 " 4 45\n567" reads-as! (4 45 567)

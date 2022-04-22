@@ -45,15 +45,14 @@ define list-map [
 
 ; v [ v1 v2 v3 ... ] -> (whether any vN == v)
 define list-member [
-    #f
-    while [not] [
+    #f swap ; found
+    while [list-empty? not] [
+        swap drop ; found
         list-pop swap const l
-        equal? if [
-            drop #t []
-        ] [
-            drop #f l
-        ]
+        equal? if [#t []] [#f l]
+        dig drop
     ]
+    drop
 ]
 
 ; [a1 a2 ...] [b1 b2 ...] list-zip -> [[a1 b1] [a2 b2] ...]

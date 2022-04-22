@@ -6,6 +6,7 @@ define equal! [
     upquote const %expr
     %expr eval
     equal? if [ drop drop ] [ %msg stack-dump error ]
+    while [stack-empty not] [drop]
 ]
 
 define test! [
@@ -13,5 +14,6 @@ define test! [
     upquote const %expr
     %expr eval
     #t equal? if [ drop drop ] [ %msg stack-dump error ]
+    while [stack-empty not] [drop]
 ]
 

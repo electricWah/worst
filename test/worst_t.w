@@ -9,3 +9,12 @@ import assert_t
 
 "stack empty" equal! (stack-get ())
 
+import data/list
+
+"list-member 1" test! (7 () list-member not)
+"list-member 2" test! (7 (7) list-member)
+"list-member 3" test! ("a" ("a" "b" "c") list-member)
+"list-member 4" test! ("b" ("a" "b" "c") list-member)
+"list-member 5" test! ("c" ("a" "b" "c") list-member)
+"list-member 6" test! ("d" ("a" "b" "c") list-member not)
+

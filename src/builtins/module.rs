@@ -110,7 +110,7 @@ fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List> {
                 let mut s = String::new();
                 match f.read_to_string(&mut s) {
                     Ok(_) => {
-                        match reader::read_all(&mut s.chars().map(Result::Ok)) {
+                        match reader::read_all(&mut s.chars()) {
                             Ok(data) => return Some(data.into()),
                             Err(e) => todo!("{:?}", e),
                         }

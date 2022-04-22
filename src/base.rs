@@ -72,6 +72,9 @@ impl Meta {
     pub fn first<T: Value>(&self) -> Option<&T> {
         self.0.iter().find_map(|v| v.downcast_ref::<T>())
     }
+    pub fn contains<T: Value>(&self) -> bool {
+        self.0.iter().any(|v| v.is::<T>())
+    }
 }
 
 pub trait ImplValue: Clone + Eq {}
@@ -101,6 +104,9 @@ impl<T: Into<Symbol>> ToSymbol for T {
 
 impl From<&str> for Symbol {
     fn from(s: &str) -> Symbol { Symbol { v: s.to_string() } }
+}
+impl From<String> for Symbol {
+    fn from(v: String) -> Symbol { Symbol { v } }
 }
 impl From<Symbol> for String {
     fn from(s: Symbol) -> Self { s.v }

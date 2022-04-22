@@ -153,7 +153,7 @@ impl Handle {
         self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
     }
     pub async fn define_closure(&mut self, name: impl Into<String>,
-                                body: List, env: DefSet) {
+                                body: impl Value, env: DefSet) {
         let v = body.to_val().with_meta(ClosureEnv(env));
         self.co.yield_(FrameYield::Define(name.into(), v)).await;
     }
@@ -350,6 +350,10 @@ impl DefSet {
         self.0.iter().map(|(k, v)| (k.0.borrow(), v))
     }
     pub fn len(&self) -> usize { self.0.len() }
+
+    pub fn filter<F: Fn(&str, &Val) -> bool>(&mut self, f: F) {
+        Rc::make_mut(&mut self.0).retain(|ph, v| f(ph.0.as_ref(), &v));
+    }
 }
 
 /// Stack of definitions for each def
@@ -651,7 +655,7 @@ mod tests {
     #[test]
     fn interp_basic() {
         // empty
-        assert!(Builder::default().eval(List::from(vec![])).run());
+        assert!(Builder::default().eval(List::from(vec![]).to_val()).run());
         // stack
         let mut i = Paused::new(vec![7.into()]);
         assert_eq!(i.stack_pop_val(), None);
@@ -705,7 +709,7 @@ mod tests {
                 "thing".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ "upquote".to_symbol().into() ]));
+        i.define("thing", List::from(vec![ "upquote".to_symbol().into() ]).to_val());
         i.define("upquote", |mut i: Handle| async move {
             i.uplevel(|mut i: Handle| async move {
                 if let Some(q) = i.quote().await {
@@ -724,7 +728,7 @@ mod tests {
             Paused::new(vec![
                 "thing".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ "upfive".to_symbol().into() ]));
+        i.define("thing", List::from(vec![ "upfive".to_symbol().into() ]).to_val());
         i.define("upfive", |mut i: Handle| async move {
             let five = "five".to_symbol();
             i.uplevel(move |mut i: Handle| async move {
@@ -743,8 +747,8 @@ mod tests {
                 "thing1".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
-        i.define("thing1", List::from(vec![ "thing2".to_symbol().into() ]));
-        i.define("thing2", List::from(vec![ "upquote2".to_symbol().into() ]));
+        i.define("thing1", List::from(vec![ "thing2".to_symbol().into() ]).to_val());
+        i.define("thing2", List::from(vec![ "upquote2".to_symbol().into() ]).to_val());
         i.define("upquote2", |mut i: Handle| async move {
             i.uplevel(move |mut i: Handle| async move {
                 i.uplevel(move |mut i: Handle| async move {
@@ -766,7 +770,7 @@ mod tests {
                 "eval".to_symbol().into(),
             ]);
         i.define("eval", |mut i: Handle| async move {
-            i.eval(List::from(vec![ "inner".to_symbol().into() ])).await;
+            i.eval(List::from(vec![ "inner".to_symbol().into() ]).to_val()).await;
         });
         i.define("inner", |mut i: Handle| async move {
             i.eval(|mut i: Handle| async move {
