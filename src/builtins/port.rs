@@ -55,20 +55,20 @@ impl Port {
 
     fn write_string(&mut self, v: impl AsRef<str>) -> Result<(), Val> {
         match self {
-            Port::Stdin => Err("not writable".to_val())?,
+            Port::Stdin => Err(Val::from("not writable"))?,
             Port::Stdout => {
                 std::io::stdout().write(v.as_ref().as_bytes()).map_err(|e| {
-                    format!("{:?}", e.kind()).to_val()
+                    format!("{:?}", e.kind())
                 })?;
             },
             Port::Stderr => {
                 std::io::stdout().write(v.as_ref().as_bytes()).map_err(|e| {
-                    format!("{:?}", e.kind()).to_val()
+                    format!("{:?}", e.kind())
                 })?;
             },
             // Port::Write(p, _) => {
             //     p.borrow_mut().write(v.as_ref().as_bytes()).map_err(|e| {
-            //         format!("{:?}", e.kind()).to_val()
+            //         format!("{:?}", e.kind()).into()
             //     })?;
             // },
             Port::StringBuffer(s) => {
@@ -91,21 +91,21 @@ impl Port {
     fn peek_char(&self) -> Result<Option<char>, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow().front().map(char::clone)),
-            _ => Err("not peekable".to_val()),
+            _ => Err("not peekable".into()),
         }
     }
 
     fn read_char(&mut self) -> Result<Option<char>, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow_mut().pop_front()),
-            _ => Err("TODO port::read_char".to_val()),
+            _ => Err("TODO port::read_char".into()),
         }
     }
 
     fn read_all(&mut self) -> Result<String, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow_mut().iter().collect::<String>()),
-            _ => Err("TODO port::read_all".to_val()),
+            _ => Err("TODO port::read_all".into()),
         }
     }
 
@@ -115,7 +115,7 @@ impl Port {
             Port::Stdin => {
                 let mut l = String::new();
                 std::io::stdin().read_line(&mut l)
-                    .map_err(|e| format!("{:?}", e.kind()).to_val())?;
+                    .map_err(|e| format!("{:?}", e.kind()))?;
                 Ok(l)
             },
             Port::StringBuffer(s) => {
@@ -124,7 +124,7 @@ impl Port {
                     None => Ok(s.borrow_mut().drain(..).collect()),
                 }
             },
-            _ => Err("not read-line-able".to_val()),
+            _ => Err("not read-line-able".into()),
         }
     }
 
@@ -150,8 +150,8 @@ pub fn install(mut i: Builder) -> Builder {
         }
         i.stack_push(p).await;
     });
-    i.define("value-write-string", |mut i: Handle| async move {
-        let v = i.stack_pop::<String>().await;
+    i.define("value->string", |mut i: Handle| async move {
+        let v = i.stack_pop_val().await;
         i.stack_push(format!("{:?}", v)).await;
     });
 

@@ -6,7 +6,7 @@ use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Builder, Paused, Handle};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum ReadError {
     UnclosedString,
     UnmatchedHash,
@@ -48,7 +48,7 @@ impl StringBuffer {
 }
 
 // TODO this could just be struct Eof; + Val + ReadError
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone)]
 enum Emit {
     Eof,
     Yield(Val),
@@ -82,9 +82,9 @@ impl ReaderHandle {
 
     async fn emit(&mut self, v: impl Value) {
         if let Some((_, _, l)) = self.list_stack.last_mut() {
-            l.push(v.to_val());
+            l.push(v.into());
         } else {
-            self.i.stack_push(Emit::Yield(v.to_val())).await;
+            self.i.stack_push(Emit::Yield(v.into())).await;
             self.i.pause().await;
         }
     }
@@ -103,7 +103,7 @@ impl ReaderHandle {
             None => self.error(ReadError::UnmatchedList(close)).await,
             Some((o, c, l)) =>
                 if c == close {
-                    self.emit(List::from(l).to_val()).await;
+                    self.emit(List::from(l)).await;
                 } else {
                     self.error(ReadError::UnmatchedList(o)).await;
                 }

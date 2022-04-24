@@ -63,7 +63,6 @@ mod private {
         PausedFrame(PausedFrame),
     }
     pub trait IntoChildFrame: Into<ChildFrame> {}
-    // separate to Value::to_val, maybe Fn should auto-wrap in Builtin
     pub trait IntoVal { fn into_val(self) -> Val; }
 }
 use private::*;
@@ -101,7 +100,7 @@ impl Handle {
         self.co.yield_(FrameYield::Call(s.into())).await;
     }
     pub async fn stack_push(&mut self, v: impl Value) {
-        self.co.yield_(FrameYield::StackPush(v.to_val())).await;
+        self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
 
     pub async fn stack_pop_val(&mut self) -> Val {
@@ -118,7 +117,7 @@ impl Handle {
         }
     }
     // TODO stack_pop_meta
-    pub async fn stack_pop<T: Value>(&mut self) -> T {
+    pub async fn stack_pop<T: Value + Clone>(&mut self) -> T {
         loop {
             let v = self.stack_pop_val().await;
             match v.downcast::<T>() {
@@ -154,7 +153,7 @@ impl Handle {
     }
     pub async fn define_closure(&mut self, name: impl Into<String>,
                                 body: impl Value, env: DefSet) {
-        let v = body.to_val().with_meta(ClosureEnv(env));
+        let v = body.into().with_meta(ClosureEnv(env));
         self.co.yield_(FrameYield::Define(name.into(), v)).await;
     }
     async fn get_definitions(&mut self, global: bool) -> DefSet {
@@ -209,7 +208,7 @@ impl ImplValue for Builtin {}
 impl<F: 'static + Future<Output=()>,
      T: 'static + Fn(Handle) -> F>
      IntoVal for T {
-    fn into_val(self) -> Val { Builtin::from(self).to_val() }
+    fn into_val(self) -> Val { Builtin::from(self).into() }
 }
 impl<F: 'static + Future<Output=()>,
      T: 'static + Fn(Handle) -> F>
@@ -234,22 +233,25 @@ impl<F: 'static + Future<Output=()>,
      T: 'static + FnOnce(Handle) -> F>
      IntoChildFrame for T {}
 
+// TODO impl<T: Value> instead here?
 impl Eval for Val {}
 impl IntoVal for Val { fn into_val(self) -> Val { self } }
 impl EvalOnce for Val {}
 impl IntoChildFrame for Val {}
 impl From<Val> for ChildFrame {
     fn from(v: Val) -> Self {
-        let meta = v.get_meta();
-        match_downcast::match_downcast!(v, {
-            b: Builtin => b.into(),
-            l: List => child_frame_closure(l, meta),
-            _ => todo!("eval {:?}", v)
-        })
+        let meta = v.meta_ref().clone();
+        if v.is::<Builtin>() {
+            v.downcast::<Builtin>().unwrap().into()
+        } else if v.is::<List>() {
+            child_frame_closure(v.downcast::<List>().unwrap(), &meta)
+        } else {
+            todo!("eval {:?}", v)
+        }
     }
 }
 
-fn child_frame_closure(l: List, meta: Meta) -> ChildFrame {
+fn child_frame_closure(l: List, meta: &Meta) -> ChildFrame {
     let mut frame = ListFrame::new_body_meta(l, meta.clone());
     if let Some(ClosureEnv(ds)) = meta.first::<ClosureEnv>() {
         frame = frame.with_defs(ds.clone());
@@ -258,7 +260,7 @@ fn child_frame_closure(l: List, meta: Meta) -> ChildFrame {
 }
 
 impl Eval for Builtin {}
-impl IntoVal for Builtin { fn into_val(self) -> Val { self.to_val() } }
+impl IntoVal for Builtin { fn into_val(self) -> Val { self.into() } }
 impl EvalOnce for Builtin {}
 impl IntoChildFrame for Builtin {}
 impl From<Builtin> for ChildFrame {
@@ -329,7 +331,7 @@ impl PreHashed {
 pub struct DefSet(Rc<HashMap<PreHashed, Val, BuildNoHasher>>);
 impl DefSet {
     pub fn insert(&mut self, key: String, val: impl Value) {
-        Rc::make_mut(&mut self.0).insert(PreHashed::from_string(key), val.to_val());
+        Rc::make_mut(&mut self.0).insert(PreHashed::from_string(key), val.into());
     }
     pub fn remove(&mut self, key: &str) {
         Rc::make_mut(&mut self.0).remove(&PreHashed::from_str(key));
@@ -643,7 +645,7 @@ impl Builder {
     }
     pub fn define_closure(mut self, name: impl Into<String>,
                           body: List, env: DefSet) -> Self {
-        self.defs.insert(name.into(), body.to_val().with_meta(ClosureEnv(env)));
+        self.defs.insert(name.into(), Val::from(body).with_meta(ClosureEnv(env)));
         self
     }
 }
@@ -655,7 +657,7 @@ mod tests {
     #[test]
     fn interp_basic() {
         // empty
-        assert!(Builder::default().eval(List::from(vec![]).to_val()).run());
+        assert!(Builder::default().eval(List::from(vec![]).into()).run());
         // stack
         let mut i = Paused::new(vec![7.into()]);
         assert_eq!(i.stack_pop_val(), None);
@@ -709,7 +711,7 @@ mod tests {
                 "thing".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ "upquote".to_symbol().into() ]).to_val());
+        i.define("thing", List::from(vec![ "upquote".to_symbol().into() ]).into());
         i.define("upquote", |mut i: Handle| async move {
             i.uplevel(|mut i: Handle| async move {
                 if let Some(q) = i.quote().await {
@@ -728,7 +730,7 @@ mod tests {
             Paused::new(vec![
                 "thing".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ "upfive".to_symbol().into() ]).to_val());
+        i.define("thing", List::from(vec![ "upfive".to_symbol().into() ]).into());
         i.define("upfive", |mut i: Handle| async move {
             let five = "five".to_symbol();
             i.uplevel(move |mut i: Handle| async move {
@@ -747,8 +749,8 @@ mod tests {
                 "thing1".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
-        i.define("thing1", List::from(vec![ "thing2".to_symbol().into() ]).to_val());
-        i.define("thing2", List::from(vec![ "upquote2".to_symbol().into() ]).to_val());
+        i.define("thing1", List::from(vec![ "thing2".to_symbol().into() ]).into());
+        i.define("thing2", List::from(vec![ "upquote2".to_symbol().into() ]).into());
         i.define("upquote2", |mut i: Handle| async move {
             i.uplevel(move |mut i: Handle| async move {
                 i.uplevel(move |mut i: Handle| async move {
@@ -770,7 +772,7 @@ mod tests {
                 "eval".to_symbol().into(),
             ]);
         i.define("eval", |mut i: Handle| async move {
-            i.eval(List::from(vec![ "inner".to_symbol().into() ]).to_val()).await;
+            i.eval(List::from(vec![ "inner".to_symbol().into() ]).into()).await;
         });
         i.define("inner", |mut i: Handle| async move {
             i.eval(|mut i: Handle| async move {

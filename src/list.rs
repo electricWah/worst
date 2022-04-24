@@ -16,7 +16,7 @@ impl From<Vec<Val>> for List {
 
 impl<T: Value> FromIterator<T> for List {
     fn from_iter<I: IntoIterator<Item=T>>(iter: I) -> Self {
-        List::from(Vec::from_iter(iter.into_iter().map(Value::to_val)))
+        List::from(Vec::from_iter(iter.into_iter().map(Into::into)))
     }
 }
 
@@ -72,33 +72,33 @@ impl List {
         self.data.reverse();
     }
 
-    pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {
-        for i in 0 .. self.len()/2 {
-            if let Some(k) = self.get(i * 2) {
-                // dbg!(i, &k);
-                if v.equal(&k) {
-                    return self.get(i * 2 + 1);
-                }
-            }
-        }
-        None
-    }
+    // pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {
+    //     for i in 0 .. self.len()/2 {
+    //         if let Some(k) = self.get(i * 2) {
+    //             // dbg!(i, &k);
+    //             if v == k {
+    //                 return self.get(i * 2 + 1);
+    //             }
+    //         }
+    //     }
+    //     None
+    // }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
 
-    #[test]
-    fn pairs() {
-        let thing =
-            List::from_pairs(vec![
-                ("test".to_string().into(), 5.into()),
-                (Val::from("beans".to_string()), Val::from(7)),
-            ].into_iter());
-        assert_eq!(Some(&5.into()), thing.pairs_find_key("test".to_string()));
-        assert_eq!(Some(&7.into()), thing.pairs_find_key("beans".to_string()));
-        assert_eq!(None, thing.pairs_find_key(123));
-    }
-}
+//     #[test]
+//     fn pairs() {
+//         let thing =
+//             List::from_pairs(vec![
+//                 ("test".to_string().into(), 5.into()),
+//                 (Val::from("beans".to_string()), Val::from(7)),
+//             ].into_iter());
+//         assert_eq!(Some(&5.into()), thing.pairs_find_key("test".to_string()));
+//         assert_eq!(Some(&7.into()), thing.pairs_find_key("beans".to_string()));
+//         assert_eq!(None, thing.pairs_find_key(123));
+//     }
+// }
 

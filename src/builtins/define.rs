@@ -1,5 +1,4 @@
 
-use match_downcast::*;
 use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Builder, Handle};
@@ -18,30 +17,33 @@ pub async fn define(mut i: Handle) {
                 return i.pause().await;
             }
             Some(na) =>
-                match_downcast!(na, {
-                    s: Symbol => (s, List::default()),
-                    l: List =>
-                        match i.quote().await {
-                            Some(qn) =>
-                                match qn.downcast::<Symbol>() {
-                                    Ok(n) => (n, l), // name and args
-                                    Err(qe) => {
-                                        i.stack_push(qe).await;
-                                        i.stack_push("define: expected symbol").await;
+                match na.downcast::<Symbol>() {
+                    Ok(s) => (s, List::default()),
+                    Err(e) =>
+                        match e.downcast::<List>() {
+                            Ok(l) =>
+                                match i.quote().await {
+                                    Some(qn) =>
+                                        match qn.downcast::<Symbol>() {
+                                            Ok(n) => (n, l), // name and args
+                                            Err(qe) => {
+                                                i.stack_push(qe).await;
+                                                i.stack_push("define: expected symbol").await;
+                                                return i.pause().await;
+                                            }
+                                        },
+                                    None => {
+                                        i.stack_push("define: quote-nothing").await;
                                         return i.pause().await;
-                                    }
+                                    },
                                 },
-                            None => {
-                                i.stack_push("define: quote-nothing").await;
+                            Err(_) => {
+                                // i.stack_push(le).await;
+                                i.stack_push("cannot define").await;
                                 return i.pause().await;
-                            },
-                        },
-                    _ => {
-                        // i.stack_push(le).await;
-                        i.stack_push("cannot define").await;
-                        return i.pause().await;
-                    }
-                })
+                            }
+                        }
+                }
         };
 
     let body =
@@ -69,7 +71,7 @@ pub async fn define(mut i: Handle) {
 
     let env = i.all_definitions().await;
 
-    i.define_closure(name, body.to_val(), env).await;
+    i.define_closure(name, body, env).await;
 }
 
 pub fn install(mut i: Builder) -> Builder {

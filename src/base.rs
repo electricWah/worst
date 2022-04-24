@@ -2,48 +2,82 @@
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
-use downcast_rs::Downcast;
+use std::any::Any;
 
-pub trait Value: Downcast + Debug {
-    fn to_val(self) -> Val; // saves dorking around with meta in pub Val::new
-    fn dup(&self) -> Val;
-    fn equal(&self, other: &Val) -> bool;
+pub trait ImplValue {
+    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default())));
 }
-downcast_rs::impl_downcast!(Value);
+
+pub trait Value: 'static + Into<Val> {}
+impl<T: ImplValue + 'static> Value for T {}
 
 #[derive(Default, Debug, Clone)]
-pub struct Meta(Rc<Vec<Val>>);
+pub struct Meta(Vec<Val>);
 
-#[derive(Debug, Clone)]
+pub struct Type(Meta);
+impl ImplValue for Type {
+    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default())));
+}
+
+#[derive(Clone)]
 pub struct Val {
-    v: Rc<Box<dyn Value>>,
-    pub meta: Meta,
+    v: Rc<Box<dyn Any>>,
+    meta: Rc<Meta>,
+    ty: Rc<Type>,
+}
+impl Value for Val {}
+
+impl<T: ImplValue + 'static> From<T> for Val {
+    fn from(v: T) -> Val {
+        T::TYPE.with(|t| Val::new_type(v, t.clone()))
+    }
+}
+
+struct DebugValue(Box<dyn Fn(&Val) -> String>);
+impl ImplValue for DebugValue {}
+struct TypeName(String);
+impl ImplValue for TypeName {}
+
+impl Debug for Val {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        if let Some(dv) = self.ty.0.first::<DebugValue>() {
+            let d = dv.0(self);
+            write!(f, "{}", d)?;
+        } else if let Some(n) = self.ty.0.first::<TypeName>() {
+            write!(f, "{}", n.0)?;
+        } else {
+            write!(f, "{}", "<some value>")?;
+        }
+        Ok(())
+    }
 }
 
 impl PartialEq for Val {
-    fn eq(&self, that: &Self) -> bool { Value::equal(self.v.as_ref().as_ref(), that) }
+    fn eq(&self, that: &Self) -> bool {
+        Rc::ptr_eq(&self.v, &that.v) // TODO or deep eq using type info
+    }
 }
 impl Eq for Val { }
 
-impl Value for Val {
-    fn to_val(self) -> Val { self }
-    fn dup(&self) -> Val { self.clone() }
-    fn equal(&self, other: &Val) -> bool { self.v.equal(other) }
-}
-
 impl Val {
-    fn new(v: impl Value) -> Self {
-        Val { v: Rc::new(Box::new(v)), meta: Meta::default() }
+    fn new_type<T: Value>(v: T, ty: Rc<Type>) -> Self {
+        Val { v: Rc::new(Box::new(v)), meta: Rc::new(Meta::default()), ty }
     }
-    pub fn downcast<T: Value>(self) -> Result<T, Val> {
+    pub fn downcast<T: Value + Clone>(self) -> Result<T, Val> {
         match Rc::try_unwrap(self.v) {
             Ok(v) => {
                 match v.downcast::<T>() {
                     Ok(v) => Ok(*v),
-                    Err(v) => Err(Val { v: Rc::new(v), meta: self.meta }),
+                    Err(v) => Err(Val { v: Rc::new(v), meta: self.meta, ty: self.ty }),
                 }
             },
-            Err(e) => { e.dup().downcast::<T>() },
+            Err(v) => {
+                if let Some(v) = v.downcast_ref::<T>() {
+                    Ok(v.clone())
+                } else {
+                    Err(Val { v, meta: self.meta, ty: self.ty })
+                }
+            },
         }
     }
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
@@ -60,14 +94,26 @@ impl Val {
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
-    pub fn add_meta(&mut self, v: impl Value) { self.meta.push(Val::new(v)); }
-    pub fn with_meta(mut self, v: impl Value) -> Self { self.add_meta(v); self }
-    pub fn get_meta(&self) -> Meta { self.meta.clone() }
+    pub fn meta_ref(&self) -> &Meta { &self.meta }
+    pub fn meta_ref_mut(&mut self) -> &mut Meta {
+        Rc::make_mut(&mut self.meta)
+    }
+    pub fn with_meta(mut self, v: impl Value) -> Self {
+        self.meta_ref_mut().push(v); self
+    }
+    // pub fn method<T: Value>(&self) -> Option<&T> {
+    //     if let Some(ty) = self.meta.first::<Type>() {
+    //         ty.1.first::<T>()
+    //     } else { None }
+    // }
 }
 
 impl Meta {
-    fn push(&mut self, v: impl Into<Val>) {
-        Rc::make_mut(&mut self.0).push(v.into());
+    fn push(&mut self, v: impl Value) {
+        self.0.push(v.into());
+    }
+    fn with(mut self, v: impl Value) -> Self {
+        self.push(v); self
     }
     pub fn first<T: Value>(&self) -> Option<&T> {
         self.0.iter().find_map(|v| v.downcast_ref::<T>())
@@ -75,19 +121,6 @@ impl Meta {
     pub fn contains<T: Value>(&self) -> bool {
         self.0.iter().any(|v| v.is::<T>())
     }
-}
-
-pub trait ImplValue: Clone + Eq {}
-impl<T: 'static> Value for T where T: ImplValue + Debug {
-    fn to_val(self) -> Val { Val::new(self) }
-    fn dup(&self) -> Val { Val::new(self.clone()) }
-    fn equal(&self, that: &Val) -> bool {
-        if let Some(t) = that.downcast_ref::<T>() { self == t } else { false }
-    }
-}
-
-impl<T: ImplValue + Debug + 'static> From<T> for Val {
-    fn from(t: T) -> Self { Val::new(t) }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,18 +145,20 @@ impl From<Symbol> for String {
     fn from(s: Symbol) -> Self { s.v }
 }
 
-impl ImplValue for Symbol {}
-impl ImplValue for String {}
+impl ImplValue for Symbol {
+    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default().with(TypeName("symbol".to_string())))));
+}
 impl ImplValue for bool {}
 impl ImplValue for i32 {} // TODO any numeric
 
-impl Value for &'static str {
-    fn to_val(self) -> Val { self.to_string().to_val() }
-    fn dup(&self) -> Val { self.to_string().dup() }
-    fn equal(&self, other: &Val) -> bool { self.to_string().equal(other) }
+impl ImplValue for String {
+    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default().with(TypeName("String".to_string())))));
 }
 
-#[derive(Debug, Clone, Eq)]
+impl ImplValue for &'static str {
+}
+
+#[derive(Clone, Eq)]
 pub struct Place(Rc<RefCell<Val>>);
 impl PartialEq for Place {
     fn eq(&self, other: &Self) -> bool {
@@ -134,10 +169,10 @@ impl ImplValue for Place {}
 
 impl Place {
     pub fn wrap(v: impl Value) -> Place {
-        Place(Rc::new(RefCell::new(Val::new(v))))
+        Place(Rc::new(RefCell::new(v.into())))
     }
     pub fn swap(&mut self, v: impl Value) -> Val {
-        self.0.replace(Val::new(v))
+        self.0.replace(v.into())
     }
     pub fn set(&mut self, v: impl Value) { self.swap(v); }
 

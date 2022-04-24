@@ -43,7 +43,7 @@ pub async fn bury(mut i: Handle) {
 pub async fn equal(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
-    let eq = a.equal(&b);
+    let eq = a == b;
     i.stack_push(b).await;
     i.stack_push(a).await;
     i.stack_push(eq).await;

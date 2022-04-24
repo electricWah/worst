@@ -1,6 +1,5 @@
 
 use std::io::Read;
-use match_downcast::*;
 
 use crate::base::*;
 use crate::list::*;
@@ -26,49 +25,49 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Paused> {
         i.call("%exports").await;
         let mut exports = i.stack_pop::<Place>().await;
         if let Some(q) = i.quote().await {
-            match_downcast::match_downcast!(q, {
-                all: bool => {
-                    if all {
-                        exports.set(true);
-                    } else {
-                        dbg!("not sure how to export #f");
-                    }
-                },
-                name: Symbol => {
-                    match exports.get().downcast::<List>() {
-                        Ok(mut l) => {
-                            l.push(name.into());
-                            exports.set(l);
-                        },
-                        Err(oe) => {
-                            dbg!("export symbol failed", &name, &oe);
-                        },
-                    }
-                },
-                coll: List => {
-                    match exports.get().downcast::<List>() {
-                        Ok(mut l) => {
-                            for v in coll {
-                                l.push(v);
-                            }
-                            exports.set(l);
-                        },
-                        Err(oe) => {
-                            dbg!("export list failed", &oe);
-                        },
-                    }
-                },
-                _ => {
-                    todo!("export this thing {:?}", q);
+            if let Some(&b) = q.downcast_ref::<bool>() {
+                if b {
+                    exports.set(true);
+                } else {
+                    dbg!("not sure how to export #f");
                 }
-            })
+            } else if q.is::<Symbol>() {
+                match exports.get().downcast::<List>() {
+                    Ok(mut l) => {
+                        l.push(q);
+                        exports.set(l);
+                    },
+                    Err(oe) => {
+                        dbg!("export symbol failed", &q, &oe);
+                    },
+                }
+            } else {
+                match q.downcast::<List>() {
+                    Ok(coll) => {
+                        match exports.get().downcast::<List>() {
+                            Ok(mut l) => {
+                                for v in coll {
+                                    l.push(v);
+                                }
+                                exports.set(l);
+                            },
+                            Err(oe) => {
+                                dbg!("export list failed", &oe);
+                            },
+                        }
+                    },
+                    Err(e) => {
+                        todo!("export this thing {:?}", e);
+                    },
+                }
+            }
         } else {
             i.stack_push("quote-nothing".to_symbol()).await;
             return i.pause().await;
         }
     });
 
-    let mut i = ib.eval(List::from(m).to_val());
+    let mut i = ib.eval(Val::from(List::from(m)));
     while !i.run() {
         return Err(i);
     }
@@ -80,24 +79,23 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Paused> {
     let all_defs = i.all_definitions();
     let mut exmap = DefSet::default();
     let exportsion = exports_final.get();
-    match_downcast::match_downcast!(exportsion, {
-        _t: bool => {
-            exmap = all_defs;
-        },
-        l: List => {
-            for ex in l.into_iter() {
-                let name = ex.downcast::<Symbol>().unwrap().into();
-                if let Some(def) = all_defs.get(&name) {
-                    exmap.insert(name, def.clone());
-                } else {
-                    dbg!("coudldn't see def", name);
+    if let Some(&true) = exportsion.downcast_ref::<bool>() {
+        exmap = all_defs;
+    } else {
+        match exportsion.downcast::<List>() {
+            Ok(l) => {
+                for ex in l.into_iter() {
+                    let name = ex.downcast::<Symbol>().unwrap().into();
+                    if let Some(def) = all_defs.get(&name) {
+                        exmap.insert(name, def.clone());
+                    } else {
+                        dbg!("coudldn't see def", name);
+                    }
                 }
-            }
-        },
-        _ => {
-            todo!("exporting failure {:?}", exportsion);
+            },
+            Err(e) => todo!("exporting failure {:?}", e)
         }
-    });
+    }
     Ok(exmap)
 }
 
@@ -135,14 +133,17 @@ pub fn install(mut i: Builder) -> Builder {
     i.define("import", |mut i: Handle| async move {
         let imports =
             if let Some(q) = i.quote().await {
-                match_downcast!(q, {
-                    l: List => l,
-                    s: Symbol => List::from(vec![s.into()]),
-                    _ => {
-                        i.stack_push("expected list or symbol").await;
-                        return i.pause().await;
+                if q.is::<Symbol>() {
+                    List::from(vec![q])
+                } else {
+                    match q.downcast::<List>() {
+                        Ok(l) => l,
+                        Err(_e) => {
+                            i.stack_push("expected list or symbol").await;
+                            return i.pause().await;
+                        },
                     }
-                })
+                }
             } else {
                 return i.stack_push("quote-nothing".to_symbol()).await;
             };

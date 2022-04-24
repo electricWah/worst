@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use crate::base::*;
 use crate::interpreter::{Builder, Paused, Handle};
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct Interpreter(Rc<RefCell<Paused>>);
 
 impl PartialEq for Interpreter {

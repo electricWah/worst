@@ -1,5 +1,5 @@
 
-define ->string [ value-write-string ]
+define ->string [ value->string ]
 
 define port-write-value [ ->string port-write-string ]
 
