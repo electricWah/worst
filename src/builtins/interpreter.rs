@@ -2,6 +2,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 
+use crate::impl_value;
 use crate::base::*;
 use crate::interpreter::{Builder, Paused, Handle};
 
@@ -12,7 +13,7 @@ impl PartialEq for Interpreter {
     fn eq(&self, other: &Interpreter) -> bool { Rc::ptr_eq(&self.0, &other.0) }
 }
 impl Eq for Interpreter {}
-impl ImplValue for Interpreter {}
+impl_value!(Interpreter);
 
 impl Interpreter {
     fn define(&mut self, name: impl Into<String>, def: Val) {

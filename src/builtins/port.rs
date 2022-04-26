@@ -3,6 +3,7 @@ use std::io::Write;
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use crate::impl_value;
 use crate::base::*;
 use crate::interpreter::{Builder, Handle};
 
@@ -46,7 +47,7 @@ impl std::fmt::Debug for Port {
     }
 }
 
-impl ImplValue for Port {}
+impl_value!(Port);
 
 impl Port {
     fn new_string_buffer() -> Self {

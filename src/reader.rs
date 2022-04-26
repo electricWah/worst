@@ -2,6 +2,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use crate::impl_value;
 use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Builder, Paused, Handle};
@@ -14,7 +15,7 @@ pub enum ReadError {
     UnmatchedList(char),
     UnparseableNumber(String),
 }
-impl ImplValue for ReadError {}
+impl_value!(ReadError);
 
 // Interpreter-based reader: feed it text and it will run an interpreter
 // to consume the text and output values
@@ -54,7 +55,7 @@ enum Emit {
     Yield(Val),
     Error(ReadError),
 }
-impl ImplValue for Emit {}
+impl_value!(Emit);
 
 struct ReaderHandle {
     i: Handle,
@@ -207,7 +208,7 @@ impl PartialEq for Reader {
     }
 }
 impl Eq for Reader {}
-impl ImplValue for Reader {}
+impl_value!(Reader);
 
 impl Reader {
     pub fn new() -> Reader {

@@ -9,6 +9,7 @@ use std::hash::{Hash, Hasher, BuildHasher};
 use std::collections::hash_map::DefaultHasher;
 use std::borrow::Borrow;
 
+use crate::impl_value;
 use crate::base::*;
 use crate::list::List;
 
@@ -71,14 +72,14 @@ use private::*;
 struct DefineMeta {
     name: String,
 }
-impl ImplValue for DefineMeta {}
+impl_value!(DefineMeta);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InterpError {
     StackEmpty(Vec<Option<String>>),
     WrongType(Val, &'static str, Vec<Option<String>>),
 }
-impl ImplValue for InterpError {}
+impl_value!(InterpError);
 
 pub struct Handle {
     co: Co<FrameYield>,
@@ -203,7 +204,7 @@ impl PartialEq for Builtin {
     fn eq(&self, that: &Self) -> bool { Rc::ptr_eq(&self.0, &that.0) }
 }
 impl Eq for Builtin {}
-impl ImplValue for Builtin {}
+impl_value!(Builtin);
 
 impl<F: 'static + Future<Output=()>,
      T: 'static + Fn(Handle) -> F>
@@ -276,7 +277,7 @@ impl From<Builtin> for ChildFrame {
 /// Key for List meta to add env when evaling
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ClosureEnv(DefSet);
-impl ImplValue for ClosureEnv {}
+impl_value!(ClosureEnv);
 
 // Code frame with a body being an in-progress Rust function
 impl PausedFrame {

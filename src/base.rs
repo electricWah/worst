@@ -8,6 +8,21 @@ pub trait ImplValue {
     thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default())));
 }
 
+#[macro_export]
+macro_rules! impl_value {
+    ($t:ty) => { impl_value!($t,); };
+    ($t:ty, $($m:expr),*) => {
+        impl ImplValue for $t {
+            thread_local!(static TYPE: std::rc::Rc<Type> =
+                          std::rc::Rc::new(
+                              Type::new(Meta::default()
+                                        $(.with($m))*
+                                        .with(type_name(stringify!($t)))
+                                       )));
+        }
+    }
+}
+
 pub trait Value: 'static + Into<Val> {}
 impl<T: ImplValue + 'static> Value for T {}
 
@@ -15,8 +30,9 @@ impl<T: ImplValue + 'static> Value for T {}
 pub struct Meta(Vec<Val>);
 
 pub struct Type(Meta);
-impl ImplValue for Type {
-    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default())));
+impl ImplValue for Type {}
+impl Type {
+    pub fn new(m: Meta) -> Self { Type(m) }
 }
 
 #[derive(Clone)]
@@ -33,10 +49,35 @@ impl<T: ImplValue + 'static> From<T> for Val {
     }
 }
 
-struct DebugValue(Box<dyn Fn(&Val) -> String>);
-impl ImplValue for DebugValue {}
 struct TypeName(String);
 impl ImplValue for TypeName {}
+pub fn type_name(s: impl Into<String>) -> impl Value { TypeName(s.into()) }
+
+struct DebugValue(Box<dyn Fn(&Val) -> String>);
+impl_value!(DebugValue);
+pub fn value_tostring<T: 'static + ImplValue, F: 'static + Fn(&T) -> String>(f: F) -> impl Value {
+    DebugValue(Box::new(move |v: &Val| {
+        if let Some(v) = v.downcast_ref::<T>() {
+            f(&v)
+        } else {
+            "wrong type for value_tostring!".into()
+        }
+    }))
+}
+pub fn value_debug<T: 'static + ImplValue + Debug>() -> impl Value {
+    value_tostring(|v: &T| format!("{:?}", v))
+}
+
+struct EqValue(Box<dyn Fn(&Val, &Val) -> bool>);
+impl_value!(EqValue);
+pub fn value_eq<T: 'static + ImplValue + PartialEq>() -> impl Value {
+    EqValue(Box::new(move |a: &Val, b: &Val| {
+        match (a.downcast_ref::<T>(), b.downcast_ref::<T>()) {
+            (Some(a), Some(b)) => a == b,
+            _ => false
+        }
+    }))
+}
 
 impl Debug for Val {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
@@ -53,8 +94,13 @@ impl Debug for Val {
 }
 
 impl PartialEq for Val {
-    fn eq(&self, that: &Self) -> bool {
-        Rc::ptr_eq(&self.v, &that.v) // TODO or deep eq using type info
+    fn eq(&self, you: &Self) -> bool {
+        if Rc::ptr_eq(&self.v, &you.v) { return true; }
+        if let Some(e) = self.ty.0.first::<EqValue>() {
+            e.0(&self, you)
+        } else if let Some(e) = you.ty.0.first::<EqValue>() {
+            e.0(you, &self)
+        } else { false }
     }
 }
 impl Eq for Val { }
@@ -112,7 +158,7 @@ impl Meta {
     fn push(&mut self, v: impl Value) {
         self.0.push(v.into());
     }
-    fn with(mut self, v: impl Value) -> Self {
+    pub fn with(mut self, v: impl Value) -> Self {
         self.push(v); self
     }
     pub fn first<T: Value>(&self) -> Option<&T> {
@@ -126,6 +172,9 @@ impl Meta {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
     v: String,
+}
+impl Symbol {
+    fn to_string(&self) -> String { self.v.clone() }
 }
 impl AsRef<str> for Symbol {
     fn as_ref(&self) -> &str { self.v.as_ref() }
@@ -145,18 +194,12 @@ impl From<Symbol> for String {
     fn from(s: Symbol) -> Self { s.v }
 }
 
-impl ImplValue for Symbol {
-    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default().with(TypeName("symbol".to_string())))));
-}
-impl ImplValue for bool {}
-impl ImplValue for i32 {} // TODO any numeric
-
-impl ImplValue for String {
-    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default().with(TypeName("String".to_string())))));
-}
-
-impl ImplValue for &'static str {
-}
+impl_value!(Symbol, value_eq::<Symbol>(), value_tostring(Symbol::to_string), type_name("symbol"));
+fn bool_tostring(b: &bool) -> String { (if *b { "#t" } else { "#f" }).into() }
+impl_value!(bool, value_eq::<bool>(), value_tostring(bool_tostring));
+impl_value!(i32, value_eq::<i32>(), value_debug::<i32>(), type_name("number")); // TODO any numeric
+impl_value!(String, value_eq::<String>(), value_debug::<String>(), type_name("string"));
+impl_value!(&'static str, type_name("string"));
 
 #[derive(Clone, Eq)]
 pub struct Place(Rc<RefCell<Val>>);
@@ -165,7 +208,7 @@ impl PartialEq for Place {
         Rc::ptr_eq(&self.0, &other.0)
     }
 }
-impl ImplValue for Place {}
+impl_value!(Place, type_name("place"));
 
 impl Place {
     pub fn wrap(v: impl Value) -> Place {

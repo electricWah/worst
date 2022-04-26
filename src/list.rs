@@ -1,5 +1,5 @@
 
-// use std::cell::{Ref, RefCell}; // no refcell until push/pop needs more fast
+use crate::impl_value;
 use crate::base::*;
 
 #[derive(Debug, Clone)]
@@ -41,7 +41,7 @@ impl Default for List {
     fn default() -> Self { List::from(vec![]) }
 }
 
-impl ImplValue for List { }
+impl_value!(List, value_eq::<List>(), value_debug::<List>());
 
 impl List {
     pub fn len(&self) -> usize { self.data.len() }
