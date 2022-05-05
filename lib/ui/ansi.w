@@ -22,6 +22,10 @@ define reverse      [ "\e[7m" print ]
 define cursor-save    [ "\e[s" print ]
 define cursor-restore [ "\e[u" print ]
 
+define erase-line-from-cursor [ "\e[0K" print ]
+define erase-line-to-cursor [ "\e[1K" print ]
+define erase-line [ "\e[2K" print ]
+
 define fg [
     ->string
     "\e[38;5;" swap string-append

@@ -11,54 +11,33 @@ async fn default_attributes(mut _i: Handle) {
 pub async fn define(mut i: Handle) {
 
     let (name, attrs) =
-        match i.quote().await {
-            None => {
-                i.stack_push("define: quote-nothing").await;
-                return i.pause().await;
-            }
-            Some(na) =>
-                match na.downcast::<Symbol>() {
-                    Ok(s) => (s, List::default()),
-                    Err(e) =>
-                        match e.downcast::<List>() {
-                            Ok(l) =>
-                                match i.quote().await {
-                                    Some(qn) =>
-                                        match qn.downcast::<Symbol>() {
-                                            Ok(n) => (n, l), // name and args
-                                            Err(qe) => {
-                                                i.stack_push(qe).await;
-                                                i.stack_push("define: expected symbol").await;
-                                                return i.pause().await;
-                                            }
-                                        },
-                                    None => {
-                                        i.stack_push("define: quote-nothing").await;
-                                        return i.pause().await;
-                                    },
-                                },
-                            Err(_) => {
-                                // i.stack_push(le).await;
-                                i.stack_push("cannot define").await;
+        match i.quote_val().await.downcast::<Symbol>() {
+            Ok(s) => (s, List::default()),
+            Err(e) =>
+                match e.downcast::<List>() {
+                    Ok(l) =>
+                        match i.quote_val().await.downcast::<Symbol>() {
+                            Ok(n) => (n, l), // name and args
+                            Err(qe) => {
+                                i.stack_push(qe).await;
+                                i.stack_push("define: expected symbol").await;
                                 return i.pause().await;
                             }
-                        }
+                        },
+                    Err(_) => {
+                        // i.stack_push(le).await;
+                        i.stack_push("cannot define").await;
+                        return i.pause().await;
+                    }
                 }
         };
 
     let body =
-        match i.quote().await {
-            Some(q) =>
-                match q.downcast::<List>() {
-                    Ok(l) => l,
-                    Err(e) => {
-                        i.stack_push(e).await;
-                        i.stack_push("define: expected list").await;
-                        return i.pause().await;
-                    },
-                },
-            None => {
-                i.stack_push("define: no body").await;
+        match i.quote_val().await.downcast::<List>() {
+            Ok(l) => l,
+            Err(e) => {
+                i.stack_push(e).await;
+                i.stack_push("define: expected list").await;
                 return i.pause().await;
             },
         };

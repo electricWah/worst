@@ -3,7 +3,7 @@ use crate::reader::*;
 use crate::interpreter::{Builder, Handle};
 
 pub fn install(mut i: Builder) -> Builder {
-    i.define("new-reader", |mut i: Handle| async move {
+    i.define("reader-empty", |mut i: Handle| async move {
         i.stack_push(Reader::new()).await;
     });
     i.define("reader-set-eof", |mut i: Handle| async move {

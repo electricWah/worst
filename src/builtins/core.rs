@@ -4,12 +4,8 @@ use crate::list::*;
 use crate::interpreter::{Builder, Handle};
 
 pub async fn quote(mut i: Handle) {
-    if let Some(q) = i.quote().await {
-        i.stack_push(q).await;
-    } else {
-        i.stack_push("quote-nothing".to_symbol()).await;
-        return i.pause().await;
-    }
+    let q = i.quote_val().await;
+    i.stack_push(q).await;
 }
 
 pub async fn drop(mut i: Handle) {
@@ -74,19 +70,14 @@ pub async fn call(mut i: Handle) {
 pub async fn const_(mut i: Handle) {
     let v = i.stack_pop_val().await;
     let name =
-        if let Some(q) = i.quote().await {
-            match q.downcast::<Symbol>() {
-                Ok(n) => n,
-                Err(qq) => {
-                    i.stack_push(qq).await;
-                    i.stack_push("const: not a symbol").await;
-                    return i.pause().await;
-                },
-            }
-        }
-        else {
-            i.stack_push("quote-nothing".to_symbol()).await;
-            return i.pause().await;
+        // TODO quote_ty::<Symbol>()
+        match i.quote_val().await.downcast::<Symbol>() {
+            Ok(n) => n,
+            Err(qq) => {
+                i.stack_push(qq).await;
+                i.stack_push("const: not a symbol").await;
+                return i.pause().await;
+            },
         };
 
     i.define(name.as_ref(), move |mut i: Handle| {
@@ -100,13 +91,8 @@ pub async fn const_(mut i: Handle) {
 /// [ quote quote quote uplevel uplevel ] quote upquote definition-add
 pub async fn upquote(mut i: Handle) {
     i.uplevel(|mut i: Handle| async move {
-        if let Some(q) = i.quote().await {
-            i.stack_push(q).await;
-        }
-        else {
-            i.stack_push("quote-nothing".to_symbol()).await;
-            return i.pause().await;
-        }
+        let q = i.quote_val().await;
+        i.stack_push(q).await;
     }).await;
 }
 
@@ -127,14 +113,12 @@ pub async fn swap(mut i: Handle) {
 ///     %%loop current-context-set-code
 /// ]
 pub async fn while_(mut i: Handle) {
-    if let Some(cond) = i.quote().await {
-        if let Some(body) = i.quote().await {
-            loop {
-                i.eval(cond.clone()).await;
-                if i.stack_pop::<bool>().await != true { break; }
-                i.eval(body.clone()).await;
-            }
-        }
+    let cond = i.quote_val().await;
+    let body = i.quote_val().await;
+    loop {
+        i.eval(cond.clone()).await;
+        if i.stack_pop::<bool>().await != true { break; }
+        i.eval(body.clone()).await;
     }
 }
 
@@ -147,14 +131,12 @@ pub async fn while_(mut i: Handle) {
 ///     quote eval uplevel
 /// ]
 pub async fn if_(mut i: Handle) {
-    if let Some(ift) = i.quote().await {
-        if let Some(iff) = i.quote().await {
-            if i.stack_pop::<bool>().await {
-                i.eval(ift).await;
-            } else {
-                i.eval(iff).await;
-            }
-        }
+    let ift = i.quote_val().await;
+    let iff = i.quote_val().await;
+    if i.stack_pop::<bool>().await {
+        i.eval(ift).await;
+    } else {
+        i.eval(iff).await;
     }
 }
 
@@ -165,6 +147,8 @@ pub async fn command_line_arguments(mut i: Handle) {
 pub async fn print(mut i: Handle) {
     let s = i.stack_pop::<String>().await;
     print!("{}", s);
+    use std::io::Write;
+    std::io::stdout().flush().unwrap();
 }
 
 pub async fn add(mut i: Handle) {
@@ -197,7 +181,7 @@ pub fn install(mut i: Builder) -> Builder {
         i.stack_push(v).await;
     });
     i.define("stack-dump", |mut i: Handle| async move {
-        dbg!(i.stack_get().await);
+        println!("{:?}", Val::from(i.stack_get().await));
     });
     i.define("stack-get", |mut i: Handle| async move {
         let s = i.stack_get().await;

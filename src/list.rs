@@ -41,7 +41,7 @@ impl Default for List {
     fn default() -> Self { List::from(vec![]) }
 }
 
-impl_value!(List, value_eq::<List>(), value_debug::<List>());
+impl_value!(List, value_eq::<List>(), value_tostring(List::to_string_debug));
 
 impl List {
     pub fn len(&self) -> usize { self.data.len() }
@@ -58,6 +58,9 @@ impl List {
     pub fn push(&mut self, v: Val) {
         self.data.push(v);
     }
+    pub fn prepend(&mut self, mut other: List) {
+        self.data.append(&mut other.data);
+    }
     pub fn top(&self) -> Option<&Val> { self.get(0) }
 
     pub fn from_pairs<K: Into<Val>, V: Into<Val>>(src: impl Iterator<Item=(K, V)>) -> Self {
@@ -70,6 +73,17 @@ impl List {
     }
     pub fn reverse(&mut self) {
         self.data.reverse();
+    }
+
+    fn to_string_debug(&self) -> String {
+        let mut acc = "(".to_string();
+        // ?? I guess?
+        acc.push_str(self.data.iter().rev()
+                     .map(|v| format!("{:?}", v))
+                     .collect::<Vec<String>>().join(" ")
+                     .as_ref());
+        acc.push(')');
+        acc
     }
 
     // pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {

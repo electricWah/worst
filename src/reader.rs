@@ -142,8 +142,9 @@ impl ReaderHandle {
                         match self.next().await {
                             '"' => break 'read_string,
                             '\\' => match self.next().await {
-                                'n' => buf.push('\n'),
                                 'e' => buf.push('\u{1b}'),
+                                'n' => buf.push('\n'),
+                                'r' => buf.push('\r'),
                                 c => buf.push(c),
                             },
                             c => buf.push(c),

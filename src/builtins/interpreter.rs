@@ -4,6 +4,7 @@ use std::cell::RefCell;
 
 use crate::impl_value;
 use crate::base::*;
+use crate::list::*;
 use crate::interpreter::{Builder, Paused, Handle};
 
 #[derive(Clone)]
@@ -43,6 +44,11 @@ pub fn install(mut i: Builder) -> Builder {
         i.stack_push(interp).await;
         i.stack_push(r).await;
     });
+    i.define("interpreter-reset",  |mut i: Handle| async move {
+        let interp = i.stack_pop::<Interpreter>().await;
+        interp.0.borrow_mut().reset();
+        i.stack_push(interp).await;
+    });
     i.define("interpreter-stack-length",  |mut i: Handle| async move {
         let interp = i.stack_pop::<Interpreter>().await;
         let len = interp.0.borrow_mut().stack_len();
@@ -78,6 +84,18 @@ pub fn install(mut i: Builder) -> Builder {
         let name = i.stack_pop::<Symbol>().await;
         let mut interp = i.stack_pop::<Interpreter>().await;
         interp.call(name);
+        i.stack_push(interp).await;
+    });
+    i.define("interpreter-body-push",  |mut i: Handle| async move {
+        let v = i.stack_pop_val().await;
+        let interp = i.stack_pop::<Interpreter>().await;
+        interp.0.borrow_mut().body_mut().push(v);
+        i.stack_push(interp).await;
+    });
+    i.define("interpreter-body-prepend",  |mut i: Handle| async move {
+        let body = i.stack_pop::<List>().await;
+        let interp = i.stack_pop::<Interpreter>().await;
+        interp.0.borrow_mut().body_mut().prepend(body);
         i.stack_push(interp).await;
     });
 

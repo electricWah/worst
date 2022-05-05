@@ -138,13 +138,16 @@ impl Handle {
         self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
         r.take().unwrap()
     }
+
     pub async fn stack_empty(&mut self) -> bool {
         self.stack_get().await.len() == 0
     }
-    pub async fn quote(&mut self) -> Option<Val> {
+    pub async fn quote_val(&mut self) -> Val {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
-        r.take()
+        loop {
+            self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
+            if let Some(q) = r.take() { return q; }
+        }
     }
     pub async fn uplevel(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Uplevel(f.into())).await;
@@ -410,6 +413,8 @@ impl std::fmt::Debug for Paused {
     }
 }
 
+impl_value!(Paused, value_debug::<Paused>());
+
 impl Paused {
 
     // pub fn eval(&mut self, f: impl EvalOnce) {
@@ -479,6 +484,7 @@ impl Paused {
     }
 
     fn read_body(&mut self) -> Option<Val> { self.frame.body.pop() }
+    pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
 
     /// returns complete
     pub fn run(&mut self) -> bool {
@@ -518,7 +524,7 @@ impl Paused {
             FrameYield::StackPush(v) => self.stack_push(v),
             FrameYield::StackPop(yr) => yr.set(self.stack_pop_val()),
             FrameYield::StackGet(yr) => yr.set(Some(self.stack.clone())),
-            FrameYield::Quote(yr) => self.handle_quote(yr),
+            FrameYield::Quote(yr) => if !self.handle_quote(yr) { return true; },
             FrameYield::Uplevel(v) => if !self.handle_uplevel(v) { return true; },
             FrameYield::Define(name, def) => self.define(name, def),
             FrameYield::Definitions(false, yr) => yr.set(Some(self.frame.defs.clone())),
@@ -527,6 +533,11 @@ impl Paused {
             FrameYield::GetCallStack(yr) => yr.set(Some(self.call_stack_names())),
         }
         false
+    }
+
+    pub fn reset(&mut self) {
+        while self.enter_parent_frame() {}
+        self.frame.body = List::default();
     }
 
     /// Immediately call `name` when the interpreter is next resumed
@@ -553,8 +564,14 @@ impl Paused {
         }
     }
 
-    fn handle_quote(&mut self, yr: YieldReturn<Val>) {
-        yr.set(self.frame.body.pop());
+    fn handle_quote(&mut self, yr: YieldReturn<Val>) -> bool {
+        if let Some(q) = self.frame.body.pop() {
+            yr.set(Some(q));
+            true
+        } else {
+            self.stack_push("quote-nothing".to_symbol());
+            false
+        }
     }
 
     fn handle_uplevel(&mut self, f: ChildFrame) -> bool {

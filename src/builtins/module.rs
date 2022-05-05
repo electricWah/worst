@@ -24,46 +24,42 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Paused> {
     ib.define("export", |mut i: Handle| async move {
         i.call("%exports").await;
         let mut exports = i.stack_pop::<Place>().await;
-        if let Some(q) = i.quote().await {
-            if let Some(&b) = q.downcast_ref::<bool>() {
-                if b {
-                    exports.set(true);
-                } else {
-                    dbg!("not sure how to export #f");
-                }
-            } else if q.is::<Symbol>() {
-                match exports.get().downcast::<List>() {
-                    Ok(mut l) => {
-                        l.push(q);
-                        exports.set(l);
-                    },
-                    Err(oe) => {
-                        dbg!("export symbol failed", &q, &oe);
-                    },
-                }
+        let q = i.quote_val().await;
+        if let Some(&b) = q.downcast_ref::<bool>() {
+            if b {
+                exports.set(true);
             } else {
-                match q.downcast::<List>() {
-                    Ok(coll) => {
-                        match exports.get().downcast::<List>() {
-                            Ok(mut l) => {
-                                for v in coll {
-                                    l.push(v);
-                                }
-                                exports.set(l);
-                            },
-                            Err(oe) => {
-                                dbg!("export list failed", &oe);
-                            },
-                        }
-                    },
-                    Err(e) => {
-                        todo!("export this thing {:?}", e);
-                    },
-                }
+                dbg!("not sure how to export #f");
+            }
+        } else if q.is::<Symbol>() {
+            match exports.get().downcast::<List>() {
+                Ok(mut l) => {
+                    l.push(q);
+                    exports.set(l);
+                },
+                Err(oe) => {
+                    dbg!("export symbol failed", &q, &oe);
+                },
             }
         } else {
-            i.stack_push("quote-nothing".to_symbol()).await;
-            return i.pause().await;
+            match q.downcast::<List>() {
+                Ok(coll) => {
+                    match exports.get().downcast::<List>() {
+                        Ok(mut l) => {
+                            for v in coll {
+                                l.push(v);
+                            }
+                            exports.set(l);
+                        },
+                        Err(oe) => {
+                            dbg!("export list failed", &oe);
+                        },
+                    }
+                },
+                Err(e) => {
+                    todo!("export this thing {:?}", e);
+                },
+            }
         }
     });
 
@@ -131,22 +127,20 @@ pub fn install(mut i: Builder) -> Builder {
         i.stack_push(List::from_iter(s.split(':').map(String::from))).await;
     });
     i.define("import", |mut i: Handle| async move {
-        let imports =
-            if let Some(q) = i.quote().await {
-                if q.is::<Symbol>() {
-                    List::from(vec![q])
-                } else {
-                    match q.downcast::<List>() {
-                        Ok(l) => l,
-                        Err(_e) => {
-                            i.stack_push("expected list or symbol").await;
-                            return i.pause().await;
-                        },
-                    }
-                }
+        let imports = {
+            let q = i.quote_val().await;
+            if q.is::<Symbol>() {
+                List::from(vec![q])
             } else {
-                return i.stack_push("quote-nothing".to_symbol()).await;
-            };
+                match q.downcast::<List>() {
+                    Ok(l) => l,
+                    Err(_e) => {
+                        i.stack_push("expected list or symbol").await;
+                        return i.pause().await;
+                    },
+                }
+            }
+        };
         i.call("WORST_LIBPATH").await;
         let libpath = {
             let lp = i.stack_pop::<List>().await;

@@ -6,7 +6,7 @@ define reads-as! [
     const src
     upquote const res
 
-    new-reader
+    reader-empty
     src reader-write-string
     reader-set-eof
 
