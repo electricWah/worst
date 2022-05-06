@@ -1,9 +1,0 @@
-name "dworst"
-description "Worst interpreter"
-copyright "Copyright © 2022 the worst developer"
-license "not sure yet"
-dflags "-preview=shortenedMethods"
-configuration "unittest" {
-	dependency "silly" version="~>1"
-	targetType "library"
-}
