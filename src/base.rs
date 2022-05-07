@@ -199,7 +199,8 @@ fn bool_tostring(b: &bool) -> String { (if *b { "#t" } else { "#f" }).into() }
 impl_value!(bool, value_eq::<bool>(), value_tostring(bool_tostring));
 impl_value!(i32, value_eq::<i32>(), value_debug::<i32>(), type_name("number")); // TODO any numeric
 impl_value!(String, value_eq::<String>(), value_debug::<String>(), type_name("string"));
-impl_value!(&'static str, type_name("string"));
+// NOTE always use String instead
+// impl_value!(&'static str, type_name("string"));
 
 #[derive(Clone, Eq)]
 pub struct Place(Rc<RefCell<Val>>);

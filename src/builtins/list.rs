@@ -1,6 +1,6 @@
 
 use crate::list::*;
-use crate::interpreter::{Builder, Handle};
+use crate::interpreter::{Interpreter, Handle};
 
 pub async fn list_empty(mut i: Handle) {
     let l = i.stack_pop::<List>().await;
@@ -36,7 +36,7 @@ pub async fn list_reverse(mut i: Handle) {
     i.stack_push(l).await;
 }
 
-pub fn install(mut i: Builder) -> Builder {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("list-empty?", list_empty);
     i.define("list-length", list_pop);
     i.define("list-reverse", list_reverse);

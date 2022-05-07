@@ -1,5 +1,5 @@
 
-use crate::interpreter::Builder;
+use crate::interpreter::Interpreter;
 
 pub mod core;
 pub mod define;
@@ -12,7 +12,7 @@ pub mod port;
 pub mod reader;
 pub mod string;
 
-pub fn install(i: Builder) -> Builder {
+pub fn install(i: Interpreter) -> Interpreter {
     let i = core::install(i);
     let i = define::install(i);
     let i = doc::install(i);

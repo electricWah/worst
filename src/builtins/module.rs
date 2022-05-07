@@ -4,24 +4,24 @@ use std::io::Read;
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
-use crate::interpreter::{Builder, Paused, Handle, DefSet};
+use crate::interpreter::{Interpreter, Handle, DefSet};
 
-fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Paused> {
-    let mut ib = Builder::default();
+fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Interpreter> {
+    let mut i = Interpreter::default();
     for (name, def) in defs.iter() {
-        ib.define(name, def.clone());
+        i.define(name, def.clone());
     }
 
     let exports_orig = Place::wrap(List::default());
     let exports_final = exports_orig.clone();
-    ib.define("%exports", move |mut i: Handle| {
+    i.define("%exports", move |mut i: Handle| {
         let e = exports_orig.clone();
         async move {
             i.stack_push(e.clone()).await;
         }
     });
 
-    ib.define("export", |mut i: Handle| async move {
+    i.define("export", |mut i: Handle| async move {
         i.call("%exports").await;
         let mut exports = i.stack_pop::<Place>().await;
         let q = i.quote_val().await;
@@ -63,7 +63,7 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Paused> {
         }
     });
 
-    let mut i = ib.eval(Val::from(List::from(m)));
+    i.eval_next(Val::from(List::from(m)));
     while !i.run() {
         return Err(i);
     }
@@ -119,7 +119,7 @@ fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List> {
     None // TODO Ok(List) | Err([name + resolve_error]) | Err(read_error)
 }
 
-pub fn install(mut i: Builder) -> Builder {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("WORST_LIBPATH", |mut i: Handle| async move {
         let s =
             if let Ok(s) = std::env::var("WORST_LIBPATH") { s }
@@ -135,7 +135,7 @@ pub fn install(mut i: Builder) -> Builder {
                 match q.downcast::<List>() {
                     Ok(l) => l,
                     Err(_e) => {
-                        i.stack_push("expected list or symbol").await;
+                        i.stack_push("expected list or symbol".to_string()).await;
                         return i.pause().await;
                     },
                 }
@@ -149,7 +149,7 @@ pub fn install(mut i: Builder) -> Builder {
                 if let Ok(s) = l.downcast::<String>() {
                     v.push(s);
                 } else {
-                    i.stack_push("WORST_LIBPATH contained a not-string").await;
+                    i.stack_push("WORST_LIBPATH contained a not-string".to_string()).await;
                     return i.pause().await;
                 }
             }
@@ -167,17 +167,17 @@ pub fn install(mut i: Builder) -> Builder {
                             }
                         },
                         Err(p) => {
-                            dbg!(modname, p.stack_ref());
-                            i.stack_push("error in eval_module").await;
+                            dbg!(modname, "error in eval_module", p.stack_ref());
+                            i.stack_push("error in eval_module".to_string()).await;
                             return i.pause().await;
                         },
                     }
                 } else {
-                    i.stack_push("couldn't resolve module").await;
+                    i.stack_push("couldn't resolve module".to_string()).await;
                     return i.pause().await;
                 }
             } else {
-                i.stack_push("expected symbol in import").await;
+                i.stack_push("expected symbol in import".to_string()).await;
                 return i.pause().await;
             }
         }

@@ -1,7 +1,7 @@
 
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Builder, Handle};
+use crate::interpreter::{Interpreter, Handle};
 
 pub async fn quote(mut i: Handle) {
     let q = i.quote_val().await;
@@ -75,7 +75,7 @@ pub async fn const_(mut i: Handle) {
             Ok(n) => n,
             Err(qq) => {
                 i.stack_push(qq).await;
-                i.stack_push("const: not a symbol").await;
+                i.stack_push("const: not a symbol".to_string()).await;
                 return i.pause().await;
             },
         };
@@ -157,7 +157,7 @@ pub async fn add(mut i: Handle) {
     i.stack_push(a + b).await;
 }
 
-pub fn install(mut i: Builder) -> Builder {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("quote", quote);
     i.define("clone", clone);
     i.define("drop", drop);

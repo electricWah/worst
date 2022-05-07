@@ -1,7 +1,7 @@
 
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Builder, Handle};
+use crate::interpreter::{Interpreter, Handle};
 
 async fn default_attributes(mut _i: Handle) {
     // TODO into_new_frame
@@ -20,13 +20,13 @@ pub async fn define(mut i: Handle) {
                             Ok(n) => (n, l), // name and args
                             Err(qe) => {
                                 i.stack_push(qe).await;
-                                i.stack_push("define: expected symbol").await;
+                                i.stack_push("define: expected symbol".to_string()).await;
                                 return i.pause().await;
                             }
                         },
                     Err(_) => {
                         // i.stack_push(le).await;
-                        i.stack_push("cannot define").await;
+                        i.stack_push("cannot define".to_string()).await;
                         return i.pause().await;
                     }
                 }
@@ -37,23 +37,19 @@ pub async fn define(mut i: Handle) {
             Ok(l) => l,
             Err(e) => {
                 i.stack_push(e).await;
-                i.stack_push("define: expected list").await;
+                i.stack_push("define: expected list".to_string()).await;
                 return i.pause().await;
             },
         };
 
-    // println!("define {:?} {:?} {:?}", attrs, name, body);
-
-    i.eval_child(attrs, |mut _i: Handle| async move {
-        // TODO default attributes
+    i.eval_child(attrs, move |mut _i: Handle| async move {
     }).await;
 
     let env = i.all_definitions().await;
-
     i.define_closure(name, body, env).await;
 }
 
-pub fn install(mut i: Builder) -> Builder {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {

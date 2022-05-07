@@ -1,8 +1,8 @@
 
-use crate::interpreter::{Builder, Handle};
+use crate::interpreter::{Interpreter, Handle};
 use crate::base::*;
 
-pub fn install(mut i: Builder) -> Builder {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("make-place", |mut i: Handle| async move {
         let v = i.stack_pop_val().await;
         i.stack_push(Place::wrap(v)).await;

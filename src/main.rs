@@ -27,7 +27,9 @@ fn main() -> std::io::Result<()> {
         vec![]
     }));
 
-    let mut i = builtins::install(Builder::default()).eval(Val::from(List::from(body)));
+    let mut i = Interpreter::default();
+    i.eval_next(Val::from(List::from(body)));
+    let mut i = builtins::install(i);
     if !i.run() {
         while let Some(sp) = i.stack_pop_val() {
             println!("{:?}", sp);

@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use crate::impl_value;
 use crate::base::*;
-use crate::interpreter::{Builder, Handle};
+use crate::interpreter::{Interpreter, Handle};
 
 // currently no OutputPort/InputPort split since e.g. StringBuffer is both
 #[derive(Clone)]
@@ -56,7 +56,7 @@ impl Port {
 
     fn write_string(&mut self, v: impl AsRef<str>) -> Result<(), Val> {
         match self {
-            Port::Stdin => Err(Val::from("not writable"))?,
+            Port::Stdin => Err(Val::from("not writable".to_string()))?,
             Port::Stdout => {
                 std::io::stdout().write(v.as_ref().as_bytes()).map_err(|e| {
                     format!("{:?}", e.kind())
@@ -92,21 +92,21 @@ impl Port {
     fn peek_char(&self) -> Result<Option<char>, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow().front().map(char::clone)),
-            _ => Err("not peekable".into()),
+            _ => Err("not peekable".to_string().into()),
         }
     }
 
     fn read_char(&mut self) -> Result<Option<char>, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow_mut().pop_front()),
-            _ => Err("TODO port::read_char".into()),
+            _ => Err("TODO port::read_char".to_string().into()),
         }
     }
 
     fn read_all(&mut self) -> Result<String, Val> {
         match self {
             Port::StringBuffer(s) => Ok(s.borrow_mut().iter().collect::<String>()),
-            _ => Err("TODO port::read_all".into()),
+            _ => Err("TODO port::read_all".to_string().into()),
         }
     }
 
@@ -125,13 +125,13 @@ impl Port {
                     None => Ok(s.borrow_mut().drain(..).collect()),
                 }
             },
-            _ => Err("not read-line-able".into()),
+            _ => Err("not read-line-able".to_string().into()),
         }
     }
 
 }
 
-pub fn install(mut i: Builder) -> Builder {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("new-string-port", |mut i: Handle| async move {
         i.stack_push(Port::new_string_buffer()).await;
     });

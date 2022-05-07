@@ -5,7 +5,7 @@ use std::collections::VecDeque;
 use crate::impl_value;
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Builder, Paused, Handle};
+use crate::interpreter::{Interpreter, Handle};
 
 #[derive(Debug, Clone)]
 pub enum ReadError {
@@ -201,7 +201,7 @@ impl ReaderHandle {
 #[derive(Debug, Clone)]
 pub struct Reader {
     buf: StringBuffer,
-    i: Rc<RefCell<Paused>>,
+    i: Rc<RefCell<Interpreter>>,
 }
 impl PartialEq for Reader {
     fn eq(&self, other: &Self) -> bool {
@@ -215,7 +215,8 @@ impl Reader {
     pub fn new() -> Reader {
         let buf = StringBuffer::default();
         let buf_reader = buf.clone();
-        let i = Builder::default().eval(|i: Handle| async move {
+        let mut i = Interpreter::default();
+        i.eval_next(|i: Handle| async move {
             ReaderHandle::new(i, buf_reader).run().await;
         });
         Reader { buf, i: Rc::new(RefCell::new(i)), }

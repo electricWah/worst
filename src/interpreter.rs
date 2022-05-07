@@ -37,17 +37,20 @@ mod private {
             self.defs = defs;
             self
         }
+        pub fn is_empty(&self) -> bool {
+            self.childs.is_empty() && self.body.is_empty()
+        }
     }
 
     pub enum FrameYield {
         Pause,
         Eval(ChildFrame),
         Call(Symbol),
+        Uplevel(ChildFrame),
         StackPush(Val),
         StackPop(YieldReturn<Val>),
         StackGet(YieldReturn<List>),
         Quote(YieldReturn<Val>),
-        Uplevel(ChildFrame),
         Define(String, Val),
         /// true: all definitions, false: only in current frame
         Definitions(bool, YieldReturn<DefSet>),
@@ -250,7 +253,12 @@ impl From<Val> for ChildFrame {
         } else if v.is::<List>() {
             child_frame_closure(v.downcast::<List>().unwrap(), &meta)
         } else {
-            todo!("eval {:?}", v)
+            Builtin::from(move |mut i: Handle| {
+                let vv = v.clone();
+                async move {
+                    i.stack_push(vv.clone()).await;
+                }
+            }).into()
         }
     }
 }
@@ -400,33 +408,25 @@ impl DefStacks {
 }
 
 #[derive(Default)]
-pub struct Paused {
+pub struct Interpreter {
     frame: ListFrame,
     parents: Vec<ListFrame>,
     stack: List,
     defstacks: DefStacks,
 }
 
-impl std::fmt::Debug for Paused {
+impl std::fmt::Debug for Interpreter {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "<paused interpreter>")
     }
 }
 
-impl_value!(Paused, value_debug::<Paused>());
+impl_value!(Interpreter, value_debug::<Interpreter>());
 
-impl Paused {
+impl Interpreter {
 
-    // pub fn eval(&mut self, f: impl EvalOnce) {
-    //     self.handle_eval(f.into());
-    //     while !self.run() {}
-    // }
-
-    fn new(body: impl Into<List>) -> Self {
-        Paused {
-            frame: ListFrame::new_body(body.into()),
-            ..Paused::default()
-        }
+    pub fn is_complete(&self) -> bool {
+        self.frame.is_empty() && self.parents.is_empty()
     }
 
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
@@ -455,7 +455,6 @@ impl Paused {
 
     pub fn is_toplevel(&self) -> bool { self.parents.len() == 0 }
 
-    // pub fn reset(&mut self) // in Paused only
     // maybe not needed with like, eval_in_new_body?
     // pub fn enter_new_frame(&mut self, body: List<Val>)
     // pub fn definitions()
@@ -552,6 +551,27 @@ impl Paused {
         self.frame.childs.push(f);
     }
 
+    pub fn eval_next(&mut self, f: impl EvalOnce) {
+        let f = f.into();
+        if self.is_complete() {
+            match f {
+                ChildFrame::ListFrame(mut frame) => {
+                    // use frame but keep defs
+                    std::mem::swap(&mut self.frame, &mut frame);
+                    std::mem::swap(&mut self.frame.defs, &mut frame.defs);
+                    if frame.defs.len() > 0 {
+                        todo!("eval_next has defs");
+                    }
+                },
+                paused@ChildFrame::PausedFrame(_) => {
+                    self.frame.childs.push(paused);
+                },
+            }
+        } else {
+            self.handle_eval(f);
+        }
+    }
+
     // maybe Result<(), Val>
     fn handle_call(&mut self, s: Symbol) -> bool {
         if let Some(def) = self.resolve_ref(&s) {
@@ -621,63 +641,22 @@ impl Paused {
 
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Builder {
-    stack: List,
-    defs: HashMap<String, Val>,
-}
-
-impl Builder {
-    fn install(&self, i: &mut Paused) {
-        i.stack = self.stack.clone();
-        for (k, v) in self.defs.iter() { i.define(k, v.clone()); }
-    }
-    pub fn eval(&self, f: impl EvalOnce) -> Paused {
-        match f.into() {
-            ChildFrame::ListFrame(frame) => {
-                let mut i = Paused { frame, ..Paused::default() };
-                self.install(&mut i);
-                i
-            },
-            paused@ChildFrame::PausedFrame(_) => {
-                let mut i = Paused::new(vec![]);
-                self.install(&mut i);
-                i.frame.childs.push(paused);
-                i
-            },
-        }
-    }
-
-    pub fn with_stack(mut self, s: impl Into<List>) -> Self {
-        self.stack = s.into();
-        self
-    }
-    pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        let name = name.into();
-        let defmeta = DefineMeta { name: name.clone() };
-        self.defs.insert(name, def.into_val().with_meta(defmeta));
-    }
-    pub fn with_define(mut self, name: impl Into<String>, def: impl Eval) -> Self {
-        self.define(name, def);
-        self
-    }
-    pub fn define_closure(mut self, name: impl Into<String>,
-                          body: List, env: DefSet) -> Self {
-        self.defs.insert(name.into(), Val::from(body).with_meta(ClosureEnv(env)));
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn new_interp(l: Vec<Val>) -> Interpreter {
+        let mut i = Interpreter::default();
+        i.eval_next(Val::from(List::from(l)));
+        i
+    }
+
     #[test]
     fn interp_basic() {
         // empty
-        assert!(Builder::default().eval(List::from(vec![]).into()).run());
+        assert!(Interpreter::default().run());
         // stack
-        let mut i = Paused::new(vec![7.into()]);
+        let mut i = new_interp(vec![7.into()]);
         assert_eq!(i.stack_pop_val(), None);
         assert_eq!(i.run(), true);
         assert_eq!(i.stack_pop_val(), Some(7.into()));
@@ -685,18 +664,18 @@ mod tests {
     }
 
     async fn toplevel_def(mut i: Handle) {
-        i.stack_push("yay").await;
+        i.stack_push("yay".to_string()).await;
     }
 
     #[test]
     fn interp_def() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "thingy".to_symbol().into(),
                 "test".to_symbol().into(),
             ]);
         i.define("test", |mut i: Handle| async move {
-            i.stack_push("hello").await;
+            i.stack_push("hello".to_string()).await;
         });
         i.define("thingy", toplevel_def);
         assert_eq!(i.run(), true);
@@ -708,14 +687,13 @@ mod tests {
     #[test]
     fn test_quote() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "quote".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
         i.define("quote", |mut i: Handle| async move {
-            if let Some(q) = i.quote().await {
-                i.stack_push(q).await;
-            }
+            let q = i.quote_val().await;
+            i.stack_push(q).await;
         });
         assert_eq!(i.run(), true);
         assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
@@ -725,16 +703,15 @@ mod tests {
     #[test]
     fn test_uplevel() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "thing".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ "upquote".to_symbol().into() ]).into());
+        i.define("thing", Val::from(List::from(vec![ "upquote".to_symbol().into() ])));
         i.define("upquote", |mut i: Handle| async move {
             i.uplevel(|mut i: Handle| async move {
-                if let Some(q) = i.quote().await {
-                    i.stack_push(q).await;
-                }
+                let q = i.quote_val().await;
+                i.stack_push(q).await;
             }).await;
         });
         assert_eq!(i.run(), true);
@@ -745,10 +722,10 @@ mod tests {
     #[test]
     fn test_uplevel_closure() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "thing".to_symbol().into(),
             ]);
-        i.define("thing", List::from(vec![ "upfive".to_symbol().into() ]).into());
+        i.define("thing", Val::from(List::from(vec![ "upfive".to_symbol().into() ])));
         i.define("upfive", |mut i: Handle| async move {
             let five = "five".to_symbol();
             i.uplevel(move |mut i: Handle| async move {
@@ -763,18 +740,17 @@ mod tests {
     #[test]
     fn test_uplevel2() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "thing1".to_symbol().into(),
                 "egg".to_symbol().into(),
             ]);
-        i.define("thing1", List::from(vec![ "thing2".to_symbol().into() ]).into());
-        i.define("thing2", List::from(vec![ "upquote2".to_symbol().into() ]).into());
+        i.define("thing1", Val::from(List::from(vec![ "thing2".to_symbol().into() ])));
+        i.define("thing2", Val::from(List::from(vec![ "upquote2".to_symbol().into() ])));
         i.define("upquote2", |mut i: Handle| async move {
             i.uplevel(move |mut i: Handle| async move {
                 i.uplevel(move |mut i: Handle| async move {
-                    if let Some(q) = i.quote().await {
-                        i.stack_push(q).await;
-                    }
+                    let q = i.quote_val().await;
+                    i.stack_push(q).await;
                 }).await;
             }).await;
         });
@@ -786,11 +762,11 @@ mod tests {
     #[test]
     fn test_eval() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "eval".to_symbol().into(),
             ]);
         i.define("eval", |mut i: Handle| async move {
-            i.eval(List::from(vec![ "inner".to_symbol().into() ]).into()).await;
+            i.eval(Val::from(List::from(vec![ "inner".to_symbol().into() ]))).await;
         });
         i.define("inner", |mut i: Handle| async move {
             i.eval(|mut i: Handle| async move {
@@ -805,7 +781,7 @@ mod tests {
     #[test]
     fn test_eval_closure() {
         let mut i =
-            Paused::new(vec![
+            new_interp(vec![
                 "five".to_symbol().into(),
             ]);
         i.define("five", |mut i: Handle| async move {
