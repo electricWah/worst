@@ -1,11 +1,21 @@
 
 use std::cell::RefCell;
+use std::borrow::BorrowMut;
 use std::fmt::Debug;
 use std::rc::Rc;
 use std::any::Any;
 
 pub trait ImplValue {
-    thread_local!(static TYPE: Rc<Type> = Rc::new(Type(Meta::default())));
+    thread_local!(static TYPE: RefCell<Rc<Type>> =
+                  RefCell::new(Rc::new(Type(Meta::default()))));
+
+    /// Add a new type-meta value. Take care to only do this once!
+    /// The new value will only apply to newly-created instances of this type.
+    // (for now - otherwise make it Rc<RefCell<>>
+    // this could be a macro somehow?
+    fn install_meta(m: impl Value) {
+        Self::TYPE.with(|t| Rc::make_mut(&mut t.borrow_mut()).0.0.push(m.into()))
+    }
 }
 
 #[macro_export]
@@ -13,12 +23,13 @@ macro_rules! impl_value {
     ($t:ty) => { impl_value!($t,); };
     ($t:ty, $($m:expr),*) => {
         impl ImplValue for $t {
-            thread_local!(static TYPE: std::rc::Rc<Type> =
-                          std::rc::Rc::new(
-                              Type::new(Meta::default()
-                                        $(.with($m))*
-                                        .with(type_name(stringify!($t)))
-                                       )));
+            thread_local!(static TYPE: std::cell::RefCell<std::rc::Rc<Type>> =
+                          std::cell::RefCell::new(
+                              std::rc::Rc::new(
+                                  Type::new(Meta::default()
+                                            $(.with($m))*
+                                            .with(type_name(stringify!($t)))
+                                           ))));
         }
     }
 }
@@ -29,6 +40,7 @@ impl<T: ImplValue + 'static> Value for T {}
 #[derive(Default, Debug, Clone)]
 pub struct Meta(Vec<Val>);
 
+#[derive(Clone)]
 pub struct Type(Meta);
 impl ImplValue for Type {}
 impl Type {
@@ -45,7 +57,7 @@ impl Value for Val {}
 
 impl<T: ImplValue + 'static> From<T> for Val {
     fn from(v: T) -> Val {
-        T::TYPE.with(|t| Val::new_type(v, t.clone()))
+        T::TYPE.with(|t| Val::new_type(v, t.borrow().clone()))
     }
 }
 
@@ -56,13 +68,7 @@ pub fn type_name(s: impl Into<String>) -> impl Value { TypeName(s.into()) }
 struct DebugValue(Box<dyn Fn(&Val) -> String>);
 impl_value!(DebugValue);
 pub fn value_tostring<T: 'static + ImplValue, F: 'static + Fn(&T) -> String>(f: F) -> impl Value {
-    DebugValue(Box::new(move |v: &Val| {
-        if let Some(v) = v.downcast_ref::<T>() {
-            f(&v)
-        } else {
-            "wrong type for value_tostring!".into()
-        }
-    }))
+    DebugValue(Box::new(move |v: &Val| f(&v.downcast_ref::<T>().unwrap())))
 }
 pub fn value_debug<T: 'static + ImplValue + Debug>() -> impl Value {
     value_tostring(|v: &T| format!("{:?}", v))
@@ -79,13 +85,26 @@ pub fn value_eq<T: 'static + ImplValue + PartialEq>() -> impl Value {
     }))
 }
 
+pub struct ReadValue(Box<dyn Fn(&mut Val) -> &mut dyn std::io::Read>);
+impl_value!(ReadValue);
+pub fn value_read<T: 'static + ImplValue + std::io::Read>() -> impl Value {
+    ReadValue(Box::new(|a: &mut Val| a.downcast_mut::<T>().unwrap()))
+}
+impl ReadValue {
+    pub fn try_read<'a>(v: &'a mut Val) -> Option<impl BorrowMut<dyn std::io::Read + 'a>> {
+        v.type_meta().first_val::<Self>()
+            .map(|rv| rv.downcast_ref::<Self>().unwrap().0(v))
+    }
+    pub fn can(v: &Val) -> bool { v.type_meta().contains::<Self>() }
+}
+
 impl Debug for Val {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         if let Some(dv) = self.ty.0.first::<DebugValue>() {
             let d = dv.0(self);
             write!(f, "{}", d)?;
         } else if let Some(n) = self.ty.0.first::<TypeName>() {
-            write!(f, "{}", n.0)?;
+            write!(f, "<{}>", n.0)?;
         } else {
             write!(f, "{}", "<some value>")?;
         }
@@ -147,6 +166,8 @@ impl Val {
     pub fn with_meta(mut self, v: impl Value) -> Self {
         self.meta_ref_mut().push(v); self
     }
+
+    pub fn type_meta(&self) -> &Meta { &self.ty.0 }
     // pub fn method<T: Value>(&self) -> Option<&T> {
     //     if let Some(ty) = self.meta.first::<Type>() {
     //         ty.1.first::<T>()
@@ -163,6 +184,12 @@ impl Meta {
     }
     pub fn first<T: Value>(&self) -> Option<&T> {
         self.0.iter().find_map(|v| v.downcast_ref::<T>())
+    }
+    pub fn first_val<T: Value>(&self) -> Option<Val> {
+        match self.0.iter().find(|v| v.is::<T>()) {
+            Some(v) => Some(v.clone()),
+            None => None,
+        }
     }
     pub fn contains<T: Value>(&self) -> bool {
         self.0.iter().any(|v| v.is::<T>())
@@ -197,10 +224,15 @@ impl From<Symbol> for String {
 impl_value!(Symbol, value_eq::<Symbol>(), value_tostring(Symbol::to_string), type_name("symbol"));
 fn bool_tostring(b: &bool) -> String { (if *b { "#t" } else { "#f" }).into() }
 impl_value!(bool, value_eq::<bool>(), value_tostring(bool_tostring));
-impl_value!(i32, value_eq::<i32>(), value_debug::<i32>(), type_name("number")); // TODO any numeric
 impl_value!(String, value_eq::<String>(), value_debug::<String>(), type_name("string"));
 // NOTE always use String instead
 // impl_value!(&'static str, type_name("string"));
+
+// TODO bunch of numbers, better than this
+impl_value!(i32, value_eq::<i32>(), value_debug::<i32>(), type_name("number"));
+impl_value!(i64, value_eq::<i64>(), value_debug::<i64>(), type_name("number"));
+impl_value!(f64, value_eq::<f64>(), value_debug::<f64>(), type_name("number"));
+
 
 #[derive(Clone, Eq)]
 pub struct Place(Rc<RefCell<Val>>);

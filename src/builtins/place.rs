@@ -2,7 +2,7 @@
 use crate::interpreter::{Interpreter, Handle};
 use crate::base::*;
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("make-place", |mut i: Handle| async move {
         let v = i.stack_pop_val().await;
         i.stack_push(Place::wrap(v)).await;
@@ -19,7 +19,5 @@ pub fn install(mut i: Interpreter) -> Interpreter {
         p.set(v);
         i.stack_push(p).await;
     });
-
-    i
 }
 

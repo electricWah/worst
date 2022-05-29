@@ -2,6 +2,13 @@
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
+pub async fn is_list(mut i: Handle) {
+    let l = i.stack_pop_val().await;
+    let isa = l.is::<List>();
+    i.stack_push(l).await;
+    i.stack_push(isa).await;
+}
+
 pub async fn list_empty(mut i: Handle) {
     let l = i.stack_pop::<List>().await;
     let len = l.len();
@@ -36,12 +43,20 @@ pub async fn list_reverse(mut i: Handle) {
     i.stack_push(l).await;
 }
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub async fn list_append(mut i: Handle) {
+    let mut b = i.stack_pop::<List>().await;
+    let a = i.stack_pop::<List>().await;
+    b.prepend(a);
+    i.stack_push(b).await;
+}
+
+pub fn install(i: &mut Interpreter) {
+    i.define("list?", is_list);
     i.define("list-empty?", list_empty);
     i.define("list-length", list_pop);
     i.define("list-reverse", list_reverse);
     i.define("list-push", list_push);
     i.define("list-pop", list_pop);
-    i
+    i.define("list-append", list_append);
 }
 

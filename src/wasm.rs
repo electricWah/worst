@@ -1,21 +1,108 @@
 
-use wasm_bindgen::prelude::*;
+mod conv;
 
-use crate::interpreter::{Builder, Handle};
-use crate::reader::Reader;
-use crate::list::List;
+use wasm_bindgen::prelude::*;
+use js_sys;
+use web_sys;
+
+use crate::impl_value;
+use crate::base::*;
+use crate::list::*;
+use crate::builtins;
+use crate::interpreter::{self, Handle};
+use crate::reader;
 
 #[wasm_bindgen]
-pub fn run_some_code(code: &str) {
-    let mut interp = Builder::default().eval(List::from_vals(Reader::from(code)));
+pub struct Interpreter(interpreter::Interpreter);
+
+#[wasm_bindgen]
+pub struct Reader(reader::Reader);
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct JsDef(js_sys::Function);
+impl_value!(JsDef);
+
+#[wasm_bindgen]
+impl Interpreter {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Interpreter {
+        conv::setup();
+        web_sys::console::log_1(&"new interpreter".into());
+        let mut i = interpreter::Interpreter::default();
+        builtins::install(&mut i);
+        Interpreter(i)
+    }
+
+    pub fn debug(&self) {
+        let defs = self.0.all_definitions();
+        web_sys::console::debug_2(&defs.len().into(), &"definitions".into());
+        web_sys::console::debug_1(&self.0.stack_ref().clone().into());
+    }
+
+    pub fn run(&mut self) -> bool {
+        self.0.run()
+    }
+
+    pub fn check_callback(&mut self) -> Option<js_sys::Function> {
+        if let Some(JsDef(def)) = self.0.stack_pop::<JsDef>() {
+            Some(def)
+        } else {
+            None
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.0.reset()
+    }
+
+    pub fn eval_next_from(&mut self, r: &mut Reader) -> Result<(), JsValue> {
+        let mut body = vec![];
+        'read: loop {
+            match r.0.next() {
+                Ok(Some(v)) => body.push(v),
+                Ok(None) => break 'read,
+                Err(e) => return Err(Val::from(e).into()),
+            }
+        }
+        self.0.eval_next(Val::from(List::from(body)));
+        Ok(())
+    }
+
+    pub fn js_define(&mut self, name: String, def: js_sys::Function) {
+        self.0.define(name.clone(), move |mut i: Handle| {
+            let deff = def.clone();
+            async move {
+                i.stack_push(JsDef(deff.clone())).await;
+                i.pause().await;
+            }
+        });
+    }
+
+    pub fn stack_pop(&mut self) -> JsValue {
+        if let Some(v) = self.0.stack_pop_val() {
+            v.into()
+        } else { JsValue::null() }
+    }
+
+    pub fn stack_push(&mut self, v: JsValue) {
+        self.0.stack_push(conv::from_jsvalue(v));
+    }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn run_test() {
-        run_some_code("testo");
+#[wasm_bindgen]
+impl Reader {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Reader {
+        Reader(reader::Reader::new())
+    }
+
+    pub fn reset(&mut self) {
+        std::mem::swap(&mut self.0, &mut reader::Reader::new());
+    }
+
+    pub fn write(&mut self, s: String) {
+        self.0.write(&mut s.chars());
     }
 }
 

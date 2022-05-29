@@ -29,7 +29,7 @@ fn main() -> std::io::Result<()> {
 
     let mut i = Interpreter::default();
     i.eval_next(Val::from(List::from(body)));
-    let mut i = builtins::install(i);
+    builtins::install(&mut i);
     if !i.run() {
         while let Some(sp) = i.stack_pop_val() {
             println!("{:?}", sp);

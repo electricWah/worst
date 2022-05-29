@@ -30,8 +30,7 @@ define worst-repl [
 
             reset cyan fg
             stack list-reverse
-            current-output-port swap
-            port-write-value drop
+            print-value
 
             bold yellow fg
             " > " print
@@ -50,7 +49,7 @@ define worst-repl [
 
     while [
         standard-prompt
-        current-input-port port-read-line swap drop
+        read-line
         equals? "" if [ drop exit-message #f ] [
             reader swap reader-write-string drop
             []

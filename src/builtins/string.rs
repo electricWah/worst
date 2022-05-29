@@ -2,7 +2,7 @@
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("string-append", |mut i: Handle| async move {
         let b = i.stack_pop::<String>().await;
         let mut a = i.stack_pop::<String>().await;
@@ -19,6 +19,5 @@ pub fn install(mut i: Interpreter) -> Interpreter {
         let s = i.stack_pop::<String>().await;
         i.stack_push(s.to_symbol()).await;
     });
-    i
 }
 

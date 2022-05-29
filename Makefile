@@ -1,4 +1,8 @@
 
+.PHONY: www
+www:
+	env "WORST_BUNDLE_DIR=$(PWD)/lib" $(MAKE) -C web all
+
 build: bundle
 	cp -r $< $@
 	$(MAKE) -C $@ setup

@@ -35,7 +35,7 @@ impl Default for Interp {
     }
 }
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("interpreter-empty", |mut i: Handle| async move {
         i.stack_push(Interp::default()).await;
     });
@@ -99,7 +99,5 @@ pub fn install(mut i: Interpreter) -> Interpreter {
         interp.0.borrow_mut().body_mut().prepend(body);
         i.stack_push(interp).await;
     });
-
-    i
 }
 

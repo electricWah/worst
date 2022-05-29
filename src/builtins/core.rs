@@ -144,20 +144,13 @@ pub async fn command_line_arguments(mut i: Handle) {
     i.stack_push(List::from_iter(std::env::args())).await;
 }
 
-pub async fn print(mut i: Handle) {
-    let s = i.stack_pop::<String>().await;
-    print!("{}", s);
-    use std::io::Write;
-    std::io::stdout().flush().unwrap();
-}
-
 pub async fn add(mut i: Handle) {
     let a = i.stack_pop::<i32>().await;
     let b = i.stack_pop::<i32>().await;
     i.stack_push(a + b).await;
 }
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("quote", quote);
     i.define("clone", clone);
     i.define("drop", drop);
@@ -175,7 +168,6 @@ pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("pause", |mut i: Handle| async move { i.pause().await; });
     i.define("command-line-arguments", command_line_arguments);
     i.define("add", add);
-    i.define("print", print); // temporary
     i.define("stack-empty", |mut i: Handle| async move {
         let v = i.stack_empty().await;
         i.stack_push(v).await;
@@ -183,10 +175,14 @@ pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("stack-dump", |mut i: Handle| async move {
         println!("{:?}", Val::from(i.stack_get().await));
     });
+    // for now
+    i.define("value->string", |mut i: Handle| async move {
+        let v = i.stack_pop_val().await;
+        i.stack_push(format!("{:?}", v)).await;
+    });
     i.define("stack-get", |mut i: Handle| async move {
         let s = i.stack_get().await;
         i.stack_push(s).await;
     });
-    i
 }
 

@@ -1,9 +1,10 @@
 
 define ->string [ value->string ]
 
-define port-write-value [ ->string port-write-string ]
+define print-value [ ->string print ]
+define print [ current-output-port swap port-write-string port-flush drop ]
 
-define syntax-read [ source-input-port port-read-value swap drop ]
+define read-line [ current-input-port buffered-port-read-line swap drop ]
 
 ; path read-file -> list
 define read-file [
@@ -56,8 +57,6 @@ define do-times [
     ]
     drop
 ]
-
-define print [ current-output-port swap port-write-string drop ]
 
 define definition-exists [
     updo definition-get not not

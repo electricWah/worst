@@ -474,6 +474,20 @@ impl Interpreter {
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
+    pub fn stack_pop<T: Value + Clone>(&mut self) -> Option<T> {
+        match self.stack.pop().map(Val::downcast::<T>) {
+            None => None,
+            Some(Ok(v)) => Some(v),
+            Some(Err(v)) => {
+                self.stack.push(v);
+                None
+            }
+        }
+    }
+    pub fn stack_top_ref<T: Value>(&self) -> Option<&T> {
+        self.stack.top().and_then(Val::downcast_ref::<T>)
+    }
+
     fn resolve_ref(&self, s: impl AsRef<str>) -> Option<&Val> {
         if let Some(def) = self.frame.defs.get(s.as_ref()) {
             Some(def)

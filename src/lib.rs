@@ -5,7 +5,7 @@ pub mod interpreter;
 pub mod reader;
 pub mod builtins;
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(feature = "wasm")]
 pub mod wasm;
 
 

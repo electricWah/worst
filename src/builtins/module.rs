@@ -1,5 +1,5 @@
 
-use std::io::Read;
+use std::borrow::BorrowMut;
 
 use crate::base::*;
 use crate::list::*;
@@ -95,36 +95,26 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Interpreter> {
     Ok(exmap)
 }
 
-fn resolve_module(path: String, libpath: &Vec<String>) -> Option<List> {
-    let mut resolve_errors = vec![];
-    for base in libpath.iter() {
-        let filepath = format!("{}/{}.w", base, path);
-        match std::fs::File::open(&filepath) {
-            Ok(mut f) => {
-                let mut s = String::new();
-                match f.read_to_string(&mut s) {
-                    Ok(_) => {
-                        match reader::read_all(&mut s.chars()) {
-                            Ok(data) => return Some(data.into()),
-                            Err(e) => todo!("{:?}", e),
-                        }
-                    },
-                    Err(e) => resolve_errors.push((filepath, e)),
-                }
-            },
-            Err(e) => resolve_errors.push((filepath, e)),
-        }
+fn read_module(read: &mut dyn std::io::Read) -> Result<List, String> {
+    let mut s = String::new();
+    match read.read_to_string(&mut s) {
+        Ok(_) => {
+            match reader::read_all(&mut s.chars()) {
+                Ok(data) => Ok(data.into()),
+                Err(e) => Err(format!("{:?}", e)),
+            }
+        },
+        Err(e) => Err(format!("{}", e)),
     }
-    dbg!(resolve_errors);
-    None // TODO Ok(List) | Err([name + resolve_error]) | Err(read_error)
 }
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("WORST_LIBPATH", |mut i: Handle| async move {
-        let s =
-            if let Ok(s) = std::env::var("WORST_LIBPATH") { s }
-            else { String::new() };
-        i.stack_push(List::from_iter(s.split(':').map(String::from))).await;
+        if let Ok(s) = std::env::var("WORST_LIBPATH") {
+            i.stack_push(List::from_iter(s.split(':').map(String::from))).await;
+        } else {
+            i.stack_push(List::default()).await;
+        }
     });
     i.define("import", |mut i: Handle| async move {
         let imports = {
@@ -141,39 +131,35 @@ pub fn install(mut i: Interpreter) -> Interpreter {
                 }
             }
         };
-        i.call("WORST_LIBPATH").await;
-        let libpath = {
-            let lp = i.stack_pop::<List>().await;
-            let mut v = vec![];
-            for l in lp {
-                if let Ok(s) = l.downcast::<String>() {
-                    v.push(s);
-                } else {
-                    i.stack_push("WORST_LIBPATH contained a not-string".to_string()).await;
-                    return i.pause().await;
-                }
-            }
-            v
-        };
         
         for import in imports {
             if let Ok(s) = import.downcast::<Symbol>() {
                 let modname = s.clone();
-                if let Some(r) = resolve_module(s.into(), &libpath) {
-                    match eval_module(r, i.all_definitions().await) {
-                        Ok(defs) => {
-                            for (name, def) in defs.iter() {
-                                i.define(name, def.clone()).await;
-                            }
+                i.stack_push(String::from(s)).await;
+                i.call("module-resolve-port").await;
+                let mut m = i.stack_pop_val().await;
+                let reader = ReadValue::try_read(&mut m);
+                if let Some(mut read) = reader {
+                    match read_module(read.borrow_mut()) {
+                        Ok(r) => match eval_module(r, i.all_definitions().await) {
+                            Ok(defs) => {
+                                for (name, def) in defs.iter() {
+                                    i.define(name, def.clone()).await;
+                                }
+                            },
+                            Err(p) => {
+                                dbg!(modname, "error in eval_module", p.stack_ref());
+                                i.stack_push("error in eval_module".to_string()).await;
+                                return i.pause().await;
+                            },
                         },
-                        Err(p) => {
-                            dbg!(modname, "error in eval_module", p.stack_ref());
-                            i.stack_push("error in eval_module".to_string()).await;
+                        Err(e) => {
+                            i.stack_push(e).await;
                             return i.pause().await;
                         },
                     }
                 } else {
-                    i.stack_push("couldn't resolve module".to_string()).await;
+                    i.stack_push("error resolving module".to_string()).await;
                     return i.pause().await;
                 }
             } else {
@@ -182,7 +168,6 @@ pub fn install(mut i: Interpreter) -> Interpreter {
             }
         }
     });
-    i
 }
 
 

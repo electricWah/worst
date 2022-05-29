@@ -49,7 +49,7 @@ pub async fn define(mut i: Handle) {
     i.define_closure(name, body, env).await;
 }
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {
@@ -70,7 +70,6 @@ pub fn install(mut i: Interpreter) -> Interpreter {
             None => i.stack_push(false).await,
         }
     });
-    i
     // local name = i:stack_pop(Symbol)
     // local body = i:stack_pop({List, "function"})
     // local interp = i:stack_ref(1, Interpreter)

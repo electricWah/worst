@@ -1,8 +1,11 @@
 
+use std::borrow::BorrowMut;
+use crate::base::*;
+use crate::list::*;
 use crate::reader::*;
 use crate::interpreter::{Interpreter, Handle};
 
-pub fn install(mut i: Interpreter) -> Interpreter {
+pub fn install(i: &mut Interpreter) {
     i.define("reader-empty", |mut i: Handle| async move {
         i.stack_push(Reader::new()).await;
     });
@@ -37,6 +40,24 @@ pub fn install(mut i: Interpreter) -> Interpreter {
             },
         }
     });
-    i
+    // Read an entire port to the end into a list (or other, error, value)
+    i.define("read-port->list", |mut i: Handle| async move {
+        let mut pv = i.stack_pop_val().await;
+        let reader = ReadValue::try_read(&mut pv);
+        if let Some(mut read) = reader {
+            let mut s = String::new();
+            match read.borrow_mut().read_to_string(&mut s) {
+                Ok(_count) => match read_all(&mut s.chars()) {
+                    Ok(v) => i.stack_push(List::from(v)).await,
+                    Err(e) => i.stack_push(format!("{:?}", e)).await,
+                },
+                Err(e) => {
+                    i.stack_push(format!("{}", e)).await;
+                },
+            }
+        } else {
+            todo!("not a port etc");
+        }
+    });
 }
 

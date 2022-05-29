@@ -6,8 +6,9 @@ pub async fn doc(mut i: Handle) {
     // dbg!("doc added");
 }
 
-pub fn install(i: &mut Interpreter) {
+pub fn install(mut i: Interpreter) -> Interpreter {
     i.define("doc", doc);
+    i
 }
 
 

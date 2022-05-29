@@ -12,6 +12,13 @@ let
     python39Packages.gprof2dot
     graphviz
     linuxPackages.perf
+    rustup
+    wasm-pack
+    openssl
+    binaryen
+    nodejs
+    esbuild
+  httplz
   ];
   p = { }:
     pkgs.stdenv.mkDerivation rec {

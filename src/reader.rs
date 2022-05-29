@@ -46,6 +46,7 @@ impl StringBuffer {
         let veof = self.0.borrow();
         veof.0.len() == 0 && veof.1
     }
+    fn is_eof(&self) -> bool { self.0.borrow().1 }
 }
 
 // TODO this could just be struct Eof; + Val + ReadError
@@ -226,6 +227,9 @@ impl Reader {
     }
     pub fn set_eof(&mut self) {
         self.buf.set_eof();
+    }
+    pub fn is_eof(&mut self) -> bool {
+        self.buf.is_eof()
     }
     pub fn next(&mut self) -> Result<Option<Val>, ReadError> {
         self.i.borrow_mut().run();
