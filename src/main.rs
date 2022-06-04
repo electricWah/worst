@@ -1,10 +1,11 @@
 
+use std::process::ExitCode;
 use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;
 use worst::list::List;
 
-fn main() -> std::io::Result<()> {
+fn main() -> ExitCode {
     let init_module = std::env::var("WORST_INIT_MODULE").unwrap_or("worst/init".into());
     let mut i = Interpreter::default();
     builtins::install(&mut i);
@@ -14,7 +15,9 @@ fn main() -> std::io::Result<()> {
         while let Some(sp) = i.stack_pop_val() {
             println!("{:?}", sp);
         }
+        return ExitCode::FAILURE;
     }
-    Ok(())
+
+    ExitCode::SUCCESS
 }
 

@@ -17,7 +17,6 @@ case [
     #t {
         list-pop swap drop
         open-file/read read-port->list eval
-        stack-dump
     }
 ]
 
