@@ -4,7 +4,7 @@ use crate::impl_value;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 
-#[cfg(feature = "builtin_fs")]
+#[cfg(feature = "enable_fs")]
 pub mod fs {
     use super::*;
     use std::fs;
@@ -63,7 +63,7 @@ pub fn open_bundled_read(path: impl AsRef<std::path::Path>) -> Option<Val> {
 }
 
 pub fn install(i: &mut Interpreter) {
-    #[cfg(feature = "builtin_fs")]
+    #[cfg(feature = "enable_fs")]
     i.define("open-file/read", |mut i: Handle| async move {
         let path = i.stack_pop::<String>().await;
         match fs::open_read(path) {

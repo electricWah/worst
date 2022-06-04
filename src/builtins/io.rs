@@ -10,7 +10,7 @@ use crate::interpreter::{Interpreter, Handle};
 struct OutputPort(RefCell<Box<dyn Write>>);
 impl_value!(OutputPort);
 
-#[cfg(feature = "builtin_stdio")]
+#[cfg(feature = "enable_stdio")]
 impl OutputPort {
     fn stdout() -> Self {
         OutputPort(RefCell::new(Box::new(std::io::stdout())))
@@ -23,7 +23,7 @@ impl OutputPort {
 struct BufReader(RefCell<Box<dyn BufRead>>);
 impl_value!(BufReader, value_read::<BufReader>(), type_name("bufreader"));
 impl BufReader {
-    #[cfg(feature = "builtin_stdio")]
+    #[cfg(feature = "enable_stdio")]
     fn stdin() -> Self {
         BufReader(RefCell::new(Box::new(io::stdin().lock())))
     }
@@ -46,7 +46,7 @@ impl Read for StringReader {
 
 pub fn install(i: &mut Interpreter) {
 
-    #[cfg(feature = "builtin_stdio")] {
+    #[cfg(feature = "enable_stdio")] {
         i.define("current-output-port", |mut i: Handle| async move {
             i.stack_push(OutputPort::stdout()).await;
         });

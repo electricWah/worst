@@ -111,7 +111,7 @@ fn read_module(read: &mut dyn std::io::Read) -> Result<List, String> {
 
 pub fn install(i: &mut Interpreter) {
     // No point having a libpath if the filesystem isn't accessible
-    #[cfg(feature = "builtin_fs")]
+    #[cfg(feature = "enable_fs")]
     i.define("WORST_LIBPATH", |mut i: Handle| async move {
         if let Ok(s) = std::env::var("WORST_LIBPATH") {
             i.stack_push(List::from_iter(s.split(':').map(String::from))).await;
@@ -122,7 +122,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("module-resolve-port", |mut i: Handle| async move {
         let module_path = i.stack_pop::<String>().await;
 
-        #[cfg(feature = "builtin_fs")] {
+        #[cfg(feature = "enable_fs")] {
             i.call("WORST_LIBPATH").await;
             let libpath = i.stack_pop::<List>().await;
             for lpx in libpath.into_iter() {

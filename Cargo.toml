@@ -14,14 +14,14 @@ include_dir = { version = "^0.7", optional = true } #, features = ["nightly"] }
 [features]
 # Toggle-able builtins modules
 # Access to stdin, stdout, stderr using current-{input,output,error}-port
-builtin_stdio = []
+enable_stdio = []
 # Access to filesystem
-builtin_fs = ["builtin_fs_module"]
+enable_fs = ["builtin_fs_module"]
 
 # include builtins::fs module at all (simplifies #[cfg] usage)
 builtin_fs_module = []
 
-all_builtins = ["builtin_stdio", "builtin_fs"]
+all_builtins = ["enable_stdio", "enable_fs"]
 
 bundled_fs_embed = ["dep:include_dir", "builtin_fs_module"]
 # (TODO) Embed lib files in program as `cat worst lib.zip > worst`
