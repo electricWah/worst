@@ -3,11 +3,23 @@ define not [false? swap drop]
 
 import {
     worst/misc
+    syntax/case
     data/list
-    ui
 }
 
-worst-repl
+command-line-arguments list-pop drop ; $0
+case [
+    (list-empty?) {
+        drop
+        import ui
+        worst-repl
+    }
+    #t {
+        list-pop swap drop
+        open-file/read read-port->list eval
+        stack-dump
+    }
+]
 
 ; define egg (bean bnuy)
 ; define () pwgjpwg {"erigr "}

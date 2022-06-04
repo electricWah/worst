@@ -130,6 +130,8 @@ impl ReaderHandle {
                     match self.next().await {
                         't' => self.emit(true).await,
                         'f' => self.emit(false).await,
+                        // #! shebang comment
+                        '!' => while self.next().await != '\n' {},
                         x => self.error(ReadError::UnknownHash(x)).await,
                     }
                 },

@@ -6,7 +6,7 @@
 ;   #t { default }
 ; }
 
-documentation [
+doc [
     title "A syntax block remeniscent of if-elseif-else chains"
     usage "case { (-> bool) { if true } ... #t { default } }"
     example
@@ -27,7 +27,7 @@ define case [
     }
     drop
 ]
-export-name case
+export #t
 
 ; vi: ft=scheme
 
