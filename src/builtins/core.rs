@@ -62,6 +62,13 @@ pub async fn call(mut i: Handle) {
     i.call(c).await;
 }
 
+pub async fn uplevel(mut i: Handle) {
+    i.uplevel(|mut i: Handle| async move {
+        let c = i.stack_pop::<Symbol>().await;
+        i.call(c).await;
+    }).await;
+}
+
 /// define const [
 ///     [quote] swap list-push list-reverse
 ///     upquote
@@ -158,8 +165,9 @@ pub fn install(i: &mut Interpreter) {
     i.define("bury", bury);
     i.define("eval", eval);
     i.define("call", call);
-    i.define("const", const_);
+    i.define("uplevel", uplevel);
     i.define("upquote", upquote);
+    i.define("const", const_);
     i.define("swap", swap);
     i.define("if", if_);
     i.define("while", while_);

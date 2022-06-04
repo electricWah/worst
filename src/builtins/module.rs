@@ -4,6 +4,7 @@ use std::borrow::BorrowMut;
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
+use crate::builtins::fs;
 use crate::interpreter::{Interpreter, Handle, DefSet};
 
 fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Interpreter> {
@@ -109,11 +110,43 @@ fn read_module(read: &mut dyn std::io::Read) -> Result<List, String> {
 }
 
 pub fn install(i: &mut Interpreter) {
+    // No point having a libpath if the filesystem isn't accessible
+    #[cfg(feature = "builtin_fs")]
     i.define("WORST_LIBPATH", |mut i: Handle| async move {
         if let Ok(s) = std::env::var("WORST_LIBPATH") {
             i.stack_push(List::from_iter(s.split(':').map(String::from))).await;
         } else {
             i.stack_push(List::default()).await;
+        }
+    });
+    i.define("module-resolve-port", |mut i: Handle| async move {
+        let module_path = i.stack_pop::<String>().await;
+
+        #[cfg(feature = "builtin_fs")] {
+            i.call("WORST_LIBPATH").await;
+            let libpath = i.stack_pop::<List>().await;
+            for lpx in libpath.into_iter() {
+                if let Some(lp) = lpx.downcast_ref::<String>() {
+                    match fs::fs::open_read(format!("{lp}/{module_path}.w")) {
+                        Ok(f) => {
+                            i.stack_push(f).await;
+                            return;
+                        },
+                        Err(e) => if e.kind() != std::io::ErrorKind::NotFound {
+                            i.stack_push(format!("{e:?}")).await;
+                            i.stack_push(false).await;
+                            return;
+                        },
+                    }
+                } else {
+                    eprintln!("Ignored {lpx:?} in WORST_LIBPATH");
+                }
+            }
+        }
+
+        match fs::open_bundled_read(format!("{module_path}.w")) {
+            Some(p) => i.stack_push(p).await,
+            None => i.stack_push(false).await,
         }
     });
     i.define("import", |mut i: Handle| async move {

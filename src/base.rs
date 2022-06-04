@@ -145,20 +145,23 @@ impl Val {
             },
         }
     }
+    /// If the inner value is a T, get a reference to it.
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
         self.v.downcast_ref::<T>()
     }
+    /// If this is the only reference to its inner value,
+    /// and it's a T, get a mutable reference to it.
     pub fn downcast_mut<T: Value>(&mut self) -> Option<&mut T> {
         if let Some(v) = Rc::get_mut(&mut self.v) {
             v.downcast_mut::<T>()
         } else {
             None
-            //Rc::make_mut(&mut self.v).downcast_mut::<T>()
         }
     }
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
+
     pub fn meta_ref(&self) -> &Meta { &self.meta }
     pub fn meta_ref_mut(&mut self) -> &mut Meta {
         Rc::make_mut(&mut self.meta)

@@ -10,12 +10,12 @@ doc [
 define help [
     ansi [
         define $ [ upquote print ]
-        define info [ yellow fg $"info" reset ]
+        define ^ [ yellow fg upquote ->string print reset ]
         define ex [ green fg updo $ reset ]
 
         $"Some useful commands:\n"
-        info $": try " info ex " name" $" for information about " ex "name"
-        $"\n"
+        ^ tutorial $": an interactive introduction to Worst\n"
+        ^ info $": try " ^ info ex " name" $" for information about " ex "name\n"
     ]
 ]
 

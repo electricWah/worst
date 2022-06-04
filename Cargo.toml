@@ -8,26 +8,28 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 [dependencies]
 genawaiter = "^0.99"
-include_dir = { version = "^0.7", optional = true }
+# nightly feature to watch embedded fs
+include_dir = { version = "^0.7", optional = true } #, features = ["nightly"] }
 
 [features]
 # Toggle-able builtins modules
 # Access to stdin, stdout, stderr using current-{input,output,error}-port
 builtin_stdio = []
 # Access to filesystem
-builtin_fs = []
+builtin_fs = ["builtin_fs_module"]
+
+# include builtins::fs module at all (simplifies #[cfg] usage)
+builtin_fs_module = []
 
 all_builtins = ["builtin_stdio", "builtin_fs"]
 
-bundled_fs_embed = ["dep:include_dir"]
+bundled_fs_embed = ["dep:include_dir", "builtin_fs_module"]
 # (TODO) Embed lib files in program as `cat worst lib.zip > worst`
 bundled_fs_zip = []
 
 wasm = ["bundled_fs_embed"]
 full = ["bundled_fs_embed", "bundled_fs_zip", "all_builtins"]
-
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-clap = { version = "^3", features = ["derive"] }
+default = ["full"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "^0.2"

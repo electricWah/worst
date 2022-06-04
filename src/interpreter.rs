@@ -82,7 +82,7 @@ pub enum InterpError {
     StackEmpty(Vec<Option<String>>),
     WrongType(Val, &'static str, Vec<Option<String>>),
 }
-impl_value!(InterpError);
+impl_value!(InterpError, value_debug::<InterpError>());
 
 pub struct Handle {
     co: Co<FrameYield>,

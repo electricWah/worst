@@ -5,7 +5,7 @@ use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 
 #[cfg(feature = "builtin_fs")]
-mod fs {
+pub mod fs {
     use super::*;
     use std::fs;
 
@@ -48,6 +48,18 @@ mod embedded {
             self.handle.read(buf)
         }
     }
+}
+
+/// Open a bundled file for reading using any enabled bundled fs feature
+/// in order: zip (not yet implemented), embedded bundle
+pub fn open_bundled_read(path: impl AsRef<std::path::Path>) -> Option<Val> {
+
+    #[cfg(feature = "bundled_fs_embed")]
+    if let Some(f) = embedded::open_read(path) {
+        return Some(f.into());
+    }
+
+    None
 }
 
 pub fn install(i: &mut Interpreter) {
