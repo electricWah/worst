@@ -1,4 +1,6 @@
 
+//! A [Reader] is an [Interpreter] that eats text and poops code.
+
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -230,7 +232,7 @@ impl Reader {
     pub fn set_eof(&mut self) {
         self.buf.set_eof();
     }
-    pub fn is_eof(&mut self) -> bool {
+    pub fn is_eof(&self) -> bool {
         self.buf.is_eof()
     }
     pub fn next(&mut self) -> Result<Option<Val>, ReadError> {

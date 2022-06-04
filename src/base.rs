@@ -1,15 +1,21 @@
 
+//! The [Value] trait, [Val] type, and bits to work with Rust types from Worst.
+
 use std::cell::RefCell;
 use std::borrow::BorrowMut;
 use std::fmt::Debug;
 use std::rc::Rc;
 use std::any::Any;
 
+/// The Worst value trait.
+/// Usually use [Value] or [impl_value] instead of this directly.
 pub trait ImplValue {
-    thread_local!(static TYPE: RefCell<Rc<Type>> =
+    thread_local!(
+        /// [Type] prototype for instances of this type.
+        static TYPE: RefCell<Rc<Type>> =
                   RefCell::new(Rc::new(Type(Meta::default()))));
 
-    /// Add a new type-meta value. Take care to only do this once!
+    /// Add a new type-meta value. Take care to only do this once per `m`.
     /// The new value will only apply to newly-created instances of this type.
     // (for now - otherwise make it Rc<RefCell<>>
     // this could be a macro somehow?
@@ -18,6 +24,25 @@ pub trait ImplValue {
     }
 }
 
+/// Make a Rust type usable from Worst.
+///
+/// At its simplest, use [impl_value] to use Rust types from Worst:
+/// ```
+/// struct Cool;
+/// impl_value!(Cool);
+/// // later, with an interpreter:
+/// i.stack_push(Cool);
+/// ```
+/// You can use functions such as [value_debug] and [value_eq]
+/// to act as "dynamic traits", designated [Meta] entries for the [Type]
+/// which can wrap built-in traits, override default behaviour,
+/// and let you pretend Worst has some kind of trait system.
+/// ```
+/// #[derive(Debug)]
+/// struct CoolDebuggable;
+/// // type parameter needed because it's not particularly smart
+/// impl_value!(CoolDebuggable, value_debug::<CoolDebuggable>());
+/// ```
 #[macro_export]
 macro_rules! impl_value {
     ($t:ty) => { impl_value!($t,); };
@@ -34,12 +59,16 @@ macro_rules! impl_value {
     }
 }
 
+/// Something that is, or could become, a [Val]
+/// (e.g. to be given to an [Interpreter](crate::interpreter::Interpreter)).
 pub trait Value: 'static + Into<Val> {}
 impl<T: ImplValue + 'static> Value for T {}
 
+/// Metadata record to be attached to a [Type] or individual [Val].
 #[derive(Default, Debug, Clone)]
 pub struct Meta(Vec<Val>);
 
+/// Every [Val] has a Type, which determines how it works.
 #[derive(Clone)]
 pub struct Type(Meta);
 impl ImplValue for Type {}
@@ -47,6 +76,8 @@ impl Type {
     pub fn new(m: Meta) -> Self { Type(m) }
 }
 
+/// A reference-counted value, used directly by Worst programs.
+/// Can be downcast into its original Rust value.
 #[derive(Clone)]
 pub struct Val {
     v: Rc<Box<dyn Any>>,
@@ -63,19 +94,24 @@ impl<T: ImplValue + 'static> From<T> for Val {
 
 struct TypeName(String);
 impl ImplValue for TypeName {}
+/// Use in [impl_value] to specify the name of the type.
 pub fn type_name(s: impl Into<String>) -> impl Value { TypeName(s.into()) }
 
 struct DebugValue(Box<dyn Fn(&Val) -> String>);
 impl_value!(DebugValue);
+/// Use in [impl_value] to specify how to write members of the type to string.
 pub fn value_tostring<T: 'static + ImplValue, F: 'static + Fn(&T) -> String>(f: F) -> impl Value {
     DebugValue(Box::new(move |v: &Val| f(&v.downcast_ref::<T>().unwrap())))
 }
+/// Use in [impl_value] as a shorthand for [value_tostring] with [Debug].
 pub fn value_debug<T: 'static + ImplValue + Debug>() -> impl Value {
     value_tostring(|v: &T| format!("{:?}", v))
 }
 
 struct EqValue(Box<dyn Fn(&Val, &Val) -> bool>);
 impl_value!(EqValue);
+/// Use in [impl_value] to use [eq](PartialEq::eq) instead of object identity
+/// to check for equality between members of the type.
 pub fn value_eq<T: 'static + ImplValue + PartialEq>() -> impl Value {
     EqValue(Box::new(move |a: &Val, b: &Val| {
         match (a.downcast_ref::<T>(), b.downcast_ref::<T>()) {
@@ -85,16 +121,26 @@ pub fn value_eq<T: 'static + ImplValue + PartialEq>() -> impl Value {
     }))
 }
 
+/// Meta value for [Read](std::io::Read) values.
 pub struct ReadValue(Box<dyn Fn(&mut Val) -> &mut dyn std::io::Read>);
 impl_value!(ReadValue);
+/// Use in [impl_value] to show that members of the type implement [Read](std::io::Read).
+///
+/// ```
+/// struct MyReadableThing;
+/// impl std::io::Read for MyReadableThing { /* ... */ }
+/// impl_value!(MyReadableThing, value_read::<MyReadableThing>());
 pub fn value_read<T: 'static + ImplValue + std::io::Read>() -> impl Value {
     ReadValue(Box::new(|a: &mut Val| a.downcast_mut::<T>().unwrap()))
 }
 impl ReadValue {
+    /// Try and get a mutable [Read](std::io::Read) out of the value
+    /// (see [value_read]).
     pub fn try_read<'a>(v: &'a mut Val) -> Option<impl BorrowMut<dyn std::io::Read + 'a>> {
         v.type_meta().first_val::<Self>()
             .map(|rv| rv.downcast_ref::<Self>().unwrap().0(v))
     }
+    /// Check if the [Val] implements [Read](std::io::Read) (see [value_read]).
     pub fn can(v: &Val) -> bool { v.type_meta().contains::<Self>() }
 }
 
@@ -128,6 +174,9 @@ impl Val {
     fn new_type<T: Value>(v: T, ty: Rc<Type>) -> Self {
         Val { v: Rc::new(Box::new(v)), meta: Rc::new(Meta::default()), ty }
     }
+    /// Attempt to downcast to a `T`.
+    /// If there are multiple references, it is cloned.
+    /// Not recommended as this loses metadata.
     pub fn downcast<T: Value + Clone>(self) -> Result<T, Val> {
         match Rc::try_unwrap(self.v) {
             Ok(v) => {
@@ -182,23 +231,28 @@ impl Meta {
     fn push(&mut self, v: impl Value) {
         self.0.push(v.into());
     }
+    /// Add a new value, builder-style.
     pub fn with(mut self, v: impl Value) -> Self {
         self.push(v); self
     }
+    /// Find the first `T`.
     pub fn first<T: Value>(&self) -> Option<&T> {
         self.0.iter().find_map(|v| v.downcast_ref::<T>())
     }
+    /// Find the first `T` and copy it as a [Val] (preserving its metadata).
     pub fn first_val<T: Value>(&self) -> Option<Val> {
         match self.0.iter().find(|v| v.is::<T>()) {
             Some(v) => Some(v.clone()),
             None => None,
         }
     }
+    /// Check if this contains a `T`.
     pub fn contains<T: Value>(&self) -> bool {
         self.0.iter().any(|v| v.is::<T>())
     }
 }
 
+/// Symbol type: an unquoted word used to look up definitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Symbol {
     v: String,
@@ -209,6 +263,9 @@ impl Symbol {
 impl AsRef<str> for Symbol {
     fn as_ref(&self) -> &str { self.v.as_ref() }
 }
+/// Conversion into a symbol.
+///
+/// May be removed in favour of [Symbol::from].
 pub trait ToSymbol { fn to_symbol(self) -> Symbol; }
 impl<T: Into<Symbol>> ToSymbol for T {
     fn to_symbol(self) -> Symbol { self.into() }
@@ -236,7 +293,7 @@ impl_value!(i32, value_eq::<i32>(), value_debug::<i32>(), type_name("number"));
 impl_value!(i64, value_eq::<i64>(), value_debug::<i64>(), type_name("number"));
 impl_value!(f64, value_eq::<f64>(), value_debug::<f64>(), type_name("number"));
 
-
+/// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone, Eq)]
 pub struct Place(Rc<RefCell<Val>>);
 impl PartialEq for Place {
@@ -247,14 +304,18 @@ impl PartialEq for Place {
 impl_value!(Place, type_name("place"));
 
 impl Place {
+    /// Create a new [Place] wrapping `v`.
     pub fn wrap(v: impl Value) -> Place {
         Place(Rc::new(RefCell::new(v.into())))
     }
+    /// Trade the contents of this [Place] with a new value.
     pub fn swap(&mut self, v: impl Value) -> Val {
         self.0.replace(v.into())
     }
+    /// Update the contents of this [Place], discarding the old value.
     pub fn set(&mut self, v: impl Value) { self.swap(v); }
 
+    /// Get a copy of the contained [Val].
     pub fn get(&self) -> Val { self.0.try_borrow().unwrap().clone() }
 }
 

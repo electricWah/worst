@@ -1,4 +1,6 @@
 
+//! A [Vec] of [Val], basically.
+
 use crate::impl_value;
 use crate::base::*;
 

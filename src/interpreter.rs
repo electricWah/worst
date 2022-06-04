@@ -1,4 +1,6 @@
 
+//! An [Interpreter] for Worst code.
+
 use std::cell::Cell;
 use std::rc::Rc;
 use core::pin::Pin;
@@ -77,13 +79,15 @@ struct DefineMeta {
 }
 impl_value!(DefineMeta);
 
+// TODO replace with Error metadata
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum InterpError {
+enum InterpError {
     StackEmpty(Vec<Option<String>>),
     WrongType(Val, &'static str, Vec<Option<String>>),
 }
 impl_value!(InterpError, value_debug::<InterpError>());
 
+/// A reference to the currently-running [Interpreter] given to builtin functions.
 pub struct Handle {
     co: Co<FrameYield>,
 }
@@ -186,10 +190,12 @@ impl Handle {
     }
 }
 
+/// Runnable code. [List] and [Builtin] implement it.
 pub trait Eval: IntoVal {}
+/// Code that can run just once.
 pub trait EvalOnce: IntoChildFrame {}
 
-// Concrete type for an Eval fn
+/// A concrete [Eval] fn
 #[derive(Clone)]
 pub struct Builtin(Rc<dyn Fn(Handle) -> Pin<Box<dyn Future<Output = ()> + 'static>>>);
 
@@ -338,7 +344,7 @@ impl PreHashed {
     }
 }
 
-/// Clone-on-write definition environment for list definitions
+/// Clone-on-write definition environment for list definitions.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct DefSet(Rc<HashMap<PreHashed, Val, BuildNoHasher>>);
 impl DefSet {
@@ -407,6 +413,7 @@ impl DefStacks {
     }
 }
 
+/// A Worst interpreter, the thing you define functions for and run code in and stuff.
 #[derive(Default)]
 pub struct Interpreter {
     frame: ListFrame,

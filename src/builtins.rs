@@ -1,4 +1,6 @@
 
+//! Core and auxiliary Worst functions implemented in Rust.
+
 use crate::interpreter::Interpreter;
 
 pub mod core;
@@ -14,6 +16,7 @@ pub mod place;
 pub mod reader;
 pub mod string;
 
+/// Define all enabled builtins in the given [Interpreter].
 pub fn install(i: &mut Interpreter) {
     core::install(i);
     define::install(i);
