@@ -3,8 +3,6 @@
 let
   pkgs = nixpkgs;
   deps = with pkgs; [
-    luajit # already has static
-    luajitPackages.luarocks
     pkgsStatic.minizip
     pkg-config
     watchexec
@@ -18,15 +16,14 @@ let
     binaryen
     nodejs
     esbuild
-  httplz
+    httplz
   ];
   p = { }:
     pkgs.stdenv.mkDerivation rec {
-        name = "lworsti";
+        name = "worst";
         buildInputs = deps;
         enableSharedLibraries = false;
         enableSharedExecutables = false;
     };
 in pkgs.callPackage p {}
-
 
