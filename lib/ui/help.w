@@ -21,9 +21,9 @@ define help [
 
 doc [
     title "Show information on a definition or topic."
-    see-also [help doc]
+    see-also [help]
+    example [info info]
     example [info help]
-    example [info tags]
 ]
 define info [
     upquote const topic

@@ -228,7 +228,8 @@ impl Val {
 }
 
 impl Meta {
-    fn push(&mut self, v: impl Value) {
+    /// Add a new value.
+    pub fn push(&mut self, v: impl Value) {
         self.0.push(v.into());
     }
     /// Add a new value, builder-style.

@@ -42,8 +42,15 @@ pub async fn define(mut i: Handle) {
             },
         };
 
+    i.stack_push(body).await;
+    i.stack_push(name).await;
+
     i.eval_child(attrs, move |mut _i: Handle| async move {
     }).await;
+    i.call("default-attributes").await;
+
+    let name = i.stack_pop::<Symbol>().await;
+    let body = i.stack_pop_val().await;
 
     let env = i.all_definitions().await;
     i.define_closure(name, body, env).await;

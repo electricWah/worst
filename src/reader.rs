@@ -150,6 +150,7 @@ impl ReaderHandle {
                                 'e' => buf.push('\u{1b}'),
                                 'n' => buf.push('\n'),
                                 'r' => buf.push('\r'),
+                                't' => buf.push('\t'),
                                 c => buf.push(c),
                             },
                             c => buf.push(c),
