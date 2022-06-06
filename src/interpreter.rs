@@ -45,7 +45,7 @@ mod private {
     }
 
     pub enum FrameYield {
-        Pause,
+        Pause(Val),
         Eval(ChildFrame),
         Call(Symbol),
         Uplevel(ChildFrame),
@@ -93,8 +93,11 @@ pub struct Handle {
 }
 // not sure if these all have to be mut
 impl Handle {
-    pub async fn pause(&mut self) {
-        self.co.yield_(FrameYield::Pause).await;
+    pub async fn error(&mut self, v: impl Value) {
+        self.co.yield_(FrameYield::Pause(IsError::add(v))).await;
+    }
+    pub async fn pause(&mut self, v: impl Value) {
+        self.co.yield_(FrameYield::Pause(v.into())).await;
     }
     pub async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into())).await;
@@ -134,8 +137,7 @@ impl Handle {
                     self.stack_push(e.clone()).await;
                     let name = core::any::type_name::<T>();
                     let cs = self.call_stack_names().await;
-                    self.stack_push(dbg!(InterpError::WrongType(e, name, cs))).await;
-                    self.pause().await;
+                    self.error(dbg!(InterpError::WrongType(e, name, cs))).await;
                 },
             }
         }
@@ -506,8 +508,8 @@ impl Interpreter {
     fn read_body(&mut self) -> Option<Val> { self.frame.body.pop() }
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
 
-    /// returns complete
-    pub fn run(&mut self) -> bool {
+    /// Returns None on completion or Some(Val) on pause or error.
+    pub fn run(&mut self) -> Option<Val> {
         loop {
             match self.frame.childs.pop() {
                 Some(ChildFrame::ListFrame(f)) => {
@@ -516,7 +518,9 @@ impl Interpreter {
                 Some(ChildFrame::PausedFrame(mut f)) => {
                     if let Some(fy) = f.next() {
                         self.frame.childs.push(ChildFrame::PausedFrame(f));
-                        if self.handle_yield(fy) { return false; }
+                        if let ret@Some(_) = self.handle_yield(fy) {
+                            return ret;
+                        }
                     }
                 },
                 None => {
@@ -527,32 +531,30 @@ impl Interpreter {
                             self.stack_push(next);
                         }
                     } else {
-                        if !self.enter_parent_frame() { return true; }
+                        if !self.enter_parent_frame() { return None; }
                     }
                 },
             }
         }
     }
 
-    // only used from Handle
-    // return whether to pause evaluation
-    fn handle_yield(&mut self, y: FrameYield) -> bool {
+    fn handle_yield(&mut self, y: FrameYield) -> Option<Val> {
         match y {
-            FrameYield::Pause => return true,
+            FrameYield::Pause(v) => return Some(v),
             FrameYield::Eval(v) => self.handle_eval(v),
-            FrameYield::Call(v) => if !self.handle_call(v) { return true; },
+            FrameYield::Call(v) => if let r@Some(_) = self.handle_call(v) { return r; },
             FrameYield::StackPush(v) => self.stack_push(v),
             FrameYield::StackPop(yr) => yr.set(self.stack_pop_val()),
             FrameYield::StackGet(yr) => yr.set(Some(self.stack.clone())),
-            FrameYield::Quote(yr) => if !self.handle_quote(yr) { return true; },
-            FrameYield::Uplevel(v) => if !self.handle_uplevel(v) { return true; },
+            FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
+            FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
             FrameYield::Define(name, def) => self.define(name, def),
             FrameYield::Definitions(false, yr) => yr.set(Some(self.frame.defs.clone())),
             FrameYield::Definitions(true, yr) => yr.set(Some(self.all_definitions())),
             FrameYield::ResolveDefinition(name, yr) => yr.set(self.resolve_ref(&name).map(Val::clone)),
             FrameYield::GetCallStack(yr) => yr.set(Some(self.call_stack_names())),
         }
-        false
+        None
     }
 
     pub fn reset(&mut self) {
@@ -593,32 +595,32 @@ impl Interpreter {
         }
     }
 
-    // maybe Result<(), Val>
-    fn handle_call(&mut self, s: Symbol) -> bool {
+    fn handle_call(&mut self, s: Symbol) -> Option<Val> {
         if let Some(def) = self.resolve_ref(&s) {
             let d = def.clone();
             self.frame.childs.push(d.into());
-            true
+            None
         } else {
-            self.stack_push(List::from(vec!["undefined".to_symbol().into(), s.into()]));
-            false
+            Some(IsError::add(List::from(vec!["undefined".to_symbol().into(), s.into()])))
         }
     }
 
-    fn handle_quote(&mut self, yr: YieldReturn<Val>) -> bool {
+    fn handle_quote(&mut self, yr: YieldReturn<Val>) -> Option<Val> {
         if let Some(q) = self.frame.body.pop() {
             yr.set(Some(q));
-            true
+            None
         } else {
-            self.stack_push("quote-nothing".to_symbol());
-            false
+            Some(IsError::add("quote-nothing".to_symbol()))
         }
     }
 
-    fn handle_uplevel(&mut self, f: ChildFrame) -> bool {
-        if !self.enter_parent_frame() { return false; }
-        self.frame.childs.push(f);
-        true
+    fn handle_uplevel(&mut self, f: ChildFrame) -> Option<Val> {
+        if self.enter_parent_frame() {
+            self.frame.childs.push(f);
+            None
+        } else {
+            Some(IsError::add("root-uplevel".to_symbol()))
+        }
     }
 
     fn enter_child_frame(&mut self, mut frame: ListFrame) {
@@ -675,11 +677,11 @@ mod tests {
     #[test]
     fn interp_basic() {
         // empty
-        assert!(Interpreter::default().run());
+        assert_eq!(Interpreter::default().run(), None);
         // stack
         let mut i = new_interp(vec![7.into()]);
         assert_eq!(i.stack_pop_val(), None);
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some(7.into()));
         assert_eq!(i.stack_pop_val(), None);
     }
@@ -699,7 +701,7 @@ mod tests {
             i.stack_push("hello".to_string()).await;
         });
         i.define("thingy", toplevel_def);
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some(String::from("hello").into()));
         assert_eq!(i.stack_pop_val(), Some(String::from("yay").into()));
         assert_eq!(i.stack_pop_val(), None);
@@ -716,7 +718,7 @@ mod tests {
             let q = i.quote_val().await;
             i.stack_push(q).await;
         });
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
@@ -735,7 +737,7 @@ mod tests {
                 i.stack_push(q).await;
             }).await;
         });
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
@@ -753,7 +755,7 @@ mod tests {
                 i.stack_push(five).await;
             }).await;
         });
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some("five".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
@@ -775,7 +777,7 @@ mod tests {
                 }).await;
             }).await;
         });
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }
@@ -794,7 +796,7 @@ mod tests {
                 i.stack_push(5).await;
             }).await;
         });
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some(5.into()));
         assert_eq!(i.stack_pop_val(), None);
     }
@@ -811,7 +813,7 @@ mod tests {
                 i.stack_push(five).await;
             }).await;
         });
-        assert_eq!(i.run(), true);
+        assert_eq!(i.run(), None);
         assert_eq!(i.stack_pop_val(), Some("five".to_symbol().into()));
         assert_eq!(i.stack_pop_val(), None);
     }

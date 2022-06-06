@@ -21,7 +21,7 @@ pub struct Reader(reader::Reader);
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct JsDef(js_sys::Function);
-impl_value!(JsDef);
+impl_value!(JsDef, conv::value_tojsvalue::<JsDef>());
 
 #[wasm_bindgen]
 impl Interpreter {
@@ -40,15 +40,15 @@ impl Interpreter {
         web_sys::console::debug_1(&self.0.stack_ref().clone().into());
     }
 
-    pub fn run(&mut self) -> bool {
-        self.0.run()
-    }
-
-    pub fn check_callback(&mut self) -> Option<js_sys::Function> {
-        if let Some(JsDef(def)) = self.0.stack_pop::<JsDef>() {
-            Some(def)
-        } else {
-            None
+    pub fn run(&mut self) -> JsValue {
+        match self.0.run() {
+            x@None => x.into(),
+            Some(r) =>
+                if let Some(JsDef(def)) = r.downcast_ref::<JsDef>() {
+                    def.clone().into()
+                } else {
+                    r.into()
+                }
         }
     }
 
@@ -73,8 +73,7 @@ impl Interpreter {
         self.0.define(name.clone(), move |mut i: Handle| {
             let deff = def.clone();
             async move {
-                i.stack_push(JsDef(deff.clone())).await;
-                i.pause().await;
+                i.pause(JsDef(deff.clone())).await;
             }
         });
     }

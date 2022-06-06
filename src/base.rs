@@ -27,7 +27,7 @@ pub trait ImplValue {
 /// Make a Rust type usable from Worst.
 ///
 /// At its simplest, use [impl_value] to use Rust types from Worst:
-/// ```
+/// ```ignore
 /// struct Cool;
 /// impl_value!(Cool);
 /// // later, with an interpreter:
@@ -37,7 +37,7 @@ pub trait ImplValue {
 /// to act as "dynamic traits", designated [Meta] entries for the [Type]
 /// which can wrap built-in traits, override default behaviour,
 /// and let you pretend Worst has some kind of trait system.
-/// ```
+/// ```ignore
 /// #[derive(Debug)]
 /// struct CoolDebuggable;
 /// // type parameter needed because it's not particularly smart
@@ -126,7 +126,7 @@ pub struct ReadValue(Box<dyn Fn(&mut Val) -> &mut dyn std::io::Read>);
 impl_value!(ReadValue);
 /// Use in [impl_value] to show that members of the type implement [Read](std::io::Read).
 ///
-/// ```
+/// ```ignore
 /// struct MyReadableThing;
 /// impl std::io::Read for MyReadableThing { /* ... */ }
 /// impl_value!(MyReadableThing, value_read::<MyReadableThing>());
@@ -142,6 +142,35 @@ impl ReadValue {
     }
     /// Check if the [Val] implements [Read](std::io::Read) (see [value_read]).
     pub fn can(v: &Val) -> bool { v.type_meta().contains::<Self>() }
+}
+
+/// Meta value signalling whether the type or value it is attached to
+/// represents some kind of error.
+///
+/// Set IsError on all members of a type:
+/// ```ignore
+/// struct BadSituation;
+/// impl_value!(BadSituation, IsError);
+/// assert!(IsError::is_error(&BadSituation));
+/// ```
+/// Set IsError on a single value:
+/// ```ignore
+/// let mut v = IsError::set("an error".to_string());
+/// assert!(IsError::is_error(&v));
+/// ```
+pub struct IsError;
+impl_value!(IsError);
+impl IsError {
+    /// Add IsError metadata to the value.
+    pub fn add(v: impl Value) -> Val {
+        let mut v: Val = v.into();
+        v.meta_ref_mut().push(IsError);
+        v
+    }
+    /// Check whether the value or its type is an error.
+    pub fn is_error(v: &Val) -> bool {
+        v.meta_ref().contains::<Self>() || v.type_meta().contains::<Self>()
+    }
 }
 
 impl Debug for Val {

@@ -76,8 +76,7 @@ impl ReaderHandle {
         loop {
             match self.src.next() {
                 None => {
-                    self.i.stack_push(Emit::Eof).await;
-                    self.i.pause().await;
+                    self.i.pause(Emit::Eof).await;
                 },
                 Some(c) => return c,
             }
@@ -88,14 +87,12 @@ impl ReaderHandle {
         if let Some((_, _, l)) = self.list_stack.last_mut() {
             l.push(v.into());
         } else {
-            self.i.stack_push(Emit::Yield(v.into())).await;
-            self.i.pause().await;
+            self.i.pause(Emit::Yield(v.into())).await;
         }
     }
 
     async fn error(&mut self, e: ReadError) {
-        self.i.stack_push(Emit::Error(e)).await;
-        self.i.pause().await;
+        self.i.error(Emit::Error(e)).await;
     }
 
     fn start_list(&mut self, open: char, close: char) {
@@ -237,8 +234,7 @@ impl Reader {
         self.buf.is_eof()
     }
     pub fn next(&mut self) -> Result<Option<Val>, ReadError> {
-        self.i.borrow_mut().run();
-        match self.i.borrow_mut().stack_pop_val() {
+        match self.i.borrow_mut().run() {
             None => Ok(None), // maybe?
             Some(v) => match v.downcast::<Emit>() {
                 Ok(Emit::Eof) => Ok(None),

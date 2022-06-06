@@ -55,10 +55,14 @@ impl From<Val> for JsValue {
     }
 }
 
-fn to_jsvalue<T: ImplValue + Value + Clone + Into<JsValue>>() {
-    T::install_meta(ToJsValue(Box::new(|v: &Val| {
+pub fn value_tojsvalue<T: ImplValue + Value + Clone + Into<JsValue>>() -> impl Value {
+    ToJsValue(Box::new(|v: &Val| {
         v.downcast_ref::<T>().unwrap().clone().into()
-    })));
+    }))
+}
+
+fn to_jsvalue<T: ImplValue + Value + Clone + Into<JsValue>>() {
+    T::install_meta(value_tojsvalue::<T>());
 }
 
 impl From<List> for JsValue {

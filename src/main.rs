@@ -11,11 +11,11 @@ fn main() -> ExitCode {
     builtins::install(&mut i);
     let doit = vec!["import".into(), init_module].into_iter().map(Symbol::from);
     i.eval_next(Val::from(List::from_iter(doit)));
-    if !i.run() {
-        while let Some(sp) = i.stack_pop_val() {
-            println!("{:?}", sp);
+    if let Some(e) = i.run() {
+        if IsError::is_error(&e) {
+            println!("{:?}", e);
+            return ExitCode::FAILURE;
         }
-        return ExitCode::FAILURE;
     }
 
     ExitCode::SUCCESS

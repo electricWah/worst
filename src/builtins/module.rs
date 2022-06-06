@@ -7,7 +7,7 @@ use crate::reader;
 use crate::builtins::fs;
 use crate::interpreter::{Interpreter, Handle, DefSet};
 
-fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Interpreter> {
+fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
     let mut i = Interpreter::default();
     for (name, def) in defs.iter() {
         i.define(name, def.clone());
@@ -65,8 +65,8 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, Interpreter> {
     });
 
     i.eval_next(Val::from(List::from(m)));
-    while !i.run() {
-        return Err(i);
+    if let Some(ret) = i.run() {
+        return Err((ret, i));
     }
 
     i.definition_remove("%exports");
@@ -158,8 +158,7 @@ pub fn install(i: &mut Interpreter) {
                 match q.downcast::<List>() {
                     Ok(l) => l,
                     Err(_e) => {
-                        i.stack_push("expected list or symbol".to_string()).await;
-                        return i.pause().await;
+                        return i.error("expected list or symbol".to_string()).await;
                     },
                 }
             }
@@ -180,24 +179,22 @@ pub fn install(i: &mut Interpreter) {
                                     i.define(name, def.clone()).await;
                                 }
                             },
-                            Err(p) => {
-                                dbg!(modname, "error in eval_module", p.stack_ref());
-                                i.stack_push("error in eval_module".to_string()).await;
-                                return i.pause().await;
+                            Err((v, p)) => {
+                                return i.error(dbg!(List::from(vec![
+                                    "error in eval_module".to_string().into(),
+                                    modname.into(),
+                                    v,
+                                    p.stack_ref().clone().into(),
+                                ]))).await;
                             },
                         },
-                        Err(e) => {
-                            i.stack_push(e).await;
-                            return i.pause().await;
-                        },
+                        Err(e) => return i.error(e).await,
                     }
                 } else {
-                    i.stack_push("error resolving module".to_string()).await;
-                    return i.pause().await;
+                    return i.error("error resolving module".to_string()).await;
                 }
             } else {
-                i.stack_push("expected symbol in import".to_string()).await;
-                return i.pause().await;
+                return i.error("expected symbol in import".to_string()).await;
             }
         }
     });

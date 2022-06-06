@@ -52,6 +52,19 @@ pub async fn false_(mut i: Handle) {
     i.stack_push(is).await;
 }
 
+pub async fn not(mut i: Handle) {
+    let v = i.stack_pop_val().await;
+    let is = Some(&false) == v.downcast_ref::<bool>();
+    i.stack_push(is).await;
+}
+
+pub async fn error(mut i: Handle) {
+    let v = i.stack_pop_val().await;
+    let is = IsError::is_error(&v);
+    i.stack_push(v).await;
+    i.stack_push(is).await;
+}
+
 pub async fn eval(mut i: Handle) {
     let e = i.stack_pop_val().await;
     i.eval(e).await;
@@ -80,11 +93,11 @@ pub async fn const_(mut i: Handle) {
         // TODO quote_ty::<Symbol>()
         match i.quote_val().await.downcast::<Symbol>() {
             Ok(n) => n,
-            Err(qq) => {
-                i.stack_push(qq).await;
-                i.stack_push("const: not a symbol".to_string()).await;
-                return i.pause().await;
-            },
+            Err(qq) =>
+                return i.error(List::from(vec![
+                    "const: not a symbol".to_string().into(),
+                    qq,
+                ])).await,
         };
 
     i.define(name.as_ref(), move |mut i: Handle| {
@@ -172,8 +185,13 @@ pub fn install(i: &mut Interpreter) {
     i.define("if", if_);
     i.define("while", while_);
     i.define("equal?", equal);
+    i.define("not", not);
     i.define("false?", false_);
-    i.define("pause", |mut i: Handle| async move { i.pause().await; });
+    i.define("error?", error);
+    i.define("pause", |mut i: Handle| async move {
+        let v = i.stack_pop_val().await;
+        i.pause(v).await;
+    });
     i.define("command-line-arguments", command_line_arguments);
     i.define("add", add);
     i.define("stack-empty", |mut i: Handle| async move {

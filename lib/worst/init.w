@@ -1,6 +1,4 @@
 
-define not [false? swap drop]
-
 define default-attributes [documentation-attribute]
 
 import {

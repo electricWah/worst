@@ -24,7 +24,7 @@ impl Interp {
     fn call(&mut self, name: impl Into<Symbol>) {
         self.0.borrow_mut().call(name);
     }
-    fn run(&mut self) -> bool {
+    fn run(&mut self) -> Option<Val> {
         self.0.borrow_mut().run()
     }
 }
@@ -43,7 +43,13 @@ pub fn install(i: &mut Interpreter) {
         let mut interp = i.stack_pop::<Interp>().await;
         let r = interp.run();
         i.stack_push(interp).await;
-        i.stack_push(r).await;
+        match r {
+            None => i.stack_push(true).await,
+            Some(e) => {
+                i.stack_push(e).await;
+                i.stack_push(false).await;
+            },
+        }
     });
     i.define("interpreter-reset",  |mut i: Handle| async move {
         let interp = i.stack_pop::<Interp>().await;

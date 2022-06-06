@@ -13,20 +13,23 @@
                 this.onPause = onPause;
             }
             define(name, def) {
+                def.isJsDef = true; // mild hack
                 this.interp.js_define(name, def);
             }
             async eval(src) {
                 this.reader.write(src);
                 this.interp.eval_next_from(this.reader);
-                while (!this.interp.run()) {
-                    let cb = this.interp.check_callback();
-                    if (cb !== undefined) {
-                        await cb(this);
+                while (true) {
+                    let r = this.interp.run();
+                    if (r === undefined) break;
+                    if (typeof r === "function" && r.isJsDef) {
+                        await r(this);
                     } else {
                         await this.onPause(this);
                     }
                 }
             }
+
             reset() {
                 this.interp.reset();
                 this.reader.reset();
@@ -57,8 +60,11 @@
                 w.interp.debug();
                 w.reset();
             });
+            
+            // not ideal: import some stuff and then overwrite it
+            await w.eval(`import worst/misc\n`);
 
-            w.define("print", (i) => {
+            w.define("print", async (i) => {
                 term.writeUtf8(i.stack_pop());
             });
             w.define("read-line", async (i) => {
@@ -68,11 +74,11 @@
                 });
             });
 
-            window.worst = w;
+            await w.eval(`import ui\n`);
 
             term.write('done loading :)\x1B[H\x1B[2J');
 
-            await w.eval(`"worst/init.w" open-embedded-file/read read-port->list eval `);
+            await w.eval(`worst-repl\n`);
         })();
     </script>
   </head>

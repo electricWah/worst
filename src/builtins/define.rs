@@ -18,16 +18,14 @@ pub async fn define(mut i: Handle) {
                     Ok(l) =>
                         match i.quote_val().await.downcast::<Symbol>() {
                             Ok(n) => (n, l), // name and args
-                            Err(qe) => {
-                                i.stack_push(qe).await;
-                                i.stack_push("define: expected symbol".to_string()).await;
-                                return i.pause().await;
-                            }
+                            Err(qe) =>
+                                return i.error(List::from(vec![
+                                    "define: expected symbol".to_string().into(),
+                                    qe,
+                                ])).await,
                         },
                     Err(_) => {
-                        // i.stack_push(le).await;
-                        i.stack_push("cannot define".to_string()).await;
-                        return i.pause().await;
+                        return i.error("cannot define".to_string()).await;
                     }
                 }
         };
@@ -35,11 +33,11 @@ pub async fn define(mut i: Handle) {
     let body =
         match i.quote_val().await.downcast::<List>() {
             Ok(l) => l,
-            Err(e) => {
-                i.stack_push(e).await;
-                i.stack_push("define: expected list".to_string()).await;
-                return i.pause().await;
-            },
+            Err(e) =>
+                return i.error(List::from(vec![
+                    "define: expected list".to_string().into(),
+                    e,
+                ])).await,
         };
 
     i.stack_push(body).await;
