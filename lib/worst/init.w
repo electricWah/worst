@@ -4,7 +4,6 @@ define default-attributes [documentation-attribute]
 import {
     worst/misc
     syntax/case
-    data/list
 }
 
 command-line-arguments list-pop drop ; $0

@@ -57,19 +57,22 @@ define worst-repl [
             false? if [drop] [ "read error" stack-dump error ]
             list-reverse
             interp swap interpreter-body-prepend
-            interpreter-run if [ drop ] [
-                error? if [
-                    equals? quote-nothing if [ drop ] [
-                        ansi [ bright red fg value->string print reset ]
-                        "\n" print
-                        interpreter-reset drop
+            while [
+                interpreter-run if [ drop #f ] [
+                    error? if [
+                        equals? quote-nothing if [ drop ] [
+                            ansi [ bright red fg value->string print reset ]
+                            "\n" print
+                            interpreter-reset drop
+                        ]
+                        #f
+                    ] [
+                        stack-dump
+                        pause
+                        #t
                     ]
-                ] [
-                    stack-dump
-                    swap drop
-                    pause
                 ]
-            ]
+            ] []
             #t
         ]
     ] []

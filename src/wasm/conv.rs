@@ -28,6 +28,8 @@ pub fn from_jsvalue(j: JsValue) -> Val {
     //     // js ["test"] will successfully read as Symbol("test")
     //     // so careful with multiple serde values in this else/if chain
     //     Symbol::from(symbol).into()
+    } else if j.is_function() {
+        j.into()
     } else {
         web_sys::console::warn_2(&"unknown jsvalue".into(), &j);
         j.into()

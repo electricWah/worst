@@ -1,6 +1,9 @@
 
 ; import worst/doc/attribute
-import ui/ansi
+import {
+    ui/ansi
+    data/list
+}
 
 doc [
     title "Show information on how to use the Worst interactive environment."

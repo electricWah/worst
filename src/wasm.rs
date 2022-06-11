@@ -1,15 +1,15 @@
 
 mod conv;
+mod handle;
 
 use wasm_bindgen::prelude::*;
 use js_sys;
 use web_sys;
 
-use crate::impl_value;
 use crate::base::*;
 use crate::list::*;
 use crate::builtins;
-use crate::interpreter::{self, Handle};
+use crate::interpreter;
 use crate::reader;
 
 #[wasm_bindgen]
@@ -19,14 +19,10 @@ pub struct Interpreter(interpreter::Interpreter);
 pub struct Reader(reader::Reader);
 
 #[wasm_bindgen]
-#[derive(Clone)]
-pub struct JsDef(js_sys::Function);
-impl_value!(JsDef, conv::value_tojsvalue::<JsDef>());
-
-#[wasm_bindgen]
 impl Interpreter {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Interpreter {
+        console_error_panic_hook::set_once();
         conv::setup();
         web_sys::console::log_1(&"new interpreter".into());
         let mut i = interpreter::Interpreter::default();
@@ -41,15 +37,7 @@ impl Interpreter {
     }
 
     pub fn run(&mut self) -> JsValue {
-        match self.0.run() {
-            x@None => x.into(),
-            Some(r) =>
-                if let Some(JsDef(def)) = r.downcast_ref::<JsDef>() {
-                    def.clone().into()
-                } else {
-                    r.into()
-                }
-        }
+        self.0.run().into()
     }
 
     pub fn reset(&mut self) {
@@ -70,10 +58,10 @@ impl Interpreter {
     }
 
     pub fn js_define(&mut self, name: String, def: js_sys::Function) {
-        self.0.define(name.clone(), move |mut i: Handle| {
-            let deff = def.clone();
+        self.0.define(name.clone(), move |i: interpreter::Handle| {
+            let def = def.clone();
             async move {
-                i.pause(JsDef(deff.clone())).await;
+                handle::call(def.clone(), i).await;
             }
         });
     }

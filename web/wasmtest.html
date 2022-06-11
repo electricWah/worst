@@ -6,28 +6,70 @@
         import init, { Interpreter, Reader } from './worst.js';
         import { Terminal, Readline } from './deps.js';
 
+        // async js funcs must take over doing interp.run()
+        // otherwise Worst.eval() will run ahead of it and wait and stall
+        class Handle {
+            constructor(interp, handle) {
+                this.interp = interp;
+                this.handle = handle;
+            }
+            async stack_pop() {
+                await Promise.resolve(undefined);
+                let r = this.handle.stack_pop();
+                await this.interp.run();
+                return r;
+            }
+            async stack_push(v) {
+                await Promise.resolve(undefined);
+                let r = this.handle.stack_push(v);
+                await this.interp.run();
+                return r;
+            }
+            async complete(v) {
+                await Promise.resolve(undefined);
+                let r = this.handle.complete();
+                await this.interp.run();
+                return r;
+            }
+        }
+
         class Worst {
             constructor(onPause) {
                 this.interp = new Interpreter();
                 this.reader = new Reader();
                 this.onPause = onPause;
             }
+
             define(name, def) {
-                def.isJsDef = true; // mild hack
-                this.interp.js_define(name, def);
+                let self = this;
+                async function wrapper(i) {
+                    let h = new Handle(self.interp, i)
+                    try {
+                        await def(h)
+                    } finally {
+                        await h.complete()
+                    }
+                }
+                wrapper.isJsDef = true; // mild hack
+                wrapper.inner = def;
+                this.interp.js_define(name, wrapper);
             }
+
+            async step() {
+                let r = this.interp.run();
+                if (r === undefined) {
+                    return undefined;
+                } else if (r instanceof Promise) {
+                    await r;
+                } else {
+                    await this.onPause(this);
+                }
+            }
+
             async eval(src) {
                 this.reader.write(src);
                 this.interp.eval_next_from(this.reader);
-                while (true) {
-                    let r = this.interp.run();
-                    if (r === undefined) break;
-                    if (typeof r === "function" && r.isJsDef) {
-                        await r(this);
-                    } else {
-                        await this.onPause(this);
-                    }
-                }
+                while (await this.step() !== undefined) {}
             }
 
             reset() {
@@ -61,17 +103,18 @@
                 w.reset();
             });
             
+            // enable docs (these setup evals are just lil bits of worst/init)
+            await w.eval(`define default-attributes [documentation-attribute]\n`);
             // not ideal: import some stuff and then overwrite it
             await w.eval(`import worst/misc\n`);
 
             w.define("print", async (i) => {
-                term.writeUtf8(i.stack_pop());
+                term.writeUtf8(await i.stack_pop());
             });
-            w.define("read-line", async (i) => {
+            w.define("read-line", async function w_readline(i) {
                 term.write("\n");
-                await readline.read("").then((line) => {
-                    i.stack_push(line + "\n");
-                });
+                let line = await readline.read("");
+                await i.stack_push(line + "\n");
             });
 
             await w.eval(`import ui\n`);
