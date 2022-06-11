@@ -137,7 +137,7 @@ pub async fn while_(mut i: Handle) {
     let body = i.quote_val().await;
     loop {
         i.eval(cond.clone()).await;
-        if i.stack_pop::<bool>().await != true { break; }
+        if !i.stack_pop::<bool>().await { break; }
         i.eval(body.clone()).await;
     }
 }

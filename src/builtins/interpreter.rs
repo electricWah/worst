@@ -70,7 +70,7 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("interpreter-stack-pop",  |mut i: Handle| async move {
         let interp = i.stack_pop::<Interp>().await;
-        let v = interp.0.borrow_mut().stack_pop_val().unwrap_or(false.into());
+        let v = interp.0.borrow_mut().stack_pop_val().unwrap_or_else(|| false.into());
         i.stack_push(interp).await;
         i.stack_push(v).await;
     });

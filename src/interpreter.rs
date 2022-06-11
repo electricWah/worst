@@ -149,7 +149,7 @@ impl Handle {
     }
 
     pub async fn stack_empty(&mut self) -> bool {
-        self.stack_get().await.len() == 0
+        self.stack_get().await.is_empty()
     }
     pub async fn quote_val(&mut self) -> Val {
         let r = Rc::new(Cell::new(None));
@@ -200,13 +200,8 @@ pub trait EvalOnce: IntoChildFrame {}
 /// A concrete [Eval] fn
 #[derive(Clone)]
 pub struct Builtin(Rc<dyn Fn(Handle) -> Pin<Box<dyn Future<Output = ()> + 'static>>>);
+impl_value!(Builtin);
 
-impl std::fmt::Debug for Builtin {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<Builtin>")?;
-        Ok(())
-    }
-}
 impl<F: 'static + Future<Output=()>,
      T: 'static + Eval + Fn(Handle) -> F>
         From<T> for Builtin {
@@ -214,11 +209,6 @@ impl<F: 'static + Future<Output=()>,
         Builtin(Rc::new(move |i: Handle| { Box::pin(f(i)) }))
     }
 }
-impl PartialEq for Builtin {
-    fn eq(&self, that: &Self) -> bool { Rc::ptr_eq(&self.0, &that.0) }
-}
-impl Eq for Builtin {}
-impl_value!(Builtin);
 
 impl<F: 'static + Future<Output=()>,
      T: 'static + Fn(Handle) -> F>
@@ -321,7 +311,7 @@ impl PartialEq for PreHashed {
 #[derive(Default)]
 struct NoHasher(u64);
 impl Hasher for NoHasher {
-    fn finish(&self) -> u64 { let NoHasher(r) = self; r.clone() }
+    fn finish(&self) -> u64 { let NoHasher(r) = self; *r }
     fn write(&mut self, data: &[u8]) { todo!("NoHasher write {:?}", data) }
     fn write_u64(&mut self, v: u64) { self.0 = v; }
 }
@@ -371,10 +361,11 @@ impl DefSet {
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Val)> {
         self.0.iter().map(|(k, v)| (k.0.borrow(), v))
     }
+    pub fn is_empty(&self) -> bool { self.0.is_empty() }
     pub fn len(&self) -> usize { self.0.len() }
 
     pub fn filter<F: Fn(&str, &Val) -> bool>(&mut self, f: F) {
-        Rc::make_mut(&mut self.0).retain(|ph, v| f(ph.0.as_ref(), &v));
+        Rc::make_mut(&mut self.0).retain(|ph, v| f(ph.0.as_ref(), v));
     }
 }
 
@@ -386,16 +377,14 @@ struct DefStacks {
 
 impl DefStacks {
     fn iter_latest(&self) -> impl Iterator<Item=(&String, &Val)> {
-        self.data.iter().filter_map(|(k, v)| match v.last() {
-            Some(l) => Some((&k.0, l)), None => None
-        })
+        self.data.iter().filter_map(|(k, v)| v.last().map(|l| (&k.0, l)))
     }
     fn get_latest(&self, k: impl AsRef<str>) -> Option<&Val> {
-        self.data.get(&PreHashed::from_str(k.as_ref())).map(|v| v.last()).flatten()
+        self.data.get(&PreHashed::from_str(k.as_ref())).and_then(|v| v.last())
     }
     fn push(&mut self, defs: &DefSet) {
         for (name, def) in defs.iter_hashed() {
-            match self.data.get_mut(&name) {
+            match self.data.get_mut(name) {
                 Some(d) => d.push(def.clone()),
                 None => {
                     self.data.insert(name.clone(), vec![def.clone()]);
@@ -462,7 +451,7 @@ impl Interpreter {
     // pub fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
     // fn body_ref(&self) -> &List<Val> { &self.frame.body }
 
-    pub fn is_toplevel(&self) -> bool { self.parents.len() == 0 }
+    pub fn is_toplevel(&self) -> bool { self.parents.is_empty() }
 
     // maybe not needed with like, eval_in_new_body?
     // pub fn enter_new_frame(&mut self, body: List<Val>)
@@ -530,8 +519,8 @@ impl Interpreter {
                         } else {
                             self.stack_push(next);
                         }
-                    } else {
-                        if !self.enter_parent_frame() { return None; }
+                    } else if !self.enter_parent_frame() {
+                        return None;
                     }
                 },
             }
@@ -582,7 +571,7 @@ impl Interpreter {
                     // use frame but keep defs
                     std::mem::swap(&mut self.frame, &mut frame);
                     std::mem::swap(&mut self.frame.defs, &mut frame.defs);
-                    if frame.defs.len() > 0 {
+                    if !frame.defs.is_empty() {
                         todo!("eval_next has defs");
                     }
                 },

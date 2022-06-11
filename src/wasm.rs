@@ -47,7 +47,7 @@ impl Interpreter {
     pub fn eval_next_from(&mut self, r: &mut Reader) -> Result<(), JsValue> {
         let mut body = vec![];
         'read: loop {
-            match r.0.next() {
+            match r.0.read_next() {
                 Ok(Some(v)) => body.push(v),
                 Ok(None) => break 'read,
                 Err(e) => return Err(Val::from(e).into()),

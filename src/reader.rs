@@ -214,8 +214,8 @@ impl PartialEq for Reader {
 impl Eq for Reader {}
 impl_value!(Reader);
 
-impl Reader {
-    pub fn new() -> Reader {
+impl Default for Reader {
+    fn default() -> Self {
         let buf = StringBuffer::default();
         let buf_reader = buf.clone();
         let mut i = Interpreter::default();
@@ -224,6 +224,10 @@ impl Reader {
         });
         Reader { buf, i: Rc::new(RefCell::new(i)), }
     }
+}
+
+impl Reader {
+    pub fn new() -> Self { Self::default() }
     pub fn write(&mut self, src: &mut impl Iterator<Item=char>) {
         self.buf.write(src);
     }
@@ -233,7 +237,7 @@ impl Reader {
     pub fn is_eof(&self) -> bool {
         self.buf.is_eof()
     }
-    pub fn next(&mut self) -> Result<Option<Val>, ReadError> {
+    pub fn read_next(&mut self) -> Result<Option<Val>, ReadError> {
         match self.i.borrow_mut().run() {
             None => Ok(None), // maybe?
             Some(v) => match v.downcast::<Emit>() {
@@ -251,7 +255,7 @@ pub fn read_all(src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadErro
     reader.write(src);
     reader.set_eof();
     let mut acc = vec![];
-    while let Some(v) = reader.next()? { acc.push(v); }
+    while let Some(v) = reader.read_next()? { acc.push(v); }
     Ok(acc)
 }
 

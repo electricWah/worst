@@ -9,7 +9,7 @@ impl_value!(Doc);
 pub fn install(i: &mut Interpreter) {
     let doc_place = Place::wrap(false);
     let doc_place_set = doc_place.clone();
-    let doc_place_take = doc_place.clone();
+    let doc_place_take = doc_place;
 
     i.define("doc", move |mut i: Handle| {
         let mut doc_place = doc_place_set.clone();

@@ -32,7 +32,7 @@ pub async fn list_push(mut i: Handle) {
 
 pub async fn list_pop(mut i: Handle) {
     let mut l = i.stack_pop::<List>().await;
-    let v = l.pop().unwrap_or(false.into());
+    let v = l.pop().unwrap_or_else(|| false.into());
     i.stack_push(l).await;
     i.stack_push(v).await;
 }

@@ -6,7 +6,7 @@ use worst::base::*;
 use worst::list::List;
 
 fn main() -> ExitCode {
-    let init_module = std::env::var("WORST_INIT_MODULE").unwrap_or("worst/init".into());
+    let init_module = std::env::var("WORST_INIT_MODULE").unwrap_or_else(|_| "worst/init".into());
     let mut i = Interpreter::default();
     builtins::install(&mut i);
     let doit = vec!["import".into(), init_module].into_iter().map(Symbol::from);

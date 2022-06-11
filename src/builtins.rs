@@ -6,8 +6,8 @@ use crate::interpreter::Interpreter;
 pub mod core;
 pub mod define;
 pub mod doc;
-#[cfg(feature = "builtin_fs_module")]
-pub mod fs;
+#[cfg(feature = "builtin_file_module")]
+pub mod file;
 pub mod interpreter;
 pub mod io;
 pub mod list;
@@ -21,8 +21,8 @@ pub fn install(i: &mut Interpreter) {
     core::install(i);
     define::install(i);
     doc::install(i);
-    #[cfg(feature = "builtin_fs_module")]
-    fs::install(i);
+    #[cfg(feature = "builtin_file_module")]
+    file::install(i);
     interpreter::install(i);
     io::install(i);
     list::install(i);

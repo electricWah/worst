@@ -23,7 +23,7 @@ pub fn install(i: &mut Interpreter) {
     // -> val #t | err #f | #f #f (eof)
     i.define("reader-next", |mut i: Handle| async move {
         let mut r = i.stack_pop::<Reader>().await;
-        let res = r.next();
+        let res = r.read_next();
         i.stack_push(r).await;
         match res {
             Ok(Some(v)) => {

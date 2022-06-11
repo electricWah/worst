@@ -4,7 +4,7 @@ use std::borrow::BorrowMut;
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
-use crate::builtins::fs;
+use crate::builtins::file;
 use crate::interpreter::{Interpreter, Handle, DefSet};
 
 fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
@@ -64,7 +64,7 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
         }
     });
 
-    i.eval_next(Val::from(List::from(m)));
+    i.eval_next(Val::from(m));
     if let Some(ret) = i.run() {
         return Err((ret, i));
     }
@@ -81,7 +81,7 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
     } else {
         match exportsion.downcast::<List>() {
             Ok(l) => {
-                for ex in l.into_iter() {
+                for ex in l {
                     let name = ex.downcast::<Symbol>().unwrap().into();
                     if let Some(def) = all_defs.get(&name) {
                         exmap.insert(name, def.clone());
@@ -125,9 +125,9 @@ pub fn install(i: &mut Interpreter) {
         #[cfg(feature = "enable_fs")] {
             i.call("WORST_LIBPATH").await;
             let libpath = i.stack_pop::<List>().await;
-            for lpx in libpath.into_iter() {
+            for lpx in libpath {
                 if let Some(lp) = lpx.downcast_ref::<String>() {
-                    match fs::fs::open_read(format!("{lp}/{module_path}.w")) {
+                    match file::fs::open_read(format!("{lp}/{module_path}.w")) {
                         Ok(f) => {
                             i.stack_push(f).await;
                             return;
@@ -144,7 +144,7 @@ pub fn install(i: &mut Interpreter) {
             }
         }
 
-        match fs::open_bundled_read(format!("{module_path}.w")) {
+        match file::open_bundled_read(format!("{module_path}.w")) {
             Some(p) => i.stack_push(p).await,
             None => i.stack_push(false).await,
         }

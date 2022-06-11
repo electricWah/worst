@@ -3,7 +3,7 @@
 
 use std::cell::RefCell;
 use std::borrow::BorrowMut;
-use std::fmt::Debug;
+use std::fmt::{ Debug, Display };
 use std::rc::Rc;
 use std::any::Any;
 
@@ -101,7 +101,7 @@ struct DebugValue(Box<dyn Fn(&Val) -> String>);
 impl_value!(DebugValue);
 /// Use in [impl_value] to specify how to write members of the type to string.
 pub fn value_tostring<T: 'static + ImplValue, F: 'static + Fn(&T) -> String>(f: F) -> impl Value {
-    DebugValue(Box::new(move |v: &Val| f(&v.downcast_ref::<T>().unwrap())))
+    DebugValue(Box::new(move |v: &Val| f(v.downcast_ref::<T>().unwrap())))
 }
 /// Use in [impl_value] as a shorthand for [value_tostring] with [Debug].
 pub fn value_debug<T: 'static + ImplValue + Debug>() -> impl Value {
@@ -181,7 +181,7 @@ impl Debug for Val {
         } else if let Some(n) = self.ty.0.first::<TypeName>() {
             write!(f, "<{}>", n.0)?;
         } else {
-            write!(f, "{}", "<some value>")?;
+            write!(f, "<some value>")?;
         }
         Ok(())
     }
@@ -191,9 +191,9 @@ impl PartialEq for Val {
     fn eq(&self, you: &Self) -> bool {
         if Rc::ptr_eq(&self.v, &you.v) { return true; }
         if let Some(e) = self.ty.0.first::<EqValue>() {
-            e.0(&self, you)
+            e.0(self, you)
         } else if let Some(e) = you.ty.0.first::<EqValue>() {
-            e.0(you, &self)
+            e.0(you, self)
         } else { false }
     }
 }
@@ -271,10 +271,7 @@ impl Meta {
     }
     /// Find the first `T` and copy it as a [Val] (preserving its metadata).
     pub fn first_val<T: Value>(&self) -> Option<Val> {
-        match self.0.iter().find(|v| v.is::<T>()) {
-            Some(v) => Some(v.clone()),
-            None => None,
-        }
+        self.0.iter().find(|v| v.is::<T>()).cloned()
     }
     /// Check if this contains a `T`.
     pub fn contains<T: Value>(&self) -> bool {
@@ -287,8 +284,10 @@ impl Meta {
 pub struct Symbol {
     v: String,
 }
-impl Symbol {
-    fn to_string(&self) -> String { self.v.clone() }
+impl Display for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}", self.v)
+    }
 }
 impl AsRef<str> for Symbol {
     fn as_ref(&self) -> &str { self.v.as_ref() }
