@@ -3,6 +3,7 @@
 import {
     ui/ansi
     data/list
+    syntax/case
 }
 
 doc [
@@ -33,7 +34,7 @@ define info [
     topic updo definition-resolve
     value-doc
     bury drop drop
-    cond [
+    case [
         (false?) [
             drop ansi [ bright red fg "No info available.\n" print reset ]
         ]

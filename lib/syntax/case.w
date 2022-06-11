@@ -1,6 +1,4 @@
 
-; case - it's cond, but it's called case.
-
 ; case {
 ;   (-> bool) { if true ... } ; any number of these...
 ;   #t { default }

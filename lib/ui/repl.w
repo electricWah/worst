@@ -1,7 +1,6 @@
 
 import {
     worst/interpreter
-    syntax/cond
     data/string
     data/pairs
 }
