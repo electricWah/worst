@@ -131,14 +131,13 @@ impl Handle {
     pub async fn stack_pop<T: Value + Clone>(&mut self) -> T {
         loop {
             let v = self.stack_pop_val().await;
-            match v.downcast::<T>() {
-                Ok(r) => return r,
-                Err(e) => {
-                    self.stack_push(e.clone()).await;
-                    let name = core::any::type_name::<T>();
-                    let cs = self.call_stack_names().await;
-                    self.error(dbg!(InterpError::WrongType(e, name, cs))).await;
-                },
+            if let Some(r) = v.downcast_ref::<T>() {
+                return r.clone();
+            } else {
+                self.stack_push(v.clone()).await;
+                let name = core::any::type_name::<T>(); // TODO base::Type name
+                let cs = self.call_stack_names().await;
+                self.error(dbg!(InterpError::WrongType(v, name, cs))).await;
             }
         }
     }
@@ -473,13 +472,15 @@ impl Interpreter {
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
     pub fn stack_pop<T: Value + Clone>(&mut self) -> Option<T> {
-        match self.stack.pop().map(Val::downcast::<T>) {
-            None => None,
-            Some(Ok(v)) => Some(v),
-            Some(Err(v)) => {
+        if let Some(v) = self.stack.pop() {
+            if v.is::<T>() {
+                v.downcast::<T>()
+            } else {
                 self.stack.push(v);
                 None
             }
+        } else {
+            None
         }
     }
     pub fn stack_top_ref<T: Value>(&self) -> Option<&T> {

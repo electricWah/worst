@@ -89,15 +89,16 @@ pub async fn uplevel(mut i: Handle) {
 /// ]
 pub async fn const_(mut i: Handle) {
     let v = i.stack_pop_val().await;
+    let qname = i.quote_val().await;
     let name =
         // TODO quote_ty::<Symbol>()
-        match i.quote_val().await.downcast::<Symbol>() {
-            Ok(n) => n,
-            Err(qq) =>
-                return i.error(List::from(vec![
-                    "const: not a symbol".to_string().into(),
-                    qq,
-                ])).await,
+        if let Some(v) = qname.downcast_ref::<Symbol>() {
+            v
+        } else {
+            return i.error(List::from(vec![
+                "const: not a symbol".to_string().into(),
+                    qname,
+            ])).await;
         };
 
     i.define(name.as_ref(), move |mut i: Handle| {

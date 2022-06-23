@@ -1,6 +1,6 @@
 
+use std::rc::Rc;
 use std::io::{ self, Read, BufRead, Write };
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
 // use std::collections::VecDeque;
 use crate::impl_value;
@@ -20,20 +20,22 @@ impl OutputPort {
     }
 }
 
-struct BufReader(RefCell<Box<dyn BufRead>>);
+#[derive(Clone)]
+struct BufReader(Rc<RefCell<dyn BufRead>>);
 impl_value!(BufReader, value_read::<BufReader>(), type_name("bufreader"));
 impl BufReader {
     #[cfg(feature = "enable_stdio")]
     fn stdin() -> Self {
-        BufReader(RefCell::new(Box::new(io::stdin().lock())))
+        BufReader(Rc::new(RefCell::new(io::stdin().lock())))
     }
 }
 impl Read for BufReader {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.0.borrow_mut().read(buf)
+        self.0.as_ref().borrow_mut().read(buf)
     }
 }
 
+#[derive(Clone)]
 struct StringReader(String);
 impl_value!(StringReader, value_read::<StringReader>(), type_name("stringreader"));
 impl Read for StringReader {
@@ -97,11 +99,10 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.define("port->string", |mut i: Handle| async move {
-        let mut pv = i.stack_pop_val().await;
-        let reader = ReadValue::try_read(&mut pv);
-        if let Some(mut read) = reader {
+        let pv = i.stack_pop_val().await;
+        if let Some(mut read) = ReadValue::try_read(pv) {
             let mut s = String::new();
-            match read.borrow_mut().read_to_string(&mut s) {
+            match read.read_to_string(&mut s) {
                 Ok(_count) => {
                     i.stack_push(s).await;
                     i.stack_push(true).await;
@@ -120,7 +121,7 @@ pub fn install(i: &mut Interpreter) {
         let pv = i.stack_pop_val().await;
         if let Some(p) = pv.downcast_ref::<BufReader>() {
             let mut buf = String::new();
-            p.0.borrow_mut().read_line(&mut buf).unwrap();
+            p.0.as_ref().borrow_mut().read_line(&mut buf).unwrap();
             i.stack_push(pv).await;
             i.stack_push(buf).await;
         } else {

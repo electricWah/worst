@@ -1,6 +1,4 @@
 
-use std::borrow::BorrowMut;
-
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
@@ -26,6 +24,7 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
         i.call("%exports").await;
         let mut exports = i.stack_pop::<Place>().await;
         let q = i.quote_val().await;
+        let qqerr = q.clone();
         if let Some(&b) = q.downcast_ref::<bool>() {
             if b {
                 exports.set(true);
@@ -33,34 +32,24 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
                 dbg!("not sure how to export #f");
             }
         } else if q.is::<Symbol>() {
-            match exports.get().downcast::<List>() {
-                Ok(mut l) => {
-                    l.push(q);
-                    exports.set(l);
-                },
-                Err(oe) => {
-                    dbg!("export symbol failed", &q, &oe);
-                },
+            let exp = exports.get();
+            if let Some(mut l) = exp.clone().downcast::<List>() {
+                l.push(q);
+                exports.set(l);
+            } else {
+                dbg!("export symbol failed", &q, &exp);
+            }
+        } else if let Some(coll) = q.downcast::<List>() {
+            if let Some(mut l) = exports.get().downcast::<List>() {
+                for v in coll {
+                    l.push(v);
+                }
+                exports.set(l);
+            } else {
+                dbg!("export list failed", exports.get());
             }
         } else {
-            match q.downcast::<List>() {
-                Ok(coll) => {
-                    match exports.get().downcast::<List>() {
-                        Ok(mut l) => {
-                            for v in coll {
-                                l.push(v);
-                            }
-                            exports.set(l);
-                        },
-                        Err(oe) => {
-                            dbg!("export list failed", &oe);
-                        },
-                    }
-                },
-                Err(e) => {
-                    todo!("export this thing {:?}", e);
-                },
-            }
+            todo!("export this thing {:?}", qqerr);
         }
     });
 
@@ -78,20 +67,17 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
     let exportsion = exports_final.get();
     if let Some(&true) = exportsion.downcast_ref::<bool>() {
         exmap = all_defs;
-    } else {
-        match exportsion.downcast::<List>() {
-            Ok(l) => {
-                for ex in l {
-                    let name = ex.downcast::<Symbol>().unwrap().into();
-                    if let Some(def) = all_defs.get(&name) {
-                        exmap.insert(name, def.clone());
-                    } else {
-                        dbg!("coudldn't see def", name);
-                    }
-                }
-            },
-            Err(e) => todo!("exporting failure {:?}", e)
+    } else if let Some(l) = exportsion.downcast::<List>() {
+        for ex in l {
+            let name = ex.downcast::<Symbol>().unwrap().into();
+            if let Some(def) = all_defs.get(&name) {
+                exmap.insert(name, def.clone());
+            } else {
+                dbg!("coudldn't see def", name);
+            }
         }
+    } else {
+        todo!("exporting failure");
     }
     Ok(exmap)
 }
@@ -154,25 +140,21 @@ pub fn install(i: &mut Interpreter) {
             let q = i.quote_val().await;
             if q.is::<Symbol>() {
                 List::from(vec![q])
+            } else if let Some(l) = q.downcast::<List>() {
+                l
             } else {
-                match q.downcast::<List>() {
-                    Ok(l) => l,
-                    Err(_e) => {
-                        return i.error("expected list or symbol".to_string()).await;
-                    },
-                }
+                return i.error("expected list or symbol".to_string()).await;
             }
         };
         
         for import in imports {
-            if let Ok(s) = import.downcast::<Symbol>() {
+            if let Some(s) = import.downcast::<Symbol>() {
                 let modname = s.clone();
                 i.stack_push(String::from(s)).await;
                 i.call("module-resolve-port").await;
-                let mut m = i.stack_pop_val().await;
-                let reader = ReadValue::try_read(&mut m);
-                if let Some(mut read) = reader {
-                    match read_module(read.borrow_mut()) {
+                let m = i.stack_pop_val().await;
+                if let Some(mut read) = ReadValue::try_read(m) {
+                    match read_module(&mut read) {
                         Ok(r) => match eval_module(r, i.all_definitions().await) {
                             Ok(defs) => {
                                 for (name, def) in defs.iter() {

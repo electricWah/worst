@@ -1,4 +1,6 @@
 
+use std::rc::Rc;
+use std::cell::RefCell;
 use std::io;
 use crate::impl_value;
 use crate::base::*;
@@ -9,19 +11,20 @@ pub mod fs {
     use super::*;
     use std::fs;
 
+    #[derive(Clone)]
     pub struct File {
         // path: String,
-        handle: fs::File,
+        handle: Rc<RefCell<fs::File>>,
     }
 
     pub fn open_read(path: impl AsRef<std::path::Path>) -> io::Result<File> {
-        Ok(File { handle: fs::File::open(path)? })
+        Ok(File { handle: Rc::new(RefCell::new(fs::File::open(path)?)) })
     }
 
     impl_value!(File, value_read::<File>(), type_name("file"));
     impl io::Read for File {
         fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-            self.handle.read(buf)
+            self.handle.as_ref().borrow_mut().read(buf)
         }
     }
 }
@@ -33,6 +36,7 @@ mod embedded {
 
     static EMBED_FS: Dir = include_dir!("$WORST_BUNDLE_DIR"); // required for bundled_fs_embed feature
 
+    #[derive(Clone)]
     pub struct File {
         // path: String,
         handle: &'static [u8],

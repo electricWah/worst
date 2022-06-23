@@ -10,34 +10,32 @@ async fn default_attributes(mut _i: Handle) {
 /// define (attributes) name [ body ... ]
 pub async fn define(mut i: Handle) {
 
-    let (name, attrs) =
-        match i.quote_val().await.downcast::<Symbol>() {
-            Ok(s) => (s, List::default()),
-            Err(e) =>
-                match e.downcast::<List>() {
-                    Ok(l) =>
-                        match i.quote_val().await.downcast::<Symbol>() {
-                            Ok(n) => (n, l), // name and args
-                            Err(qe) =>
-                                return i.error(List::from(vec![
-                                    "define: expected symbol".to_string().into(),
-                                    qe,
-                                ])).await,
-                        },
-                    Err(_) => {
-                        return i.error("cannot define".to_string()).await;
-                    }
-                }
-        };
+    let (name, attrs) = {
+        let q = i.quote_val().await;
+        if let Some(name) = q.downcast_ref::<Symbol>() {
+            (name.clone(), List::default())
+        } else if let Some(attrs) = q.downcast_ref::<List>() {
+            let qname = i.quote_val().await;
+            if let Some(name) = qname.downcast_ref::<Symbol>() {
+                (name.clone(), attrs.clone())
+            } else {
+                return i.error(List::from(vec![
+                    "define: expected symbol".to_string().into(),
+                    qname,
+                ])).await;
+            }
+        } else {
+            return i.error("cannot define".to_string()).await;
+        }
+    };
 
     let body =
-        match i.quote_val().await.downcast::<List>() {
-            Ok(l) => l,
-            Err(e) =>
-                return i.error(List::from(vec![
-                    "define: expected list".to_string().into(),
-                    e,
-                ])).await,
+        if let Some(l) = i.quote_val().await.downcast::<List>() {
+            l
+        } else {
+            return i.error(List::from(vec![
+                "define: expected list".to_string().into(),
+            ])).await;
         };
 
     i.stack_push(body).await;

@@ -240,12 +240,18 @@ impl Reader {
     pub fn read_next(&mut self) -> Result<Option<Val>, ReadError> {
         match self.i.borrow_mut().run() {
             None => Ok(None), // maybe?
-            Some(v) => match v.downcast::<Emit>() {
-                Ok(Emit::Eof) => Ok(None),
-                Ok(Emit::Yield(v)) => Ok(Some(v)),
-                Ok(Emit::Error(e)) => Err(e),
-                Err(e) => { dbg!("", e); Ok(None) },
-            }
+            Some(v) => {
+                if v.is::<Emit>() {
+                    match v.downcast::<Emit>().unwrap() {
+                        Emit::Eof => Ok(None),
+                        Emit::Yield(v) => Ok(Some(v)),
+                        Emit::Error(e) => Err(e),
+                    }
+                } else {
+                    dbg!(&v);
+                    Ok(None)
+                }
+            },
         }
     }
 }

@@ -2,7 +2,6 @@
 //! The [Value] trait, [Val] type, and bits to work with Rust types from Worst.
 
 use std::cell::RefCell;
-use std::borrow::BorrowMut;
 use std::fmt::{ Debug, Display };
 use std::rc::Rc;
 use std::any::Any;
@@ -80,7 +79,7 @@ impl Type {
 /// Can be downcast into its original Rust value.
 #[derive(Clone)]
 pub struct Val {
-    v: Rc<Box<dyn Any>>,
+    v: Rc<dyn Any>,
     meta: Rc<Meta>,
     ty: Rc<Type>,
 }
@@ -122,21 +121,24 @@ pub fn value_eq<T: 'static + ImplValue + PartialEq>() -> impl Value {
 }
 
 /// Meta value for [Read](std::io::Read) values.
-pub struct ReadValue(Box<dyn Fn(&mut Val) -> &mut dyn std::io::Read>);
+pub struct ReadValue(Box<dyn Fn(Val) -> Box<dyn std::io::Read>>);
 impl_value!(ReadValue);
 /// Use in [impl_value] to show that members of the type implement [Read](std::io::Read).
 ///
+/// This requires [Clone] since it uses [Val::downcast].
+/// Consequently, types implementing this will probably be reference-counted.
 /// ```ignore
 /// struct MyReadableThing;
 /// impl std::io::Read for MyReadableThing { /* ... */ }
 /// impl_value!(MyReadableThing, value_read::<MyReadableThing>());
-pub fn value_read<T: 'static + ImplValue + std::io::Read>() -> impl Value {
-    ReadValue(Box::new(|a: &mut Val| a.downcast_mut::<T>().unwrap()))
+/// ```
+pub fn value_read<T: 'static + Clone + ImplValue + std::io::Read>() -> impl Value {
+    ReadValue(Box::new(|a: Val| Box::new(a.downcast::<T>().unwrap())))
 }
 impl ReadValue {
     /// Try and get a mutable [Read](std::io::Read) out of the value
     /// (see [value_read]).
-    pub fn try_read<'a>(v: &'a mut Val) -> Option<impl BorrowMut<dyn std::io::Read + 'a>> {
+    pub fn try_read(v: Val) -> Option<Box<dyn std::io::Read>> {
         v.type_meta().first_val::<Self>()
             .map(|rv| rv.downcast_ref::<Self>().unwrap().0(v))
     }
@@ -201,41 +203,47 @@ impl Eq for Val { }
 
 impl Val {
     fn new_type<T: Value>(v: T, ty: Rc<Type>) -> Self {
-        Val { v: Rc::new(Box::new(v)), meta: Rc::new(Meta::default()), ty }
+        Val { v: Rc::new(v), meta: Rc::new(Meta::default()), ty }
     }
-    /// Attempt to downcast to a `T`.
+    /// If the inner value is a T, take it.
     /// If there are multiple references, it is cloned.
+    ///
     /// Not recommended as this loses metadata.
-    pub fn downcast<T: Value + Clone>(self) -> Result<T, Val> {
-        match Rc::try_unwrap(self.v) {
-            Ok(v) => {
-                match v.downcast::<T>() {
-                    Ok(v) => Ok(*v),
-                    Err(v) => Err(Val { v: Rc::new(v), meta: self.meta, ty: self.ty }),
-                }
-            },
-            Err(v) => {
-                if let Some(v) = v.downcast_ref::<T>() {
-                    Ok(v.clone())
-                } else {
-                    Err(Val { v, meta: self.meta, ty: self.ty })
-                }
-            },
+    pub fn downcast<T: Value + Clone>(self) -> Option<T> {
+        if self.v.is::<T>() {
+            // Rc::make_mut(&mut self.v);
+            Some(Rc::try_unwrap(Rc::downcast::<T>(self.v).unwrap())
+                 .unwrap_or_else(|rc| (*rc).clone()))
+        } else {
+            dbg!(&self);
+            None
         }
     }
     /// If the inner value is a T, get a reference to it.
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
         self.v.downcast_ref::<T>()
     }
+
+    ///// If the inner value is a T, get a mutable reference to it.
+    ///// It is cloned if there are other references to the value.
+    /////
+    ///// This can be more efficient than unconditionally cloning the inner value.
+    //pub fn downcast_mut<T: Value + Clone>(&mut self) -> Option<&mut T> {
+    //    match Rc::downcast(self.v.clone()) {
+    //        Ok(mut v) => Some(Rc::make_mut(&mut v)),
+    //        Err(_) => None,
+    //    }
+    //}
     /// If this is the only reference to its inner value,
     /// and it's a T, get a mutable reference to it.
-    pub fn downcast_mut<T: Value>(&mut self) -> Option<&mut T> {
+    pub fn try_downcast_mut<T: Value>(&mut self) -> Option<&mut T> {
         if let Some(v) = Rc::get_mut(&mut self.v) {
             v.downcast_mut::<T>()
         } else {
             None
         }
     }
+
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
