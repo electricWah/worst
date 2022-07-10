@@ -11,6 +11,7 @@ define worst-repl [
 
     interpreter-empty
     interpreter-inherit-definitions
+    ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp
 
     reader-empty const reader
@@ -19,22 +20,6 @@ define worst-repl [
         "Welcome to the Worst interactive environment. Type " print
         bright yellow fg "help" print
         reset " for assistance.\n" print
-    ]
-
-    define standard-prompt [
-        interp interpreter-stack-get const stack drop
-        ansi [
-            green fg
-            "worst " print
-
-            reset cyan fg
-            stack list-reverse
-            print-value
-
-            bold yellow fg
-            " > " print
-            reset
-        ]
     ]
 
     define continuation-prompt [
@@ -47,7 +32,7 @@ define worst-repl [
     ]
 
     while [
-        standard-prompt
+        standard-worst-prompt
         read-line
         equals? "" if [ drop exit-message #f ] [
             reader swap reader-write-string drop
@@ -78,7 +63,21 @@ define worst-repl [
 
 ]
 
-export worst-repl
+define standard-worst-prompt [
+    interp interpreter-stack-get const stack drop
+    ansi [
+        green fg
+        "worst " print
 
-; vi: ft=scheme
+        reset cyan fg
+        stack list-reverse
+        print-value
+
+        bold yellow fg
+        " > " print
+        reset
+    ]
+]
+
+export #t
 

@@ -1,6 +1,4 @@
 
-use std::rc::Rc;
-use std::cell::RefCell;
 use std::io;
 use crate::impl_value;
 use crate::base::*;
@@ -10,6 +8,8 @@ use crate::interpreter::{Interpreter, Handle};
 pub mod fs {
     use super::*;
     use std::fs;
+    use std::rc::Rc;
+    use std::cell::RefCell;
 
     #[derive(Clone)]
     pub struct File {

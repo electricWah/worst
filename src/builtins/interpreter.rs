@@ -87,6 +87,12 @@ pub fn install(i: &mut Interpreter) {
         interp.define(name, def);
         i.stack_push(interp).await;
     });
+    i.define("interpreter-definition-remove", |mut i: Handle| async move {
+        let name = i.stack_pop::<Symbol>().await;
+        let interp = i.stack_pop::<Interp>().await;
+        interp.0.borrow_mut().definition_remove(name);
+        i.stack_push(interp).await;
+    });
     i.define("interpreter-call", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await;
         let mut interp = i.stack_pop::<Interp>().await;

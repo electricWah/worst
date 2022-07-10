@@ -18,7 +18,7 @@ define help [
         define ex [ green fg updo $ reset ]
 
         $"Some useful commands:\n"
-        ^ tutorial $": an interactive introduction to Worst\n"
+        ; ^ tutorial $": an interactive introduction to Worst\n"
         ^ info $": try " ^ info ex " name" $" for information about " ex "name\n"
     ]
 ]

@@ -24,7 +24,6 @@ impl Interpreter {
     pub fn new() -> Interpreter {
         console_error_panic_hook::set_once();
         conv::setup();
-        web_sys::console::log_1(&"new interpreter".into());
         let mut i = interpreter::Interpreter::default();
         builtins::install(&mut i);
         Interpreter(i)

@@ -75,7 +75,7 @@ use private::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct DefineMeta {
-    name: String,
+    name: String, // stack frame name
 }
 impl_value!(DefineMeta);
 
