@@ -44,14 +44,46 @@ mod private {
         }
     }
 
+    #[derive(Clone)]
+    pub enum StackGetRequest {
+        Any,
+        OfType(Type),
+    }
+
+    impl StackGetRequest {
+        pub fn of_type<T: ImplValue>() -> Self {
+            Self::OfType(T::get_type())
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct StackGetOp {
+        pub pop: bool,
+        pub req: Vec<StackGetRequest>,
+        pub res: YieldReturn<Vec<Val>>,
+    }
+    impl StackGetOp {
+        pub fn from_request(pop: bool, v: Vec<StackGetRequest>) -> Self {
+            Self {
+                pop, req: v, res: Rc::new(Cell::new(None)),
+            }
+        }
+        pub fn maybe_resolved(&mut self) -> Option<Vec<Val>> {
+            self.res.take()
+        }
+        pub fn resolve_with(&mut self, res: Vec<Val>) {
+            self.res.set(Some(res))
+        }
+    }
+
     pub enum FrameYield {
         Pause(Val),
         Eval(ChildFrame),
         Call(Symbol),
         Uplevel(ChildFrame),
         StackPush(Val),
-        StackPop(YieldReturn<Val>),
-        StackGet(YieldReturn<List>),
+        StackGetOp(StackGetOp),
+        StackGetAll(YieldReturn<List>),
         Quote(YieldReturn<Val>),
         Define(String, Val),
         /// true: all definitions, false: only in current frame
@@ -79,116 +111,9 @@ struct DefineMeta {
 }
 impl_value!(DefineMeta);
 
-// TODO replace with Error metadata
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum InterpError {
-    StackEmpty(Vec<Option<String>>),
-    WrongType(Val, &'static str, Vec<Option<String>>),
-}
-impl_value!(InterpError, value_debug::<InterpError>());
-
 /// A reference to the currently-running [Interpreter] given to builtin functions.
 pub struct Handle {
     co: Co<FrameYield>,
-}
-// not sure if these all have to be mut
-impl Handle {
-    pub async fn error(&mut self, v: impl Value) {
-        self.co.yield_(FrameYield::Pause(IsError::add(v))).await;
-    }
-    pub async fn pause(&mut self, v: impl Value) {
-        self.co.yield_(FrameYield::Pause(v.into())).await;
-    }
-    pub async fn eval(&mut self, f: impl EvalOnce) {
-        self.co.yield_(FrameYield::Eval(f.into())).await;
-    }
-    pub async fn eval_child(&mut self, body: List, child: impl EvalOnce) {
-        let mut frame = ListFrame::new_body(body);
-        frame.childs.push(child.into());
-        self.co.yield_(FrameYield::Eval(ChildFrame::ListFrame(frame))).await;
-    }
-    pub async fn call(&mut self, s: impl Into<Symbol>) {
-        self.co.yield_(FrameYield::Call(s.into())).await;
-    }
-    pub async fn stack_push(&mut self, v: impl Value) {
-        self.co.yield_(FrameYield::StackPush(v.into())).await;
-    }
-
-    pub async fn stack_pop_val(&mut self) -> Val {
-        let r = Rc::new(Cell::new(None));
-        loop {
-            self.co.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
-            match r.take() {
-                Some(v) => return v,
-                None => {
-                    let cs = self.call_stack_names().await;
-                    self.stack_push(InterpError::StackEmpty(cs)).await;
-                }
-            }
-        }
-    }
-    // TODO stack_pop_meta
-    pub async fn stack_pop<T: Value + Clone>(&mut self) -> T {
-        loop {
-            let v = self.stack_pop_val().await;
-            if let Some(r) = v.downcast_ref::<T>() {
-                return r.clone();
-            } else {
-                self.stack_push(v.clone()).await;
-                let name = core::any::type_name::<T>(); // TODO base::Type name
-                let cs = self.call_stack_names().await;
-                self.error(dbg!(InterpError::WrongType(v, name, cs))).await;
-            }
-        }
-    }
-    pub async fn stack_get(&mut self) -> List {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::StackGet(Rc::clone(&r))).await;
-        r.take().unwrap()
-    }
-
-    pub async fn stack_empty(&mut self) -> bool {
-        self.stack_get().await.is_empty()
-    }
-    pub async fn quote_val(&mut self) -> Val {
-        let r = Rc::new(Cell::new(None));
-        loop {
-            self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
-            if let Some(q) = r.take() { return q; }
-        }
-    }
-    pub async fn uplevel(&mut self, f: impl EvalOnce) {
-        self.co.yield_(FrameYield::Uplevel(f.into())).await;
-    }
-    pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
-    }
-    pub async fn define_closure(&mut self, name: impl Into<String>,
-                                body: impl Value, env: DefSet) {
-        let v = body.into().with_meta(ClosureEnv(env));
-        self.co.yield_(FrameYield::Define(name.into(), v)).await;
-    }
-    async fn get_definitions(&mut self, global: bool) -> DefSet {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::Definitions(global, Rc::clone(&r))).await;
-        r.take().unwrap()
-    }
-    pub async fn local_definitions(&mut self) -> DefSet {
-        self.get_definitions(false).await
-    }
-    pub async fn all_definitions(&mut self) -> DefSet {
-        self.get_definitions(true).await
-    }
-    pub async fn resolve_definition(&mut self, name: impl Into<String>) -> Option<Val> {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::ResolveDefinition(name.into(), Rc::clone(&r))).await;
-        r.take()
-    }
-    pub async fn call_stack_names(&mut self) -> Vec<Option<String>> {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;
-        r.take().unwrap()
-    }
 }
 
 /// Runnable code. [List] and [Builtin] implement it.
@@ -468,6 +393,7 @@ impl Interpreter {
 
     pub fn stack_ref(&self) -> &List { &self.stack }
     pub fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
+    pub fn stack_top_val(&mut self) -> Option<Val> { self.stack.top().cloned() }
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
@@ -534,8 +460,9 @@ impl Interpreter {
             FrameYield::Eval(v) => self.handle_eval(v),
             FrameYield::Call(v) => if let r@Some(_) = self.handle_call(v) { return r; },
             FrameYield::StackPush(v) => self.stack_push(v),
-            FrameYield::StackPop(yr) => yr.set(self.stack_pop_val()),
-            FrameYield::StackGet(yr) => yr.set(Some(self.stack.clone())),
+            FrameYield::StackGetOp(op) =>
+                if let r@Some(_) = self.handle_stackop(op) { return r; },
+            FrameYield::StackGetAll(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
             FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
             FrameYield::Define(name, def) => self.define(name, def),
@@ -558,6 +485,39 @@ impl Interpreter {
         self.frame.childs.push((move |mut i: Handle| async move {
             i.call(s).await;
         }).into());
+    }
+
+    // maybe this should be a "stack mismatch" (expected stack, actual stack)
+    fn handle_stackop(&mut self, mut op: StackGetOp) -> Option<Val> {
+        if op.req.len() > self.stack.len() {
+            return Some(IsError::add("stack-empty".to_symbol()));
+        }
+        let mut valiter = 0;
+        let mut res = vec![];
+        for req in op.req.iter() {
+            let val =
+                if op.pop {
+                    self.stack.pop().unwrap()
+                } else {
+                    let v = self.stack.get(valiter).unwrap().clone();
+                    valiter = valiter + 1;
+                    v
+                };
+            match req {
+                StackGetRequest::OfType(t) => {
+                    // TODO put values back on stack if pop
+                    // and collect these into expected/actual stack lists
+                    // and do (stack-mismatch expected actual)
+                    if t != val.type_ref() {
+                        return Some(IsError::add("wrong-type".to_symbol()));
+                    }
+                },
+                StackGetRequest::Any => {},
+            }
+            res.push(val);
+        }
+        op.resolve_with(res);
+        None
     }
 
     fn handle_eval(&mut self, f: ChildFrame) {
@@ -653,6 +613,106 @@ impl Interpreter {
     }
 
 }
+
+// not sure if these all have to be mut
+impl Handle {
+    pub async fn error(&self, v: impl Value) {
+        self.co.yield_(FrameYield::Pause(IsError::add(v))).await;
+    }
+    pub async fn pause(&self, v: impl Value) {
+        self.co.yield_(FrameYield::Pause(v.into())).await;
+    }
+    pub async fn eval(&mut self, f: impl EvalOnce) {
+        self.co.yield_(FrameYield::Eval(f.into())).await;
+    }
+    pub async fn eval_child(&mut self, body: List, child: impl EvalOnce) {
+        let mut frame = ListFrame::new_body(body);
+        frame.childs.push(child.into());
+        self.co.yield_(FrameYield::Eval(ChildFrame::ListFrame(frame))).await;
+    }
+    pub async fn call(&mut self, s: impl Into<Symbol>) {
+        self.co.yield_(FrameYield::Call(s.into())).await;
+    }
+    pub async fn stack_push(&mut self, v: impl Value) {
+        self.co.yield_(FrameYield::StackPush(v.into())).await;
+    }
+
+    async fn stack_op(&self, pop: bool, reqs: Vec<StackGetRequest>) -> Vec<Val> {
+        let mut op = StackGetOp::from_request(pop, reqs);
+        loop {
+            self.co.yield_(FrameYield::StackGetOp(op.clone())).await;
+            if let Some(v) = op.maybe_resolved() {
+                return v;
+            }
+        }
+    }
+
+    pub async fn stack_pop_val(&mut self) -> Val {
+        self.stack_op(true, vec![StackGetRequest::Any]).await.pop().unwrap()
+    }
+    // TODO stack_pop_meta
+    pub async fn stack_pop<T: Value + ImplValue + Clone>(&mut self) -> T {
+        self.stack_op(true, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().downcast().unwrap()
+    }
+    
+    pub async fn stack_top_val(&self) -> Val {
+        self.stack_op(false, vec![StackGetRequest::Any]).await.pop().unwrap()
+    }
+
+    pub async fn stack_top<T: Value + ImplValue>(&self) -> Vals<T> {
+        self.stack_op(false, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
+    }
+
+    pub async fn stack_get(&self) -> List {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::StackGetAll(Rc::clone(&r))).await;
+        r.take().unwrap()
+    }
+
+    pub async fn stack_empty(&self) -> bool {
+        self.stack_get().await.is_empty()
+    }
+    pub async fn quote_val(&mut self) -> Val {
+        let r = Rc::new(Cell::new(None));
+        loop {
+            self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
+            if let Some(q) = r.take() { return q; }
+        }
+    }
+    pub async fn uplevel(&mut self, f: impl EvalOnce) {
+        self.co.yield_(FrameYield::Uplevel(f.into())).await;
+    }
+    pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
+        self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
+    }
+    pub async fn define_closure(&mut self, name: impl Into<String>,
+                                body: impl Value, env: DefSet) {
+        let v = body.into().with_meta(ClosureEnv(env));
+        self.co.yield_(FrameYield::Define(name.into(), v)).await;
+    }
+    async fn get_definitions(&mut self, global: bool) -> DefSet {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::Definitions(global, Rc::clone(&r))).await;
+        r.take().unwrap()
+    }
+    pub async fn local_definitions(&mut self) -> DefSet {
+        self.get_definitions(false).await
+    }
+    pub async fn all_definitions(&mut self) -> DefSet {
+        self.get_definitions(true).await
+    }
+    pub async fn resolve_definition(&mut self, name: impl Into<String>) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::ResolveDefinition(name.into(), Rc::clone(&r))).await;
+        r.take()
+    }
+    pub async fn call_stack_names(&self) -> Vec<Option<String>> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;
+        r.take().unwrap()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

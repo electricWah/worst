@@ -54,6 +54,8 @@ impl List {
     }
     pub fn is_empty(&self) -> bool { self.data.len() == 0 }
 
+    pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
+
     pub fn pop(&mut self) -> Option<Val> {
         self.data.pop()
     }

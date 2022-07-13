@@ -2,24 +2,25 @@
 //! The [Value] trait, [Val] type, and bits to work with Rust types from Worst.
 
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::fmt::{ Debug, Display };
 use std::rc::Rc;
-use std::any::Any;
+use std::any::{ Any, TypeId };
 
 /// The Worst value trait.
 /// Usually use [Value] or [impl_value] instead of this directly.
 pub trait ImplValue {
-    thread_local!(
-        /// [Type] prototype for instances of this type.
-        static TYPE: RefCell<Rc<Type>> =
-                  RefCell::new(Rc::new(Type(Meta::default()))));
+    thread_local!(static TYPE: RefCell<Type> = RefCell::new(Type::default()));
 
     /// Add a new type-meta value. Take care to only do this once per `m`.
     /// The new value will only apply to newly-created instances of this type.
     // (for now - otherwise make it Rc<RefCell<>>
     // this could be a macro somehow?
     fn install_meta(m: impl Value) {
-        Self::TYPE.with(|t| Rc::make_mut(&mut t.borrow_mut()).0.0.push(m.into()))
+        Self::TYPE.with(|t| t.borrow_mut().push_meta(m.into()))
+    }
+    fn get_type() -> Type {
+        Self::TYPE.with(|t| t.borrow().clone())
     }
 }
 
@@ -47,13 +48,12 @@ macro_rules! impl_value {
     ($t:ty) => { impl_value!($t,); };
     ($t:ty, $($m:expr),*) => {
         impl ImplValue for $t {
-            thread_local!(static TYPE: std::cell::RefCell<std::rc::Rc<Type>> =
+            thread_local!(static TYPE: std::cell::RefCell<Type> =
                           std::cell::RefCell::new(
-                              std::rc::Rc::new(
-                                  Type::new(Meta::default()
+                                  Type::new_meta::<$t>(Meta::default()
                                             $(.with($m))*
                                             .with(type_name(stringify!($t)))
-                                           ))));
+                                           )));
         }
     }
 }
@@ -68,12 +68,28 @@ impl<T: ImplValue + 'static> Value for T {}
 pub struct Meta(Vec<Val>);
 
 /// Every [Val] has a Type, which determines how it works.
-#[derive(Clone)]
-pub struct Type(Meta);
-impl ImplValue for Type {}
-impl Type {
-    pub fn new(m: Meta) -> Self { Type(m) }
+#[derive(Clone, Default, PartialEq)]
+pub struct Type {
+    // option: default T::TYPE requires a value, but doesn't have access to T
+    id: Option<TypeId>,
+    meta: Rc<Meta>,
 }
+impl Type {
+    pub fn new_meta<T: 'static>(m: Meta) -> Self {
+        Type { id: Some(TypeId::of::<T>()), meta: Rc::new(m) }
+    }
+    pub fn push_meta(&mut self, m: Val) {
+        Rc::make_mut(&mut self.meta).0.push(m)
+    }
+}
+impl PartialEq for Type {
+    fn eq(&self, other: &Type) -> bool {
+        // TODO this might be asking for trouble - just use derive?
+        self.id == other.id
+    }
+}
+// TODO a Val wrapper for Type (don't use Type directly)
+// impl ImplValue for Type {}
 
 /// A reference-counted value, used directly by Worst programs.
 /// Can be downcast into its original Rust value.
@@ -81,7 +97,7 @@ impl Type {
 pub struct Val {
     v: Rc<dyn Any>,
     meta: Rc<Meta>,
-    ty: Rc<Type>,
+    ty: Type,
 }
 impl Value for Val {}
 
@@ -177,10 +193,10 @@ impl IsError {
 
 impl Debug for Val {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        if let Some(dv) = self.ty.0.first::<DebugValue>() {
+        if let Some(dv) = self.ty.meta.first::<DebugValue>() {
             let d = dv.0(self);
             write!(f, "{}", d)?;
-        } else if let Some(n) = self.ty.0.first::<TypeName>() {
+        } else if let Some(n) = self.ty.meta.first::<TypeName>() {
             write!(f, "<{}>", n.0)?;
         } else {
             write!(f, "<some value>")?;
@@ -192,9 +208,9 @@ impl Debug for Val {
 impl PartialEq for Val {
     fn eq(&self, you: &Self) -> bool {
         if Rc::ptr_eq(&self.v, &you.v) { return true; }
-        if let Some(e) = self.ty.0.first::<EqValue>() {
+        if let Some(e) = self.ty.meta.first::<EqValue>() {
             e.0(self, you)
-        } else if let Some(e) = you.ty.0.first::<EqValue>() {
+        } else if let Some(e) = you.ty.meta.first::<EqValue>() {
             e.0(you, self)
         } else { false }
     }
@@ -202,7 +218,7 @@ impl PartialEq for Val {
 impl Eq for Val { }
 
 impl Val {
-    fn new_type<T: Value>(v: T, ty: Rc<Type>) -> Self {
+    fn new_type<T: Value>(v: T, ty: Type) -> Self {
         Val { v: Rc::new(v), meta: Rc::new(Meta::default()), ty }
     }
     /// If the inner value is a T, take it.
@@ -247,6 +263,9 @@ impl Val {
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
+    pub fn type_id(&self) -> TypeId {
+        self.v.type_id()
+    }
 
     pub fn meta_ref(&self) -> &Meta { &self.meta }
     pub fn meta_ref_mut(&mut self) -> &mut Meta {
@@ -256,7 +275,8 @@ impl Val {
         self.meta_ref_mut().push(v); self
     }
 
-    pub fn type_meta(&self) -> &Meta { &self.ty.0 }
+    pub fn type_ref(&self) -> &Type { &self.ty }
+    pub fn type_meta(&self) -> &Meta { &self.ty.meta }
     // pub fn method<T: Value>(&self) -> Option<&T> {
     //     if let Some(ty) = self.meta.first::<Type>() {
     //         ty.1.first::<T>()
@@ -284,6 +304,26 @@ impl Meta {
     /// Check if this contains a `T`.
     pub fn contains<T: Value>(&self) -> bool {
         self.0.iter().any(|v| v.is::<T>())
+    }
+}
+
+/// A typed wrapper for one or more [Val] (currently only one).
+pub struct Vals<T> {
+    inner: Vec<Val>,
+    ty: PhantomData<T>,
+}
+
+impl<T: Value> AsRef<T> for Vals<T> {
+    fn as_ref(&self) -> &T {
+        self.inner[0].downcast_ref().unwrap()
+    }
+}
+
+impl<T: Value> TryFrom<Val> for Vals<T> {
+    type Error = Val;
+    fn try_from(v: Val) -> Result<Vals<T>, Val> {
+        if v.is::<T>() { Ok(Vals { inner: vec![v], ty: PhantomData }) }
+        else { Err(v) }
     }
 }
 

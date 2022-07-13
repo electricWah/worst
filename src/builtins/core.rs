@@ -199,7 +199,7 @@ pub fn install(i: &mut Interpreter) {
         let v = i.stack_empty().await;
         i.stack_push(v).await;
     });
-    i.define("stack-dump", |mut i: Handle| async move {
+    i.define("stack-dump", |i: Handle| async move {
         println!("{:?}", Val::from(i.stack_get().await));
     });
     // for now
