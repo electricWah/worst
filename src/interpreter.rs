@@ -476,6 +476,7 @@ impl Interpreter {
 
     pub fn reset(&mut self) {
         while self.enter_parent_frame() {}
+        self.frame.childs = vec![];
         self.frame.body = List::default();
     }
 
@@ -509,7 +510,16 @@ impl Interpreter {
                     // and collect these into expected/actual stack lists
                     // and do (stack-mismatch expected actual)
                     if t != val.type_ref() {
-                        return Some(IsError::add("wrong-type".to_symbol()));
+                        if op.pop {
+                            while let Some(v) = res.pop() {
+                                self.stack.push(v);
+                            }
+                        }
+                        return Some(IsError::add(List::from(vec![
+                            "wrong-type".to_symbol().into(),
+                            // (*t).into(),
+                            val.into(),
+                        ])));
                     }
                 },
                 StackGetRequest::Any => {},
