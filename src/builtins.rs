@@ -12,6 +12,8 @@ pub mod interpreter;
 pub mod io;
 pub mod list;
 pub mod module;
+#[cfg(feature = "enable_os")]
+pub mod os;
 pub mod place;
 pub mod reader;
 pub mod string;
@@ -27,6 +29,8 @@ pub fn install(i: &mut Interpreter) {
     io::install(i);
     list::install(i);
     module::install(i);
+    #[cfg(feature = "enable_os")]
+    os::install(i);
     place::install(i);
     reader::install(i);
     string::install(i);

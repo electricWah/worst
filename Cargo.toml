@@ -13,15 +13,17 @@ include_dir = { version = "^0.7", optional = true } #, features = ["nightly"] }
 
 [features]
 # Toggle-able builtins modules
-# Access to stdin, stdout, stderr using current-{input,output,error}-port
-enable_stdio = []
 # Access to filesystem
 enable_fs = ["builtin_file_module"]
+# OS builtins: environment variables
+enable_os = []
+# Access to stdin, stdout, stderr using current-{input,output,error}-port
+enable_stdio = []
 
 # include builtins::file module at all (simplifies #[cfg] usage)
 builtin_file_module = []
 
-all_builtins = ["enable_stdio", "enable_fs"]
+all_builtins = ["enable_fs", "enable_os", "enable_stdio"]
 
 bundled_fs_embed = ["dep:include_dir", "builtin_file_module"]
 # (TODO) Embed lib files in program as `cat worst lib.zip > worst`
