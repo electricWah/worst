@@ -95,6 +95,49 @@ fn read_module(read: &mut dyn std::io::Read) -> Result<List, String> {
     }
 }
 
+// TODO should be Result?
+async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>> {
+
+    // if it's a string, load the file
+    #[cfg(feature = "enable_fs")] {
+        if v.is::<String>() {
+            let s = v.downcast::<String>().unwrap();
+            if let Ok(f) = file::fs::open_read(s) {
+                return Some(Box::new(f));
+            } else {
+                // maybe interp.error no file?
+                return None;
+            }
+        }
+    }
+
+    if !v.is::<Symbol>() { return None; }
+    let module_path = v.downcast::<Symbol>().unwrap().to_string();
+
+    #[cfg(feature = "enable_fs")] {
+        i.call("WORST_LIBPATH").await;
+        let libpath = i.stack_pop::<List>().await.into_inner();
+        for lpx in libpath {
+            if let Some(lp) = lpx.downcast_ref::<String>() {
+                match file::fs::open_read(format!("{lp}/{module_path}.w")) {
+                    Ok(f) => {
+                        return Some(Box::new(f));
+                    },
+                    Err(e) => if e.kind() != std::io::ErrorKind::NotFound {
+                        // TODO for now - should just interp.error
+                        dbg!(e);
+                        return None;
+                    },
+                }
+            } else {
+                eprintln!("Ignored {lpx:?} in WORST_LIBPATH");
+            }
+        }
+    }
+
+    file::open_bundled_read(format!("{module_path}.w")).and_then(ReadValue::try_read)
+}
+
 pub fn install(i: &mut Interpreter) {
     // No point having a libpath if the filesystem isn't accessible
     #[cfg(feature = "enable_fs")]
@@ -105,78 +148,41 @@ pub fn install(i: &mut Interpreter) {
             i.stack_push(List::default()).await;
         }
     });
-    i.define("module-resolve-port", |mut i: Handle| async move {
-        let module_path = i.stack_pop::<String>().await.into_inner();
-
-        #[cfg(feature = "enable_fs")] {
-            i.call("WORST_LIBPATH").await;
-            let libpath = i.stack_pop::<List>().await.into_inner();
-            for lpx in libpath {
-                if let Some(lp) = lpx.downcast_ref::<String>() {
-                    match file::fs::open_read(format!("{lp}/{module_path}.w")) {
-                        Ok(f) => {
-                            i.stack_push(f).await;
-                            return;
-                        },
-                        Err(e) => if e.kind() != std::io::ErrorKind::NotFound {
-                            i.stack_push(format!("{e:?}")).await;
-                            i.stack_push(false).await;
-                            return;
-                        },
-                    }
-                } else {
-                    eprintln!("Ignored {lpx:?} in WORST_LIBPATH");
-                }
-            }
-        }
-
-        match file::open_bundled_read(format!("{module_path}.w")) {
-            Some(p) => i.stack_push(p).await,
-            None => i.stack_push(false).await,
-        }
-    });
     i.define("import", |mut i: Handle| async move {
         let imports = {
             let q = i.quote_val().await;
-            if q.is::<Symbol>() {
+            if q.is::<Symbol>() || q.is::<String>() {
                 List::from(vec![q])
             } else if let Some(l) = q.downcast::<List>() {
                 l
             } else {
-                return i.error("expected list or symbol".to_string()).await;
+                return i.error("expected list, symbol or string".to_string()).await;
             }
         };
         
         for import in imports {
-            if let Some(s) = import.downcast::<Symbol>() {
-                let modname = s.clone();
-                i.stack_push(String::from(s)).await;
-                i.call("module-resolve-port").await;
-                let m = i.stack_pop_val().await;
-                if let Some(mut read) = ReadValue::try_read(m) {
-                    match read_module(&mut read) {
-                        Ok(r) => match eval_module(r, i.all_definitions().await) {
-                            Ok(defs) => {
-                                for (name, def) in defs.iter() {
-                                    i.define(name, def.clone()).await;
-                                }
-                            },
-                            Err((v, p)) => {
-                                return i.error(dbg!(List::from(vec![
-                                    "error in eval_module".to_string().into(),
-                                    modname.into(),
-                                    v,
-                                    p.stack_ref().clone().into(),
-                                ]))).await;
-                            },
+            let import_name = import.clone();
+            if let Some(mut read) = resolve_import(&mut i, import).await {
+                match read_module(&mut read) {
+                    Ok(r) => match eval_module(r, i.all_definitions().await) {
+                        Ok(defs) => {
+                            for (name, def) in defs.iter() {
+                                i.define(name, def.clone()).await;
+                            }
                         },
-                        Err(e) => return i.error(e).await,
-                    }
-                } else {
-                    return i.error("error resolving module".to_string()).await;
+                        Err((v, p)) => {
+                            return i.error(dbg!(List::from(vec![
+                                "error in eval_module".to_string().into(),
+                                import_name.into(),
+                                v,
+                                p.stack_ref().clone().into(),
+                            ]))).await;
+                        },
+                    },
+                    Err(e) => return i.error(e).await,
                 }
             } else {
-                return i.error("expected symbol in import".to_string()).await;
+                return i.error("error resolving module".to_string()).await;
             }
         }
     });
