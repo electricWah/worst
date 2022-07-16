@@ -131,9 +131,9 @@ impl Val {
 
     /// If the inner value is a T, overwrite it with the given new value.
     /// Returns whether it succeeded.
-    pub fn try_set<T: Value>(&mut self, v: impl Into<Rc<T>>) -> bool {
+    pub fn try_set<T: Value>(&mut self, v: Rc<T>) -> bool {
         if !self.is::<T>() { return false; }
-        self.v = v.into() as Rc<dyn Any>;
+        self.v = v as Rc<dyn Any>;
         true
     }
 
