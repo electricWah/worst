@@ -18,6 +18,13 @@ pub async fn clone(mut i: Handle) {
     i.stack_push(v).await;
 }
 
+pub async fn swap(mut i: Handle) {
+    let a = i.stack_pop_val().await;
+    let b = i.stack_pop_val().await;
+    i.stack_push(a).await;
+    i.stack_push(b).await;
+}
+
 pub async fn dig(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
@@ -46,9 +53,8 @@ pub async fn equal(mut i: Handle) {
 }
 
 pub async fn false_(mut i: Handle) {
-    let v = i.stack_pop_val().await;
+    let v = i.stack_top_val().await;
     let is = Some(&false) == v.downcast_ref::<bool>();
-    i.stack_push(v).await;
     i.stack_push(is).await;
 }
 
@@ -59,9 +65,8 @@ pub async fn not(mut i: Handle) {
 }
 
 pub async fn error(mut i: Handle) {
-    let v = i.stack_pop_val().await;
+    let v = i.stack_top_val().await;
     let is = IsError::is_error(&v);
-    i.stack_push(v).await;
     i.stack_push(is).await;
 }
 
@@ -72,13 +77,13 @@ pub async fn eval(mut i: Handle) {
 
 pub async fn call(mut i: Handle) {
     let c = i.stack_pop::<Symbol>().await;
-    i.call(c).await;
+    i.call(c.into_inner()).await;
 }
 
 pub async fn uplevel(mut i: Handle) {
     i.uplevel(|mut i: Handle| async move {
         let c = i.stack_pop::<Symbol>().await;
-        i.call(c).await;
+        i.call(c.into_inner()).await;
     }).await;
 }
 
@@ -117,13 +122,6 @@ pub async fn upquote(mut i: Handle) {
     }).await;
 }
 
-pub async fn swap(mut i: Handle) {
-    let a = i.stack_pop_val().await;
-    let b = i.stack_pop_val().await;
-    i.stack_push(a).await;
-    i.stack_push(b).await;
-}
-
 /// ; while [-> bool] [body ...]
 /// define while [
 ///     upquote quote %%cond definition-add
@@ -138,7 +136,7 @@ pub async fn while_(mut i: Handle) {
     let body = i.quote_val().await;
     loop {
         i.eval(cond.clone()).await;
-        if !i.stack_pop::<bool>().await { break; }
+        if !i.stack_pop::<bool>().await.into_inner() { break; }
         i.eval(body.clone()).await;
     }
 }
@@ -154,7 +152,7 @@ pub async fn while_(mut i: Handle) {
 pub async fn if_(mut i: Handle) {
     let ift = i.quote_val().await;
     let iff = i.quote_val().await;
-    if i.stack_pop::<bool>().await {
+    if i.stack_pop::<bool>().await.into_inner() {
         i.eval(ift).await;
     } else {
         i.eval(iff).await;
@@ -166,8 +164,8 @@ pub async fn command_line_arguments(mut i: Handle) {
 }
 
 pub async fn add(mut i: Handle) {
-    let a = i.stack_pop::<i32>().await;
-    let b = i.stack_pop::<i32>().await;
+    let a = i.stack_pop::<i32>().await.into_inner();
+    let b = i.stack_pop::<i32>().await.into_inner();
     i.stack_push(a + b).await;
 }
 

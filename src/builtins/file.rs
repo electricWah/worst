@@ -70,7 +70,7 @@ pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "enable_fs")]
     i.define("open-file/read", |mut i: Handle| async move {
         let path = i.stack_pop::<String>().await;
-        match fs::open_read(path) {
+        match fs::open_read(path.as_ref()) {
             Ok(f) => i.stack_push(f).await,
             Err(e) => i.stack_push(format!("{}", e)).await,
         }
@@ -79,7 +79,7 @@ pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "bundled_fs_embed")]
     i.define("open-embedded-file/read", |mut i: Handle| async move {
         let path = i.stack_pop::<String>().await;
-        if let Some(f) = embedded::open_read(path) {
+        if let Some(f) = embedded::open_read(path.as_ref()) {
             i.stack_push(f).await;
         } else {
             i.stack_push(false).await;

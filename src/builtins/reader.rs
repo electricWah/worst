@@ -10,19 +10,19 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("reader-set-eof", |mut i: Handle| async move {
         let mut r = i.stack_pop::<Reader>().await;
-        r.set_eof();
+        r.as_mut().set_eof();
         i.stack_push(r).await;
     });
     i.define("reader-write-string", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await;
+        let mut s = i.stack_pop::<String>().await;
         let mut r = i.stack_pop::<Reader>().await;
-        r.write(&mut s.chars());
+        r.as_mut().write(&mut s.as_mut().chars());
         i.stack_push(r).await;
     });
     // -> val #t | err #f | #f #f (eof)
     i.define("reader-next", |mut i: Handle| async move {
         let mut r = i.stack_pop::<Reader>().await;
-        let res = r.read_next();
+        let res = r.as_mut().read_next();
         i.stack_push(r).await;
         match res {
             Ok(Some(v)) => {

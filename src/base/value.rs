@@ -109,7 +109,7 @@ impl Val {
     ///
     /// Not recommended as this loses metadata.
     pub fn downcast<T: Value + Clone>(self) -> Option<T> {
-        if self.v.is::<T>() {
+        if self.is::<T>() {
             // Rc::make_mut(&mut self.v);
             Some(Rc::try_unwrap(Rc::downcast::<T>(self.v).unwrap())
                  .unwrap_or_else(|rc| (*rc).clone()))
@@ -123,16 +123,20 @@ impl Val {
         self.v.downcast_ref::<T>()
     }
 
-    ///// If the inner value is a T, get a mutable reference to it.
-    ///// It is cloned if there are other references to the value.
-    /////
-    ///// This can be more efficient than unconditionally cloning the inner value.
-    //pub fn downcast_mut<T: Value + Clone>(&mut self) -> Option<&mut T> {
-    //    match Rc::downcast(self.v.clone()) {
-    //        Ok(mut v) => Some(Rc::make_mut(&mut v)),
-    //        Err(_) => None,
-    //    }
-    //}
+    /// If the inner value is a T, get an Rc of it
+    /// which shares the same location as the inner value.
+    pub fn downcast_rc<T: Value>(&self) -> Option<Rc<T>> {
+        Rc::downcast::<T>(self.v.clone()).ok()
+    }
+
+    /// If the inner value is a T, overwrite it with the given new value.
+    /// Returns whether it succeeded.
+    pub fn try_set<T: Value>(&mut self, v: impl Into<Rc<T>>) -> bool {
+        if !self.is::<T>() { return false; }
+        self.v = v.into() as Rc<dyn Any>;
+        true
+    }
+
     /// If this is the only reference to its inner value,
     /// and it's a T, get a mutable reference to it.
     pub fn try_downcast_mut<T: Value>(&mut self) -> Option<&mut T> {

@@ -69,32 +69,19 @@ pub fn install(i: &mut Interpreter) {
     }
 
     i.define("port-write-string", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await;
-        let pv = i.stack_pop_val().await;
-        if let Some(p) = pv.downcast_ref::<OutputPort>() {
-            let mut pp = p.0.borrow_mut();
-            write!(pp, "{}", s).unwrap();
-        } else {
-            todo!()
-        }
-        i.stack_push(pv).await;
+        let s = i.stack_pop::<String>().await.into_inner();
+        let p = i.stack_top::<OutputPort>().await;
+        write!(p.as_ref().0.borrow_mut(), "{}", s).unwrap();
     });
 
-    i.define("port-flush", |mut i: Handle| async move {
-        let pv = i.stack_pop_val().await;
-        if let Some(p) = pv.downcast_ref::<OutputPort>() {
-            let mut pp = p.0.borrow_mut();
-            pp.flush().unwrap();
-        } else {
-            todo!()
-        }
-        i.stack_push(pv).await;
+    i.define("port-flush", |i: Handle| async move {
+        let p = i.stack_top::<OutputPort>().await;
+        p.as_ref().0.borrow_mut().flush().unwrap();
     });
 
     i.define("can-read?", |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
+        let v = i.stack_top_val().await;
         let can = ReadValue::can(&v);
-        i.stack_push(v).await;
         i.stack_push(can).await;
     });
 
@@ -118,19 +105,14 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.define("buffered-port-read-line", |mut i: Handle| async move {
-        let pv = i.stack_pop_val().await;
-        if let Some(p) = pv.downcast_ref::<BufReader>() {
-            let mut buf = String::new();
-            p.0.as_ref().borrow_mut().read_line(&mut buf).unwrap();
-            i.stack_push(pv).await;
-            i.stack_push(buf).await;
-        } else {
-            todo!()
-        }
+        let p = i.stack_top::<BufReader>().await;
+        let mut buf = String::new();
+        p.as_ref().0.borrow_mut().read_line(&mut buf).unwrap();
+        i.stack_push(buf).await;
     });
 
     i.define("open-string-input-port", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await;
+        let s = i.stack_pop::<String>().await.into_inner();
         i.stack_push(StringReader(s)).await;
     });
 

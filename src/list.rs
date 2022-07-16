@@ -52,7 +52,7 @@ impl List {
             Some(&self.data[self.data.len() - 1 - i])
         } else { None }
     }
-    pub fn is_empty(&self) -> bool { self.data.len() == 0 }
+    pub fn is_empty(&self) -> bool { self.data.is_empty() }
 
     pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
 

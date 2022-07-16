@@ -22,7 +22,7 @@ fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
 
     i.define("export", |mut i: Handle| async move {
         i.call("%exports").await;
-        let mut exports = i.stack_pop::<Place>().await;
+        let mut exports = i.stack_pop::<Place>().await.into_inner();
         let q = i.quote_val().await;
         let qqerr = q.clone();
         if let Some(&b) = q.downcast_ref::<bool>() {
@@ -106,11 +106,11 @@ pub fn install(i: &mut Interpreter) {
         }
     });
     i.define("module-resolve-port", |mut i: Handle| async move {
-        let module_path = i.stack_pop::<String>().await;
+        let module_path = i.stack_pop::<String>().await.into_inner();
 
         #[cfg(feature = "enable_fs")] {
             i.call("WORST_LIBPATH").await;
-            let libpath = i.stack_pop::<List>().await;
+            let libpath = i.stack_pop::<List>().await.into_inner();
             for lpx in libpath {
                 if let Some(lp) = lpx.downcast_ref::<String>() {
                     match file::fs::open_read(format!("{lp}/{module_path}.w")) {

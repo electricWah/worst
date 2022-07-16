@@ -500,7 +500,7 @@ impl Interpreter {
                     self.stack.pop().unwrap()
                 } else {
                     let v = self.stack.get(valiter).unwrap().clone();
-                    valiter = valiter + 1;
+                    valiter += 1;
                     v
                 };
             match req {
@@ -651,14 +651,17 @@ impl Handle {
         self.stack_op(true, vec![StackGetRequest::Any]).await.pop().unwrap()
     }
     // TODO stack_pop_meta
-    pub async fn stack_pop<T: Value + ImplValue + Clone>(&mut self) -> T {
-        self.stack_op(true, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().downcast().unwrap()
+    pub async fn stack_pop<T: Value + ImplValue + Clone>(&mut self) -> Vals<T> {
+        self.stack_op(true, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
     }
     
     pub async fn stack_top_val(&self) -> Val {
         self.stack_op(false, vec![StackGetRequest::Any]).await.pop().unwrap()
     }
 
+    /// Get the top value of the stack without removing it.
+    /// Note that using [Vals::as_mut] on the return value
+    /// will not alter the stack, as it will make a copy.
     pub async fn stack_top<T: Value + ImplValue>(&self) -> Vals<T> {
         self.stack_op(false, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
     }

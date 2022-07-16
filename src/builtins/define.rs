@@ -45,7 +45,7 @@ pub async fn define(mut i: Handle) {
     }).await;
     i.call("default-attributes").await;
 
-    let name = i.stack_pop::<Symbol>().await;
+    let name = i.stack_pop::<Symbol>().await.into_inner();
     let body = i.stack_pop_val().await;
 
     let env = i.all_definitions().await;
@@ -56,7 +56,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await;
+        let name = i.stack_pop::<Symbol>().await.into_inner();
         let def = i.stack_pop_val().await;
         i.define(name, def).await;
     });
@@ -65,7 +65,7 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(List::from_pairs(p.iter().map(|(k, v)| (k.to_symbol(), v.clone())))).await;
     });
     i.define("definition-resolve", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await;
+        let name = i.stack_pop::<Symbol>().await.into_inner();
         let res = i.resolve_definition(name.clone()).await;
         i.stack_push(name).await;
         match res {
