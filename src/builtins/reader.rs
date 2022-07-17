@@ -42,19 +42,22 @@ pub fn install(i: &mut Interpreter) {
     // Read an entire port to the end into a list (or other, error, value)
     i.define("read-port->list", |mut i: Handle| async move {
         let pv = i.stack_pop_val().await;
-        if let Some(mut read) = ReadValue::try_read(pv) {
-            let mut s = String::new();
-            match read.read_to_string(&mut s) {
-                Ok(_count) => match read_all(&mut s.chars()) {
-                    Ok(v) => i.stack_push(List::from(v)).await,
-                    Err(e) => i.stack_push(format!("{:?}", e)).await,
-                },
-                Err(e) => {
-                    i.stack_push(format!("{}", e)).await;
-                },
-            }
-        } else {
-            todo!("not a port etc");
+        match ReadValue::try_read(pv) {
+            Ok(mut read) => {
+                let mut s = String::new();
+                match read.read_to_string(&mut s) {
+                    Ok(_count) => match read_all(&mut s.chars()) {
+                        Ok(v) => i.stack_push(List::from(v)).await,
+                        Err(e) => i.stack_push(format!("{:?}", e)).await,
+                    },
+                    Err(e) => {
+                        i.stack_push(format!("{}", e)).await;
+                    },
+                }
+            },
+            Err(pv) => {
+                return i.error(List::from(vec!["wrong-type".to_symbol().into(), pv])).await;
+            },
         }
     });
 }

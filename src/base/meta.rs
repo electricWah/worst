@@ -51,9 +51,11 @@ pub fn value_read<T: 'static + Clone + ImplValue + std::io::Read>() -> impl Valu
 impl ReadValue {
     /// Try and get a mutable [Read](std::io::Read) out of the value
     /// (see [value_read]).
-    pub fn try_read(v: Val) -> Option<Box<dyn std::io::Read>> {
-        v.type_meta().first_val::<Self>()
-            .map(|rv| rv.downcast_ref::<Self>().unwrap().0(v))
+    /// On failure, return the input value unscathed.
+    pub fn try_read(v: Val) -> Result<Box<dyn std::io::Read>, Val> {
+        if let Some(rv) = v.type_meta().first_val::<Self>() {
+            Ok(rv.downcast_ref::<Self>().unwrap().0(v))
+        } else { Err(v) }
     }
     /// Check if the [Val] implements [Read](std::io::Read) (see [value_read]).
     pub fn can(v: &Val) -> bool { v.type_meta().contains::<Self>() }

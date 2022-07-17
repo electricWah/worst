@@ -72,7 +72,10 @@ pub fn install(i: &mut Interpreter) {
         let path = i.stack_pop::<String>().await;
         match fs::open_read(path.as_ref()) {
             Ok(f) => i.stack_push(f).await,
-            Err(e) => i.stack_push(format!("{}", e)).await,
+            Err(e) => {
+                i.stack_push(format!("{}", e)).await;
+                i.stack_push(false).await;
+            },
         }
     });
 

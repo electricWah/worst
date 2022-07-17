@@ -15,7 +15,15 @@ case [
     }
     #t {
         list-pop swap drop
-        open-file/read read-port->list eval
+        const path
+        path open-file/read
+        false? if [
+            ; TODO nicer error
+            drop path pause
+        ] [
+            ; TODO load module
+            read-port->list eval
+        ]
     }
 ]
 

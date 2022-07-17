@@ -5,6 +5,7 @@ use std::cell::RefCell;
 // use std::collections::VecDeque;
 use crate::impl_value;
 use crate::base::*;
+use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
 struct OutputPort(RefCell<Box<dyn Write>>);
@@ -87,20 +88,24 @@ pub fn install(i: &mut Interpreter) {
 
     i.define("port->string", |mut i: Handle| async move {
         let pv = i.stack_pop_val().await;
-        if let Some(mut read) = ReadValue::try_read(pv) {
-            let mut s = String::new();
-            match read.read_to_string(&mut s) {
-                Ok(_count) => {
-                    i.stack_push(s).await;
-                    i.stack_push(true).await;
-                },
-                Err(e) => {
-                    i.stack_push(format!("{}", e)).await;
-                    i.stack_push(false).await;
-                },
+        match ReadValue::try_read(pv) {
+            Ok(mut read) => {
+                let mut s = String::new();
+                match read.read_to_string(&mut s) {
+                    Ok(_count) => {
+                        i.stack_push(s).await;
+                        i.stack_push(true).await;
+                    },
+                    Err(e) => {
+                        i.stack_push(format!("{}", e)).await;
+                        i.stack_push(false).await;
+                    },
+                }
+            },
+            Err(pv) => {
+                // TODO wrong type but in stack_pop
+                return i.error(List::from(vec!["wrong-type".to_symbol().into(), pv])).await;
             }
-        } else {
-            todo!("wrong type thinger")
         }
     });
 
