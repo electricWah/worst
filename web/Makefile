@@ -1,5 +1,5 @@
 
-public/worst.js: ../src/ ../Cargo.toml ${WORST_BUNDLE_DIR}
+public/worst.js: ../src/ ../Cargo.toml ../lib
 	wasm-pack build --target web -d $(CURDIR)/public --no-default-features --features wasm
 
 package_lock.json: package.json

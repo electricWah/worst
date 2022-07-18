@@ -1,4 +1,0 @@
-
-[env]
-WORST_BUNDLE_DIR = { value = "lib", relative = true }
-

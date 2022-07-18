@@ -34,7 +34,7 @@ mod embedded {
     use super::*;
     use include_dir::{include_dir, Dir};
 
-    static EMBED_FS: Dir = include_dir!("$WORST_BUNDLE_DIR"); // required for bundled_fs_embed feature
+    static EMBED_FS: Dir = include_dir!("lib");
 
     #[derive(Clone)]
     pub struct File {
