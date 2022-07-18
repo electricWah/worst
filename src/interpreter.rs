@@ -399,24 +399,6 @@ impl Interpreter {
     /// Length of the stack :)
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
-    // unused
-    fn stack_pop<T: Value + Clone>(&mut self) -> Option<T> {
-        if let Some(v) = self.stack.pop() {
-            if v.is::<T>() {
-                v.downcast::<T>()
-            } else {
-                self.stack.push(v);
-                None
-            }
-        } else {
-            None
-        }
-    }
-    // unused
-    fn stack_top<T: Value>(&self) -> Option<&T> {
-        self.stack.top().and_then(Val::downcast_ref::<T>)
-    }
-
     fn resolve_ref(&self, s: impl AsRef<str>) -> Option<&Val> {
         if let Some(def) = self.frame.defs.get(s.as_ref()) {
             Some(def)

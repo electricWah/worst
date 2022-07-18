@@ -38,7 +38,7 @@ mod embedded {
     use super::*;
     use include_dir::{include_dir, Dir};
 
-    static EMBED_FS: Dir = include_dir!("lib");
+    static EMBED_FS: Dir = include_dir!("$CARGO_MANIFEST_DIR/lib");
 
     #[derive(Clone)]
     pub struct File {
