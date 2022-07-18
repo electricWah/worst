@@ -1,4 +1,6 @@
 
+//! `define` and other definition-related builtins
+
 use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
@@ -52,6 +54,7 @@ pub async fn define(mut i: Handle) {
     i.define_closure(name, body, env).await;
 }
 
+/// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.define("define", define);
     i.define("default-attributes", default_attributes);
@@ -73,9 +76,5 @@ pub fn install(i: &mut Interpreter) {
             None => i.stack_push(false).await,
         }
     });
-    // local name = i:stack_pop(Symbol)
-    // local body = i:stack_pop({List, "function"})
-    // local interp = i:stack_ref(1, Interpreter)
-    // interp:define(name, body)
 }
 

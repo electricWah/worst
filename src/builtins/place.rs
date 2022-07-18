@@ -1,7 +1,10 @@
 
+//! Places are mutable things that can each store a value
+
 use crate::interpreter::{Interpreter, Handle};
 use crate::base::*;
 
+/// Install `make-place`, `place-get` and `place-set` functions.
 pub fn install(i: &mut Interpreter) {
     i.define("make-place", |mut i: Handle| async move {
         let v = i.stack_pop_val().await;

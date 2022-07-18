@@ -1,4 +1,8 @@
 
+#![warn(missing_docs)]
+
+//! Hello and welcome to my programming language :)
+
 pub mod base;
 pub mod list;
 pub mod interpreter;

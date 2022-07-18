@@ -9,12 +9,18 @@ use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
+/// Various ways parsing could fail.
 #[derive(Debug, Clone)]
 pub enum ReadError {
+    /// An odd number of `"`
     UnclosedString,
+    /// A `#` right at the end of input
     UnmatchedHash,
+    /// A `#` followed by something unexpected
     UnknownHash(char),
+    /// An unbalanced list delimiter
     UnmatchedList(char),
+    /// A number that looked like it was but isn't
     UnparseableNumber(String),
 }
 impl_value!(ReadError);
@@ -201,6 +207,9 @@ impl ReaderHandle {
     }
 }
 
+/// A [Val] [Interpreter].
+/// Give it text with [write](Reader::write)
+/// and receive code with [read_next](Reader::read_next).
 #[derive(Debug, Clone)]
 pub struct Reader {
     buf: StringBuffer,
@@ -227,16 +236,22 @@ impl Default for Reader {
 }
 
 impl Reader {
+    /// Create a default reader.
     pub fn new() -> Self { Self::default() }
+    /// Offer some text for the reader to chew on.
+    /// It will consume the whole thing.
     pub fn write(&mut self, src: &mut impl Iterator<Item=char>) {
         self.buf.write(src);
     }
+    /// Signal to the reader that there is no more input.
     pub fn set_eof(&mut self) {
         self.buf.set_eof();
     }
+    /// Check whether the reader has reached the end of the input.
     pub fn is_eof(&self) -> bool {
         self.buf.is_eof()
     }
+    /// Read the next value.
     pub fn read_next(&mut self) -> Result<Option<Val>, ReadError> {
         match self.i.borrow_mut().run() {
             None => Ok(None), // maybe?
@@ -256,6 +271,7 @@ impl Reader {
     }
 }
 
+/// Read an entire piece of text as Worst values using the default reader.
 pub fn read_all(src: &mut impl Iterator<Item=char>) -> Result<Vec<Val>, ReadError> {
     let mut reader = Reader::new();
     reader.write(src);

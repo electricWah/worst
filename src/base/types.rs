@@ -23,7 +23,10 @@ impl AsRef<str> for Symbol {
 /// Conversion into a symbol.
 ///
 /// May be removed in favour of [Symbol::from].
-pub trait ToSymbol { fn to_symbol(self) -> Symbol; }
+pub trait ToSymbol {
+    /// Convert this into a [Symbol].
+    fn to_symbol(self) -> Symbol;
+}
 impl<T: Into<Symbol>> ToSymbol for T {
     fn to_symbol(self) -> Symbol { self.into() }
 }

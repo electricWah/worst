@@ -1,9 +1,12 @@
 
+//! Reading code
+
 use crate::base::*;
 use crate::list::*;
 use crate::reader::*;
 use crate::interpreter::{Interpreter, Handle};
 
+/// Install a bunch of reader functions.
 pub fn install(i: &mut Interpreter) {
     i.define("reader-empty", |mut i: Handle| async move {
         i.stack_push(Reader::new()).await;

@@ -1,4 +1,6 @@
 
+//! Input and output ports for reading and writing strings and bytes
+
 use std::rc::Rc;
 use std::io::{ self, Read, BufRead, Write };
 use std::cell::RefCell;
@@ -47,6 +49,7 @@ impl Read for StringReader {
     }
 }
 
+/// Install all these functions if enabled.
 pub fn install(i: &mut Interpreter) {
 
     #[cfg(feature = "enable_stdio")] {

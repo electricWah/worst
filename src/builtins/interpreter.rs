@@ -1,4 +1,6 @@
 
+//! Conjuring, manipulating and executing interpreters
+
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -38,6 +40,7 @@ impl Default for Interp {
     }
 }
 
+/// Install all the interpreter functions.
 pub fn install(i: &mut Interpreter) {
     i.define("interpreter-empty", |mut i: Handle| async move {
         i.stack_push(Interp::default()).await;

@@ -1,4 +1,6 @@
 
+//! `import` and `export`
+
 use crate::base::*;
 use crate::list::*;
 use crate::reader;
@@ -138,6 +140,7 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
     file::open_bundled_read(format!("{module_path}.w")).and_then(|rv| ReadValue::try_read(rv).ok())
 }
 
+/// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     // No point having a libpath if the filesystem isn't accessible
     #[cfg(feature = "enable_fs")]

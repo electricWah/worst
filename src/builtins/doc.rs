@@ -1,4 +1,6 @@
 
+//! Basic documentation attribute and metadata
+
 use crate::base::*;
 use crate::impl_value;
 use crate::interpreter::{Interpreter, Handle};
@@ -6,6 +8,7 @@ use crate::interpreter::{Interpreter, Handle};
 struct Doc(Val);
 impl_value!(Doc);
 
+/// Install all documentation functions.
 pub fn install(i: &mut Interpreter) {
     let doc_place = Place::wrap(false);
     let doc_place_set = doc_place.clone();

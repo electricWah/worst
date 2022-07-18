@@ -264,30 +264,38 @@ impl PreHashed {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct DefSet(Rc<HashMap<PreHashed, Val, BuildNoHasher>>);
 impl DefSet {
+    /// Add a definition.
     pub fn insert(&mut self, key: String, val: impl Value) {
         Rc::make_mut(&mut self.0).insert(PreHashed::from_string(key), val.into());
     }
+    /// Remove a definition by name.
     pub fn remove(&mut self, key: &str) {
         Rc::make_mut(&mut self.0).remove(&PreHashed::from_str(key));
     }
+    /// Look for a definition by name.
     pub fn get(&self, key: impl AsRef<str>) -> Option<&Val> {
         self.0.get(&PreHashed::from_str(key.as_ref()))
     }
     fn keys_hashed(&self) -> impl Iterator<Item = &PreHashed> {
         self.0.keys()
     }
+    /// An iterator over the contained definition names.
     pub fn keys(&self) -> impl Iterator<Item = &String> {
         self.0.keys().map(|k| &k.0)
     }
     fn iter_hashed(&self) -> impl Iterator<Item = (&PreHashed, &Val)> {
         self.0.iter()
     }
+    /// An iterator over the contained definition name/body pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &Val)> {
         self.0.iter().map(|(k, v)| (k.0.borrow(), v))
     }
+    /// Whether there are no entries.
     pub fn is_empty(&self) -> bool { self.0.is_empty() }
+    /// How many entries there are.
     pub fn len(&self) -> usize { self.0.len() }
 
+    /// Retain definitions based on the given criterion.
     pub fn filter<F: Fn(&str, &Val) -> bool>(&mut self, f: F) {
         Rc::make_mut(&mut self.0).retain(|ph, v| f(ph.0.as_ref(), v));
     }
@@ -347,23 +355,24 @@ impl_value!(Interpreter, value_debug::<Interpreter>());
 
 impl Interpreter {
 
+    /// Check if there is anything else left to evaluate.
     pub fn is_complete(&self) -> bool {
         self.frame.is_empty() && self.parents.is_empty()
     }
 
+    /// Add a definition to the current stack frame.
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
         let name = name.into();
         let defmeta = DefineMeta { name: name.clone() };
         self.frame.defs.insert(name, def.into_val().with_meta(defmeta));
     }
 
-    // pub fn definition_get(&self, name: impl AsRef<str>) -> Option<&Definition> {
-    // }
-
+    /// Remove a definition from the current stack frame, by name.
     pub fn definition_remove(&mut self, name: impl AsRef<str>) {
         self.frame.defs.remove(name.as_ref());
     }
 
+    /// Get all available definitions.
     pub fn all_definitions(&self) -> DefSet {
         let mut defs = self.frame.defs.clone();
         for (name, def) in self.defstacks.iter_latest() {
@@ -372,32 +381,26 @@ impl Interpreter {
         defs
     }
 
-    // pub fn set_body(&mut self, body: List<Val>) { self.frame.body = body; }
-    // fn body_ref(&self) -> &List<Val> { &self.frame.body }
-
+    /// Is the interpreter at the top level? If so, uplevel will fail,
+    /// and the remaining children and body parts are all that is left
+    /// for the interpreter to interpret before it is replete.
     pub fn is_toplevel(&self) -> bool { self.parents.is_empty() }
 
-    // maybe not needed with like, eval_in_new_body?
-    // pub fn enter_new_frame(&mut self, body: List<Val>)
-    // pub fn definitions()
-    // pub fn all_definitions()
-    // pub fn error(name, ...) // no?
-    // pub fn try_resolve(name)
-    // pub fn stack_ref(i, ty)
-    // pub fn stack_get()
-    // pub fn stack_set(l)
-
-    // also stack_pop_purpose() etc etc
-    // maybe stack() + stack_mut() -> StackRef
-    // with pop_any() and pop::<T> and ref etc?
-
+    // maybe all of these should be within List
+    // and just have stack_ref and stack_mut
+    /// Get a reference to the stack
     pub fn stack_ref(&self) -> &List { &self.stack }
+    /// Remove and return the top value on the stack if it isn't empty
     pub fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
-    pub fn stack_top_val(&mut self) -> Option<Val> { self.stack.top().cloned() }
+    /// Get the top value on the stack if it isn't empty
+    pub fn stack_top_val(&self) -> Option<&Val> { self.stack.top() }
+    /// Put something on top of the stack
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
+    /// Length of the stack :)
     pub fn stack_len(&self) -> usize { self.stack.len() }
 
-    pub fn stack_pop<T: Value + Clone>(&mut self) -> Option<T> {
+    // unused
+    fn stack_pop<T: Value + Clone>(&mut self) -> Option<T> {
         if let Some(v) = self.stack.pop() {
             if v.is::<T>() {
                 v.downcast::<T>()
@@ -409,7 +412,8 @@ impl Interpreter {
             None
         }
     }
-    pub fn stack_top_ref<T: Value>(&self) -> Option<&T> {
+    // unused
+    fn stack_top<T: Value>(&self) -> Option<&T> {
         self.stack.top().and_then(Val::downcast_ref::<T>)
     }
 
@@ -421,7 +425,7 @@ impl Interpreter {
         } else { None }
     }
 
-    fn read_body(&mut self) -> Option<Val> { self.frame.body.pop() }
+    /// Grab a reference to the remaining code in the current stack frame.
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
 
     /// Returns None on completion or Some(Val) on pause or error.
@@ -440,7 +444,7 @@ impl Interpreter {
                     }
                 },
                 None => {
-                    if let Some(next) = self.read_body() {
+                    if let Some(next) = self.frame.body.pop() {
                         if let Some(s) = next.downcast_ref::<Symbol>() {
                             self.call(s.clone());
                         } else {
@@ -474,6 +478,8 @@ impl Interpreter {
         None
     }
 
+    /// Make the interpreter stop doing things,
+    /// but leave its toplevel definitions intact.
     pub fn reset(&mut self) {
         while self.enter_parent_frame() {}
         self.frame.childs = vec![];
@@ -534,6 +540,8 @@ impl Interpreter {
         self.frame.childs.push(f);
     }
 
+    /// Evaluate the given code.
+    /// This is probably what you will use to do stuff with a fresh interpreter.
     pub fn eval_next(&mut self, f: impl EvalOnce) {
         let f = f.into();
         if self.is_complete() {
@@ -626,23 +634,32 @@ impl Interpreter {
 
 // not sure if these all have to be mut
 impl Handle {
+    /// See [pause](Self::pause), but the value is given [IsError] metadata
+    /// so `error?` will return true.
     pub async fn error(&self, v: impl Value) {
         self.co.yield_(FrameYield::Pause(IsError::add(v))).await;
     }
+    /// Pause evaluation and return the given value through [Interpreter::run].
     pub async fn pause(&self, v: impl Value) {
         self.co.yield_(FrameYield::Pause(v.into())).await;
     }
+    /// Evaluate a list or function.
     pub async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into())).await;
     }
+    /// Evaluate `child` followed by `body`, but `child` is evaluated
+    /// inside `body` as a new stack frame so it can add definitions
+    /// without affecting the stack frame that called this function.
     pub async fn eval_child(&mut self, body: List, child: impl EvalOnce) {
         let mut frame = ListFrame::new_body(body);
         frame.childs.push(child.into());
         self.co.yield_(FrameYield::Eval(ChildFrame::ListFrame(frame))).await;
     }
+    /// Look up a definition and evaluate it.
     pub async fn call(&mut self, s: impl Into<Symbol>) {
         self.co.yield_(FrameYield::Call(s.into())).await;
     }
+    /// Put a value on top of the stack.
     pub async fn stack_push(&mut self, v: impl Value) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
@@ -657,34 +674,43 @@ impl Handle {
         }
     }
 
+    /// Take the top value off the stack.
+    /// No type is assumed or requested.
     pub async fn stack_pop_val(&mut self) -> Val {
         self.stack_op(true, vec![StackGetRequest::Any]).await.pop().unwrap()
     }
-    // TODO stack_pop_meta
+    /// Take the top value off the stack.
+    /// The resulting value will be of the type requested.
+    /// If the stack is empty, the interpreter will pause.
     pub async fn stack_pop<T: Value + ImplValue + Clone>(&mut self) -> Vals<T> {
         self.stack_op(true, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
     }
     
+    /// Get a copy of the top value on the stack without removing it.
+    /// See [stack_pop](Self::stack_pop).
     pub async fn stack_top_val(&self) -> Val {
         self.stack_op(false, vec![StackGetRequest::Any]).await.pop().unwrap()
     }
 
-    /// Get the top value of the stack without removing it.
-    /// Note that using [Vals::as_mut] on the return value
-    /// will not alter the stack, as it will make a copy.
+    /// Get a copy of the top value of the stack without removing it.
+    /// See [stack_pop](Self::stack_pop).
     pub async fn stack_top<T: Value + ImplValue>(&self) -> Vals<T> {
         self.stack_op(false, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
     }
 
+    /// The current state of the stack, as a list (cloned).
     pub async fn stack_get(&self) -> List {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::StackGetAll(Rc::clone(&r))).await;
         r.take().unwrap()
     }
 
+    /// Whether the stack is empty.
     pub async fn stack_empty(&self) -> bool {
         self.stack_get().await.is_empty()
     }
+    /// Quote the next value in the current body.
+    /// If there is none, the interpreter will error with "quote-nothing".
     pub async fn quote_val(&mut self) -> Val {
         let r = Rc::new(Cell::new(None));
         loop {
@@ -692,12 +718,21 @@ impl Handle {
             if let Some(q) = r.take() { return q; }
         }
     }
+    /// Evaluate the given thingy in the parent stack frame.
+    /// The interpreter will pause, likely indefinitely,
+    /// if there is no parent stack frame.
     pub async fn uplevel(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Uplevel(f.into())).await;
     }
+    /// Add a definition in the current stack frame.
+    /// It will likely be a [List] or a Rust function.
     pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
         self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
     }
+    /// Add a definition in the current stack frame,
+    /// with an associated environment of definitions.
+    /// See [local_definitions](Self::local_definitions)
+    /// and [all_definitions](Self::all_definitions).
     pub async fn define_closure(&mut self, name: impl Into<String>,
                                 body: impl Value, env: DefSet) {
         let v = body.into().with_meta(ClosureEnv(env));
@@ -708,17 +743,26 @@ impl Handle {
         self.co.yield_(FrameYield::Definitions(global, Rc::clone(&r))).await;
         r.take().unwrap()
     }
+    /// Get all definitions defined in the current stack frame.
+    /// See [define_closure](Self::define_closure).
     pub async fn local_definitions(&mut self) -> DefSet {
         self.get_definitions(false).await
     }
+    /// Get all available definitions.
+    /// See [define_closure](Self::define_closure).
     pub async fn all_definitions(&mut self) -> DefSet {
         self.get_definitions(true).await
     }
+    /// Look for a definition by the given name.
     pub async fn resolve_definition(&mut self, name: impl Into<String>) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::ResolveDefinition(name.into(), Rc::clone(&r))).await;
         r.take()
     }
+    /// Query the current call stack.
+    /// Child frames (with uplevel) are not given.
+    /// Each stack frame may have a name;
+    /// if so, it is the name of the definition.
     pub async fn call_stack_names(&self) -> Vec<Option<String>> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;

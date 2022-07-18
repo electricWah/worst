@@ -1,7 +1,10 @@
 
+//! Strings (of utf8 characters)
+
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 
+/// Install some string functions.
 pub fn install(i: &mut Interpreter) {
     i.define("string?", |mut i: Handle| async move {
         let v = i.stack_top_val().await;

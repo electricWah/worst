@@ -4,6 +4,9 @@
 use crate::impl_value;
 use crate::base::*;
 
+/// A list of [Val] values. It is itself a [Value].
+/// This is the primary container type in Worst.
+/// It's a little like a Lisp list.
 #[derive(Debug, Clone)]
 pub struct List {
     data: Vec<Val>,
@@ -46,27 +49,37 @@ impl Default for List {
 impl_value!(List, value_eq::<List>(), value_tostring(List::to_string_debug));
 
 impl List {
+    /// Get the number of values in this list.
     pub fn len(&self) -> usize { self.data.len() }
+    /// Get a value by index, if the index is in range. 0 is at the front.
     pub fn get(&self, i: usize) -> Option<&Val> {
         if i < self.data.len() {
             Some(&self.data[self.data.len() - 1 - i])
         } else { None }
     }
+    /// Is this list devoid of contents?
     pub fn is_empty(&self) -> bool { self.data.is_empty() }
 
+    /// Iterate this list from front to back :)
     pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
 
+    /// Take the front value from this list, if it isn't empty.
     pub fn pop(&mut self) -> Option<Val> {
         self.data.pop()
     }
+    /// Put just one value at the front of this list.
     pub fn push(&mut self, v: Val) {
         self.data.push(v);
     }
+    /// Put the contents of an entire list in front of this list.
     pub fn prepend(&mut self, mut other: List) {
         self.data.append(&mut other.data);
     }
+    /// Get the value at the front of this list, if it isn't empty.
     pub fn top(&self) -> Option<&Val> { self.get(0) }
 
+    /// Build a list from the given iterator,
+    /// shaped like `(key value key value ...)`
     pub fn from_pairs<K: Into<Val>, V: Into<Val>>(src: impl Iterator<Item=(K, V)>) -> Self {
         let mut data = vec![];
         for (k, v) in src {
@@ -75,6 +88,7 @@ impl List {
         }
         List { data }
     }
+    /// Reverse the list in-place.
     pub fn reverse(&mut self) {
         self.data.reverse();
     }

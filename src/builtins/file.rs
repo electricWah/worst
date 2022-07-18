@@ -1,22 +1,26 @@
 
+//! Filesystem bits, and a bundled filestore built in to the binary when enabled
+
 use std::io;
 use crate::impl_value;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 
 #[cfg(feature = "enable_fs")]
-pub mod fs {
+pub(crate) mod fs {
     use super::*;
     use std::fs;
     use std::rc::Rc;
     use std::cell::RefCell;
 
+    /// A reference-counted [fs::File] [Val].
     #[derive(Clone)]
     pub struct File {
         // path: String,
         handle: Rc<RefCell<fs::File>>,
     }
 
+    /// Try to open the file.
     pub fn open_read(path: impl AsRef<std::path::Path>) -> io::Result<File> {
         Ok(File { handle: Rc::new(RefCell::new(fs::File::open(path)?)) })
     }
@@ -66,6 +70,7 @@ pub fn open_bundled_read(path: impl AsRef<std::path::Path>) -> Option<Val> {
     None
 }
 
+/// Install `open-file/read` and `open-embedded-file/read` if enabled.
 pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "enable_fs")]
     i.define("open-file/read", |mut i: Handle| async move {

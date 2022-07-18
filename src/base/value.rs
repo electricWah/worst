@@ -7,7 +7,10 @@ use std::any::{ Any, TypeId };
 /// The Worst value trait.
 /// Usually use [Value] or [impl_value] instead of this directly.
 pub trait ImplValue {
-    thread_local!(static TYPE: RefCell<Type> = RefCell::new(Type::default()));
+    thread_local!(
+        /// A value shared by all instances of this type,
+        /// so they can all have the same type within Worst.
+        static TYPE: RefCell<Type> = RefCell::new(Type::default()));
 
     /// Add a new type-meta value. Take care to only do this once per `m`.
     /// The new value will only apply to newly-created instances of this type.
@@ -16,6 +19,7 @@ pub trait ImplValue {
     fn install_meta(m: impl Value) {
         Self::TYPE.with(|t| t.borrow_mut().push_meta(m.into()))
     }
+    /// Get a copy of this type's Type value.
     fn get_type() -> Type {
         Self::TYPE.with(|t| t.borrow().clone())
     }
@@ -30,7 +34,9 @@ pub trait ImplValue {
 /// // later, with an interpreter:
 /// i.stack_push(Cool);
 /// ```
-/// You can use functions such as [value_debug] and [value_eq]
+/// You can use functions such as
+/// [value_debug](crate::base::value_debug)
+/// and [value_eq](crate::base::value_eq)
 /// to act as "dynamic traits", designated [Meta] entries for the [Type]
 /// which can wrap built-in traits, override default behaviour,
 /// and let you pretend Worst has some kind of trait system.
@@ -68,9 +74,13 @@ pub struct Type {
     meta: Rc<Meta>,
 }
 impl Type {
+    /// Create a new Type with some metadata in it.
+    /// Mostly just for use by [impl_value].
     pub fn new_meta<T: 'static>(m: Meta) -> Self {
         Type { id: Some(TypeId::of::<T>()), meta: Rc::new(m) }
     }
+    /// Add a new metadata value to this type. It likely won't do anything.
+    /// See [install_meta](ImplValue::install_meta).
     pub fn push_meta(&mut self, m: Val) {
         Rc::make_mut(&mut self.meta).0.push(m)
     }
@@ -148,30 +158,34 @@ impl Val {
     }
 
     /// Whether this and that have the very same memory location.
-    /// More exact and a bit faster than [eq], but not as useful.
+    /// More exact and a bit faster than [eq](Val::eq), but not as useful.
     pub fn identical(&self, ye: &Self) -> bool {
         Rc::ptr_eq(&self.v, &ye.v)
     }
 
+    /// Is the internal value of the given type?
+    /// If so, the various downcasting functions should return correctly.
     pub fn is<T: Value>(&self) -> bool {
         self.v.is::<T>()
     }
 
+    /// Get a reference to this value's Meta in order to query it and such.
     pub fn meta_ref(&self) -> &Meta { &self.meta }
+    /// Update this value's metadata willy-nilly.
+    /// Modifying the metadata won't affect other copies.
     pub fn meta_ref_mut(&mut self) -> &mut Meta {
         Rc::make_mut(&mut self.meta)
     }
+    /// Add a new [Meta] to this value.
     pub fn with_meta(mut self, v: impl Value) -> Self {
         self.meta_ref_mut().push(v); self
     }
 
+    /// Get the type for this value.
     pub fn type_ref(&self) -> &Type { &self.ty }
+    /// Get the metadata attached to the type for this value,
+    /// as given in [impl_value].
     pub fn type_meta(&self) -> &Meta { &self.ty.meta }
-    // pub fn method<T: Value>(&self) -> Option<&T> {
-    //     if let Some(ty) = self.meta.first::<Type>() {
-    //         ty.1.first::<T>()
-    //     } else { None }
-    // }
 }
 
 /// Metadata record to be attached to a [Type] or individual [Val].
