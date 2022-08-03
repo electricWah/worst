@@ -3,11 +3,11 @@
 
 mod value;
 mod types;
-mod meta;
+mod traits;
 mod vals;
 
 pub use value::*;
 pub use types::*;
-pub use meta::*;
+pub use traits::*;
 pub use vals::*;
 

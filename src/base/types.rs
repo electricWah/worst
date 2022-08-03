@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use crate::impl_value;
 use super::value::*;
-use super::meta::*;
+use super::traits::*;
 
 /// Symbol type: an unquoted word used to look up definitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
