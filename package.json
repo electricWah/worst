@@ -1,0 +1,20 @@
+{
+    "name": "worst",
+    "version": "0.1.0",
+    "license": "MIT",
+    "main": "pkg/worst.js",
+    "files": [
+        "pkg/package.json",
+        "pkg/README.md",
+        "pkg/worst_bg.wasm",
+        "pkg/worst_bg.wasm.d.ts",
+        "pkg/worst.d.ts",
+        "pkg/worst.js"
+    ],
+    "scripts": {
+        "prepare": "wasm-pack build --target web --no-default-features --features wasm"
+    },
+    "devDependencies": {
+        "wasm-pack": "^0.10.3"
+    }
+}
