@@ -23,7 +23,7 @@ pub enum ReadError {
     /// A number that looked like it was but isn't
     UnparseableNumber(String),
 }
-impl_value!(ReadError);
+impl_value!(ReadError, value_debug::<ReadError>());
 
 // Interpreter-based reader: feed it text and it will run an interpreter
 // to consume the text and output values
@@ -179,7 +179,7 @@ impl ReaderHandle {
                             break 'number;
                         }
                     }
-                    if let Ok(v) = str::parse::<i32>(&buf) {
+                    if let Ok(v) = str::parse::<i64>(&buf) {
                         self.emit(v).await;
                     } else {
                         self.error(ReadError::UnparseableNumber(buf)).await;

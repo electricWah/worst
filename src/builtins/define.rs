@@ -5,6 +5,8 @@ use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
+mod dispatch;
+
 async fn default_attributes(mut _i: Handle) {
     // TODO into_new_frame
 }
@@ -76,5 +78,6 @@ pub fn install(i: &mut Interpreter) {
             None => i.stack_push(false).await,
         }
     });
+    dispatch::install(i);
 }
 

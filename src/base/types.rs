@@ -49,9 +49,8 @@ impl_value!(String, value_eq::<String>(), value_debug::<String>(), type_name("st
 // impl_value!(&'static str, type_name("string"));
 
 // TODO bunch of numbers, better than this
-impl_value!(i32, value_eq::<i32>(), value_debug::<i32>(), type_name("number"));
-impl_value!(i64, value_eq::<i64>(), value_debug::<i64>(), type_name("number"));
-impl_value!(f64, value_eq::<f64>(), value_debug::<f64>(), type_name("number"));
+impl_value!(i64, value_eq::<i64>(), value_debug::<i64>(), type_name("int64"));
+impl_value!(f64, value_eq::<f64>(), value_debug::<f64>(), type_name("float64"));
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone, Eq)]

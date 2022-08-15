@@ -39,7 +39,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("value-doc", |mut i: Handle| async move {
         let v = i.stack_pop_val().await;
         let doc =
-            if let Some(Doc(doc)) = v.meta_ref().first::<Doc>() {
+            if let Some(Doc(doc)) = v.meta_ref().first_ref::<Doc>() {
                 doc.clone()
             } else {
                 false.into()

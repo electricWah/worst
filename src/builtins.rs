@@ -3,6 +3,8 @@
 
 use crate::interpreter::Interpreter;
 
+pub mod util;
+
 pub mod core;
 pub mod define;
 pub mod doc;
@@ -12,6 +14,7 @@ pub mod interpreter;
 pub mod io;
 pub mod list;
 pub mod module;
+pub mod numeric;
 #[cfg(feature = "enable_os")]
 pub mod os;
 pub mod place;
@@ -29,6 +32,7 @@ pub fn install(i: &mut Interpreter) {
     io::install(i);
     list::install(i);
     module::install(i);
+    numeric::install(i);
     #[cfg(feature = "enable_os")]
     os::install(i);
     place::install(i);

@@ -191,13 +191,6 @@ pub async fn if_(mut i: Handle) {
     }
 }
 
-/// `add` - Add the top two numbers on the stack and replace them with their sum.
-pub async fn add(mut i: Handle) {
-    let a = i.stack_pop::<i32>().await.into_inner();
-    let b = i.stack_pop::<i32>().await.into_inner();
-    i.stack_push(a + b).await;
-}
-
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.define("quote", quote);
@@ -221,7 +214,6 @@ pub fn install(i: &mut Interpreter) {
         let v = i.stack_pop_val().await;
         i.pause(v).await;
     });
-    i.define("add", add);
     i.define("stack-empty", |mut i: Handle| async move {
         let v = i.stack_empty().await;
         i.stack_push(v).await;

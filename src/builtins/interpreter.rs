@@ -64,7 +64,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("interpreter-stack-length",  |mut i: Handle| async move {
         let interp = i.stack_top::<Interp>().await;
         let len = interp.as_ref().0.borrow_mut().stack_len();
-        i.stack_push(len as i32).await;
+        i.stack_push(len as i64).await;
     });
     i.define("interpreter-stack-push",  |mut i: Handle| async move {
         let v = i.stack_pop_val().await;

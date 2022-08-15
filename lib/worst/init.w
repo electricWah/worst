@@ -3,6 +3,7 @@ define default-attributes [documentation-attribute]
 
 import {
     worst/misc
+    worst/multi
     syntax/case
 }
 

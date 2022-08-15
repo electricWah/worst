@@ -2,14 +2,12 @@
 //! Strings (of utf8 characters)
 
 use crate::base::*;
+use super::util;
 use crate::interpreter::{Interpreter, Handle};
 
 /// Install some string functions.
 pub fn install(i: &mut Interpreter) {
-    i.define("string?", |mut i: Handle| async move {
-        let v = i.stack_top_val().await;
-        i.stack_push(v.is::<String>()).await;
-    });
+    i.define("string?", util::type_predicate::<String>);
     i.define("string-append", |mut i: Handle| async move {
         let b = i.stack_pop::<String>().await;
         let mut a = i.stack_pop::<String>().await;

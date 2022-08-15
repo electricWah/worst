@@ -53,8 +53,8 @@ impl ReadValue {
     /// (see [value_read]).
     /// On failure, return the input value unscathed.
     pub fn try_read(v: Val) -> Result<Box<dyn std::io::Read>, Val> {
-        if let Some(rv) = v.type_meta().first_val::<Self>() {
-            Ok(rv.downcast_ref::<Self>().unwrap().0(v))
+        if let Some(rv) = v.clone().type_meta().first_ref::<Self>() {
+            Ok(rv.0(v))
         } else { Err(v) }
     }
     /// Check if the [Val] implements [Read](std::io::Read) (see [value_read]).
@@ -92,10 +92,10 @@ impl IsError {
 
 impl Debug for Val {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        if let Some(dv) = self.type_meta().first::<DebugValue>() {
+        if let Some(dv) = self.type_meta().first_ref::<DebugValue>() {
             let d = dv.0(self);
             write!(f, "{}", d)?;
-        } else if let Some(n) = self.type_meta().first::<TypeName>() {
+        } else if let Some(n) = self.type_meta().first_ref::<TypeName>() {
             write!(f, "<{}>", n.0)?;
         } else {
             write!(f, "<some value>")?;
@@ -107,9 +107,9 @@ impl Debug for Val {
 impl PartialEq for Val {
     fn eq(&self, you: &Self) -> bool {
         if self.identical(you) { return true; }
-        if let Some(e) = self.type_meta().first::<EqValue>() {
+        if let Some(e) = self.type_meta().first_ref::<EqValue>() {
             e.0(self, you)
-        } else if let Some(e) = you.type_meta().first::<EqValue>() {
+        } else if let Some(e) = you.type_meta().first_ref::<EqValue>() {
             e.0(you, self)
         } else { false }
     }

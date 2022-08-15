@@ -176,9 +176,9 @@ impl Val {
     pub fn meta_ref_mut(&mut self) -> &mut Meta {
         Rc::make_mut(&mut self.meta)
     }
-    /// Add a new [Meta] to this value.
-    pub fn with_meta(mut self, v: impl Value) -> Self {
-        self.meta_ref_mut().push(v); self
+    /// Builder-style wrapper for [meta_ref_mut]
+    pub fn with_meta(mut self, f: impl FnOnce(&mut Meta)) -> Self {
+        f(self.meta_ref_mut()); self
     }
 
     /// Get the type for this value.
@@ -202,16 +202,24 @@ impl Meta {
         self.push(v); self
     }
     /// Find the first `T`.
-    pub fn first<T: Value>(&self) -> Option<&T> {
-        self.0.iter().find_map(|v| v.downcast_ref::<T>())
-    }
-    /// Find the first `T` and copy it as a [Val] (preserving its metadata).
-    pub fn first_val<T: Value>(&self) -> Option<Val> {
-        self.0.iter().find(|v| v.is::<T>()).cloned()
+    pub fn first_ref<T: Value>(&self) -> Option<&T> {
+        self.0.iter().rev().find_map(|v| v.downcast_ref::<T>())
     }
     /// Check if this contains a `T`.
     pub fn contains<T: Value>(&self) -> bool {
-        self.0.iter().any(|v| v.is::<T>())
+        self.0.iter().rev().any(|v| v.is::<T>())
+    }
+
+    /// Find the first `T` as a [Val] and remove it.
+    pub fn take_first_val<T: Value>(&mut self) -> Option<Val> {
+        if let Some(idx) = self.0.iter().position(|v| v.is::<T>()) {
+            Some(self.0.remove(idx))
+        } else { None }
+    }
+
+    /// Get an iterator over the values.
+    pub fn iter(&self) -> impl Iterator<Item=&Val> {
+        self.0.iter()
     }
 }
 

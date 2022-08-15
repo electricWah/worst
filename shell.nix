@@ -11,8 +11,6 @@ let
     graphviz
     linuxPackages.perf
     rustup
-    wasm-pack
-    wasm-bindgen-cli
     openssl
     binaryen
     nodejs

@@ -187,7 +187,7 @@ impl From<Val> for ChildFrame {
 
 fn child_frame_closure(l: List, meta: &Meta) -> ChildFrame {
     let mut frame = ListFrame::new_body_meta(l, meta.clone());
-    if let Some(ClosureEnv(ds)) = meta.first::<ClosureEnv>() {
+    if let Some(ClosureEnv(ds)) = meta.first_ref::<ClosureEnv>() {
         frame = frame.with_defs(ds.clone());
     }
     ChildFrame::ListFrame(frame)
@@ -364,7 +364,7 @@ impl Interpreter {
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
         let name = name.into();
         let defmeta = DefineMeta { name: name.clone() };
-        self.frame.defs.insert(name, def.into_val().with_meta(defmeta));
+        self.frame.defs.insert(name, def.into_val().with_meta(|m| m.push(defmeta)));
     }
 
     /// Remove a definition from the current stack frame, by name.
@@ -595,14 +595,14 @@ impl Interpreter {
     // basic look at all the ListFrame and see
     fn call_stack_names(&self) -> Vec<Option<String>> {
         let mut r = vec![];
-        if let Some(DefineMeta { name }) = self.frame.meta.first::<DefineMeta>() {
+        if let Some(DefineMeta { name }) = self.frame.meta.first_ref::<DefineMeta>() {
             r.push(Some(name.clone()));
         } else {
             r.push(None);
         }
 
         for p in self.parents.iter().rev() {
-            if let Some(DefineMeta { name }) = p.meta.first::<DefineMeta>() {
+            if let Some(DefineMeta { name }) = p.meta.first_ref::<DefineMeta>() {
                 r.push(Some(name.clone()));
             } else {
                 r.push(None);
@@ -717,7 +717,7 @@ impl Handle {
     /// and [all_definitions](Self::all_definitions).
     pub async fn define_closure(&mut self, name: impl Into<String>,
                                 body: impl Value, env: DefSet) {
-        let v = body.into().with_meta(ClosureEnv(env));
+        let v = body.into().with_meta(|m| m.push(ClosureEnv(env)));
         self.co.yield_(FrameYield::Define(name.into(), v)).await;
     }
     async fn get_definitions(&mut self, global: bool) -> DefSet {
@@ -736,7 +736,7 @@ impl Handle {
         self.get_definitions(true).await
     }
     /// Look for a definition by the given name.
-    pub async fn resolve_definition(&mut self, name: impl Into<String>) -> Option<Val> {
+    pub async fn resolve_definition(&self, name: impl Into<String>) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::ResolveDefinition(name.into(), Rc::clone(&r))).await;
         r.take()
