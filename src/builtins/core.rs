@@ -111,7 +111,7 @@ pub async fn uplevel(mut i: Handle) {
 }
 
 /// `const` - Awkward `let`
-/// ```
+/// ```ignore
 /// define const [
 ///     [quote] swap list-push list-reverse
 ///     upquote
@@ -149,7 +149,7 @@ pub async fn upquote(mut i: Handle) {
 }
 
 /// `while` - Do things until don't
-/// ```
+/// ```ignore
 /// ; while [-> bool] [body ...]
 /// define while [
 ///     upquote quote %%cond definition-add
@@ -171,7 +171,7 @@ pub async fn while_(mut i: Handle) {
 }
 
 /// `if` - Do or don't a thing and then don't or do another thing
-/// ```
+/// ```ignore
 /// ; bool if [if-true] [if-false]
 /// define if [
 ///     upquote upquote

@@ -4,6 +4,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::num::IntErrorKind;
 use crate::impl_value;
 use crate::base::*;
 use crate::list::*;
@@ -167,40 +168,32 @@ impl ReaderHandle {
                 '{' => self.start_list('{', '}'),
                 c @ (')' | ']' | '}') => self.end_list(c).await,
 
-                c if c.is_numeric() => {
-                    let mut buf = String::from(c);
-                    'number: loop {
-                        if self.src.is_empty() { break 'number; }
-                        let c = self.next().await;
-                        if c.is_numeric() {
-                            buf.push(c);
-                        } else {
-                            self.src.un_next(c);
-                            break 'number;
-                        }
-                    }
-                    if let Ok(v) = str::parse::<i64>(&buf) {
-                        self.emit(v).await;
-                    } else {
-                        self.error(ReadError::UnparseableNumber(buf)).await;
-                    }
-
-                },
-
                 c => {
                     let mut buf = String::from(c);
-                    'symbol: loop {
-                        if self.src.is_empty() { break 'symbol; }
+                    loop {
+                        if self.src.is_empty() { break; }
                         match self.next().await {
-                            c if c.is_whitespace() => break 'symbol,
-                            c@('(' | ')' | '[' | ']' | '{' | '}' | '"') => {
+                            c if c.is_whitespace() => break,
+                            c@('(' | ')' | '[' | ']' | '{' | '}' | '"' | '#') => {
                                 self.src.un_next(c);
-                                break 'symbol;
+                                break;
                             },
                             c => buf.push(c),
                         }
                     }
-                    self.emit(Symbol::from(buf)).await;
+                    // TODO parse as i64, then f64, then symbol as fallback
+                    match str::parse::<i64>(&buf) {
+                        Ok(v) => self.emit(v).await,
+                        Err(e)
+                            if e.kind() == &IntErrorKind::PosOverflow
+                            || e.kind() == &IntErrorKind::NegOverflow =>
+                                self.error(ReadError::UnparseableNumber(buf)).await,
+                        Err(_) =>
+                            match str::parse::<f64>(&buf) {
+                                Ok(v) => self.emit(v).await,
+                                Err(_) => self.emit(Symbol::from(buf)).await,
+                            },
+                    }
                 },
             }
         }
@@ -313,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn read_i32() {
+    fn read_i64() {
         assert_eq!(vec_read("123"), vec![123.into()]);
         assert_eq!(vec_read("12#t34"), vec![12.into(), true.into(), 34.into()]);
     }
