@@ -45,7 +45,7 @@ pub struct InternalVal(Val);
 
 impl From<Val> for JsValue {
     fn from(v: Val) -> JsValue {
-        if let Some(jsv) = v.type_meta().first::<ToJsValue>() {
+        if let Some(jsv) = v.type_meta().first_ref::<ToJsValue>() {
             let vv = jsv.0(&v);
             // web_sys::console::warn_3(&"into jsvalue".into(), &format!("{:?}", &v).into(), &vv);
             vv
@@ -91,7 +91,7 @@ pub fn setup() {
         to_jsvalue::<bool>();
         to_jsvalue::<String>();
         to_jsvalue::<Symbol>();
-        to_jsvalue::<i32>();
+        to_jsvalue::<i64>();
         to_jsvalue::<f64>();
         to_jsvalue::<List>();
         to_jsvalue::<JsValue>();
