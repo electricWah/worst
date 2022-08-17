@@ -58,12 +58,13 @@ mod private {
 
     #[derive(Clone)]
     pub struct StackGetOp {
-        pub pop: bool,
+        /// None = pop top, Some(nth) = get nth from top (0 being topmost)
+        pub pop: Option<usize>,
         pub req: Vec<StackGetRequest>,
         pub res: YieldReturn<Vec<Val>>,
     }
     impl StackGetOp {
-        pub fn from_request(pop: bool, v: Vec<StackGetRequest>) -> Self {
+        pub fn from_request(pop: Option<usize>, v: Vec<StackGetRequest>) -> Self {
             Self {
                 pop, req: v, res: Rc::new(Cell::new(None)),
             }
@@ -478,19 +479,21 @@ impl Interpreter {
 
     // maybe this should be a "stack mismatch" (expected stack, actual stack)
     fn handle_stackop(&mut self, mut op: StackGetOp) -> Option<Val> {
-        if op.req.len() > self.stack.len() {
+        let op_nth = op.pop.unwrap_or(0);
+        if op_nth + op.req.len() > self.stack.len() {
             return Some(IsError::add("stack-empty".to_symbol()));
         }
         let mut valiter = 0;
         let mut res = vec![];
         for req in op.req.iter() {
             let val =
-                if op.pop {
-                    self.stack.pop().unwrap()
-                } else {
-                    let v = self.stack.get(valiter).unwrap().clone();
-                    valiter += 1;
-                    v
+                match op.pop {
+                    None => self.stack.pop().unwrap(),
+                    Some(nth) => {
+                        let v = self.stack.get(valiter + nth).unwrap().clone();
+                        valiter += 1;
+                        v
+                    },
                 };
             match req {
                 StackGetRequest::OfType(t) => {
@@ -498,7 +501,7 @@ impl Interpreter {
                     // and collect these into expected/actual stack lists
                     // and do (stack-mismatch expected actual)
                     if t != val.type_ref() {
-                        if op.pop {
+                        if op.pop.is_none() {
                             while let Some(v) = res.pop() {
                                 self.stack.push(v);
                             }
@@ -646,7 +649,7 @@ impl Handle {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
 
-    async fn stack_op(&self, pop: bool, reqs: Vec<StackGetRequest>) -> Vec<Val> {
+    async fn stack_op(&self, pop: Option<usize>, reqs: Vec<StackGetRequest>) -> Vec<Val> {
         let mut op = StackGetOp::from_request(pop, reqs);
         loop {
             self.co.yield_(FrameYield::StackGetOp(op.clone())).await;
@@ -659,25 +662,38 @@ impl Handle {
     /// Take the top value off the stack.
     /// No type is assumed or requested.
     pub async fn stack_pop_val(&mut self) -> Val {
-        self.stack_op(true, vec![StackGetRequest::Any]).await.pop().unwrap()
+        self.stack_op(None, vec![StackGetRequest::Any]).await.pop().unwrap()
     }
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
     pub async fn stack_pop<T: Value + ImplValue + Clone>(&mut self) -> Vals<T> {
-        self.stack_op(true, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
+        self.stack_op(None, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
+    }
+    
+    /// Get a copy of the nth-from-top value on the stack without removing it.
+    /// See [stack_pop](Self::stack_pop).
+    pub async fn stack_nth_val(&self, nth: usize) -> Val {
+        self.stack_op(Some(nth), vec![StackGetRequest::Any]).await.pop().unwrap()
+    }
+
+    /// Get a copy of nth value of the stack without removing it.
+    pub async fn stack_nth<T: Value + ImplValue>(&self, nth: usize) -> Vals<T> {
+        self.stack_op(Some(nth), vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
     }
     
     /// Get a copy of the top value on the stack without removing it.
-    /// See [stack_pop](Self::stack_pop).
+    /// See [stack_pop_val](Self::stack_pop_val)
+    /// and [stack_nth_val](Self::stack_nth_val).
     pub async fn stack_top_val(&self) -> Val {
-        self.stack_op(false, vec![StackGetRequest::Any]).await.pop().unwrap()
+        self.stack_nth_val(0).await
     }
 
-    /// Get a copy of the top value of the stack without removing it.
+    /// Get a copy of the top value of the stack without removing it
+    /// (i.e. `stack_nth(0)`).
     /// See [stack_pop](Self::stack_pop).
     pub async fn stack_top<T: Value + ImplValue>(&self) -> Vals<T> {
-        self.stack_op(false, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
+        self.stack_nth(0).await
     }
 
     /// The current state of the stack, as a list (cloned).
@@ -690,6 +706,10 @@ impl Handle {
     /// Whether the stack is empty.
     pub async fn stack_empty(&self) -> bool {
         self.stack_get().await.is_empty()
+    }
+    /// Get the size of the stack.
+    pub async fn stack_len(&self) -> usize {
+        self.stack_get().await.len()
     }
     /// Quote the next value in the current body.
     /// If there is none, the interpreter will error with "quote-nothing".
