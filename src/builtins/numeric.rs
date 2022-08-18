@@ -90,11 +90,23 @@ pub async fn ge<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i:
     i.stack_push(a.into_inner() >= b.into_inner()).await;
 }
 
+/// Convert the [i64] on top of the stack to [f64].
+pub async fn i64_to_f64(mut i: Handle) {
+    let a = i.stack_pop::<i64>().await;
+    i.stack_push(a.into_inner() as f64).await;
+}
+
+/// Convert the [f64] on top of the stack to [i64].
+pub async fn f64_to_i64(mut i: Handle) {
+    let a = i.stack_pop::<f64>().await;
+    i.stack_push(a.into_inner() as i64).await;
+}
 
 /// Install numeric functions for i64 and f64
 pub fn install(i: &mut Interpreter) {
     i.define("i64?", util::type_predicate::<i64>);
     i.define("f64?", util::type_predicate::<f64>);
+
     i.define("i64-add", add::<i64>);
     i.define("f64-add", add::<f64>);
     i.define("i64-sub", sub::<i64>);
@@ -124,5 +136,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("i64-ge", ge::<i64>);
     i.define("f64-ge", ge::<f64>);
 
+    i.define("i64->f64", i64_to_f64);
+    i.define("f64->i64", f64_to_i64);
 }
 

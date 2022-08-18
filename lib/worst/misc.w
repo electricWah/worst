@@ -3,6 +3,7 @@ define ->string [ value->string ]
 
 define print-value [ ->string print ]
 define print [ current-output-port swap port-write-string port-flush drop ]
+define println [ ->string "\n" string-append print ]
 
 define read-line [ current-input-port buffered-port-read-line swap drop ]
 
