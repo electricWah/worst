@@ -19,6 +19,10 @@ define evaluate [ upquote symbol? quote call quote when uplevel ]
 
 ; a equals? b => a bool
 define equals? [ upquote equal? swap drop ]
+define lt? [ clone upquote lt ]
+define le? [ clone upquote le ]
+define gt? [ clone upquote gt ]
+define ge? [ clone upquote ge ]
 ; a == b => bool
 ; define == [ upquote equal? bury drop drop ]
 

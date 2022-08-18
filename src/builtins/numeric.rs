@@ -63,30 +63,30 @@ pub async fn abs_f64(mut i: Handle) {
     i.stack_push(a.into_inner().abs()).await;
 }
 
-/// `a b complt` is `a < b`
+/// `a b lt` is `a < b`
 pub async fn lt<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
-    let a = i.stack_nth::<T>(1).await;
-    let b = i.stack_nth::<T>(0).await;
+    let b = i.stack_pop::<T>().await;
+    let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() < b.into_inner()).await;
 }
-/// `a b comple` is `a <= b`
+/// `a b le` is `a <= b`
 pub async fn le<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
-    let a = i.stack_nth::<T>(1).await;
-    let b = i.stack_nth::<T>(0).await;
+    let b = i.stack_pop::<T>().await;
+    let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() <= b.into_inner()).await;
 }
 
-/// `a b compgt` is `a > b`
+/// `a b gt` is `a > b`
 pub async fn gt<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
-    let a = i.stack_nth::<T>(1).await;
-    let b = i.stack_nth::<T>(0).await;
+    let b = i.stack_pop::<T>().await;
+    let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() > b.into_inner()).await;
 }
 
-/// `a b compge` is `a >= b`
+/// `a b ge` is `a >= b`
 pub async fn ge<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
-    let a = i.stack_nth::<T>(1).await;
-    let b = i.stack_nth::<T>(0).await;
+    let b = i.stack_pop::<T>().await;
+    let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() >= b.into_inner()).await;
 }
 
@@ -115,14 +115,14 @@ pub fn install(i: &mut Interpreter) {
     i.define("i64-abs", abs_i64);
     i.define("f64-abs", abs_f64);
 
-    i.define("i64-complt", lt::<i64>);
-    i.define("f64-complt", lt::<f64>);
-    i.define("i64-comple", le::<i64>);
-    i.define("f64-comple", le::<f64>);
-    i.define("i64-compgt", gt::<i64>);
-    i.define("f64-compgt", gt::<f64>);
-    i.define("i64-compge", ge::<i64>);
-    i.define("f64-compge", ge::<f64>);
+    i.define("i64-lt", lt::<i64>);
+    i.define("f64-lt", lt::<f64>);
+    i.define("i64-le", le::<i64>);
+    i.define("f64-le", le::<f64>);
+    i.define("i64-gt", gt::<i64>);
+    i.define("f64-gt", gt::<f64>);
+    i.define("i64-ge", ge::<i64>);
+    i.define("f64-ge", ge::<f64>);
 
 }
 
