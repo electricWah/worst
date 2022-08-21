@@ -1,4 +1,5 @@
 
+define ' [ upquote ]
 define ->string [ value->string ]
 
 define print-value [ ->string print ]
@@ -18,14 +19,16 @@ define read-file [
 ; evaluate = quote; call if symbol
 define evaluate [ upquote symbol? quote call quote when uplevel ]
 
-; a equals? b => a bool
-define equals? [ upquote equal? swap drop ]
+; a b clone2 => a b a b
+define clone2 [ swap clone dig clone bury ]
+
+define equal? [ clone2 equal ]
+; a <op> b => a bool
+define equals? [ clone upquote equal ]
 define lt? [ clone upquote lt ]
 define le? [ clone upquote le ]
 define gt? [ clone upquote gt ]
 define ge? [ clone upquote ge ]
-; a == b => bool
-; define == [ upquote equal? bury drop drop ]
 
 define not [ false? swap drop ]
 define abs [ 0 ascending? swap drop if [negate] [] ]

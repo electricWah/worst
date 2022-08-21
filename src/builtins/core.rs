@@ -60,10 +60,7 @@ pub async fn bury(mut i: Handle) {
 pub async fn equal(mut i: Handle) {
     let a = i.stack_pop_val().await;
     let b = i.stack_pop_val().await;
-    let eq = a == b;
-    i.stack_push(b).await;
-    i.stack_push(a).await;
-    i.stack_push(eq).await;
+    i.stack_push(a == b).await;
 }
 
 /// `false?` - Put true on top of the stack if the top value on the stack
@@ -206,7 +203,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("swap", swap);
     i.define("if", if_);
     i.define("while", while_);
-    i.define("equal?", equal);
+    i.define("equal", equal);
     i.define("not", not);
     i.define("false?", false_);
     i.define("error?", error_);
