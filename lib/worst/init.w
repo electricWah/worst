@@ -2,8 +2,7 @@
 define default-attributes [documentation-attribute]
 
 import {
-    worst/multi
-    worst/misc
+    worst/prelude
     syntax/case
 }
 
