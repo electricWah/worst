@@ -137,7 +137,15 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
         }
     }
 
-    file::open_bundled_read(format!("{module_path}.w")).and_then(|rv| ReadValue::try_read(rv).ok())
+    let mod_file = format!("{module_path}.w");
+
+    #[cfg(feature = "bundled_fs_embed")]
+    if let Some(f) = file::embedded::open_read(&mod_file) {
+        return Some(Box::new(f));
+    }
+    // TODO bundled zip feature
+
+    None
 }
 
 /// Install all these functions.

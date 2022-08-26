@@ -121,7 +121,7 @@ define stack-swap [
     old
 ]
 
-export #t
+define read-port->list [ port->string read-string->list ]
 
-; vi: ft=scheme
+export #t
 

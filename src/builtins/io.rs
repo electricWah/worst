@@ -7,7 +7,6 @@ use std::cell::RefCell;
 // use std::collections::VecDeque;
 use crate::impl_value;
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
 struct OutputPort(RefCell<Box<dyn Write>>);
@@ -25,7 +24,7 @@ impl OutputPort {
 
 #[derive(Clone)]
 struct BufReader(Rc<RefCell<dyn BufRead>>);
-impl_value!(BufReader, value_read::<BufReader>(), type_name("bufreader"));
+impl_value!(BufReader, type_name("bufreader"));
 impl BufReader {
     #[cfg(feature = "enable_stdio")]
     fn stdin() -> Self {
@@ -38,14 +37,21 @@ impl Read for BufReader {
     }
 }
 
-#[derive(Clone)]
-struct StringReader(String);
-impl_value!(StringReader, value_read::<StringReader>(), type_name("stringreader"));
-impl Read for StringReader {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut head = self.0.split_off(buf.len());
-        std::mem::swap(&mut head, &mut self.0);
-        head.as_bytes().read(buf)
+/// Slurp entire port (i.e. until eof) into a string.
+/// Pops a `T` and pushes the result,
+/// either the string itself on success,
+/// or an `error?` value on failure
+/// (currently the string representation of the error).
+pub async fn port_to_string<T: ImplValue + Read + Clone + 'static>(mut i: Handle) {
+    let mut read = i.stack_pop::<T>().await;
+    let mut s = String::new();
+    match read.as_mut().read_to_string(&mut s) {
+        Ok(_count) => {
+            i.stack_push(s).await;
+        },
+        Err(e) => {
+            i.stack_push(IsError::add(format!("{}", e))).await;
+        },
     }
 }
 
@@ -61,9 +67,7 @@ pub fn install(i: &mut Interpreter) {
         });
 
         // there is only one stdin, so Val it so it's Rc
-        i.stack_push(BufReader::stdin());
-        let stdin = i.stack_pop_val().unwrap();
-
+        let stdin = Val::from(BufReader::stdin());
         i.define("current-input-port", move |mut i: Handle| {
             let stdin = stdin.clone();
             async move {
@@ -83,34 +87,7 @@ pub fn install(i: &mut Interpreter) {
         p.as_ref().0.borrow_mut().flush().unwrap();
     });
 
-    i.define("can-read?", |mut i: Handle| async move {
-        let v = i.stack_top_val().await;
-        let can = ReadValue::can(&v);
-        i.stack_push(can).await;
-    });
-
-    i.define("port->string", |mut i: Handle| async move {
-        let pv = i.stack_pop_val().await;
-        match ReadValue::try_read(pv) {
-            Ok(mut read) => {
-                let mut s = String::new();
-                match read.read_to_string(&mut s) {
-                    Ok(_count) => {
-                        i.stack_push(s).await;
-                        i.stack_push(true).await;
-                    },
-                    Err(e) => {
-                        i.stack_push(format!("{}", e)).await;
-                        i.stack_push(false).await;
-                    },
-                }
-            },
-            Err(pv) => {
-                // TODO wrong type but in stack_pop
-                return i.error(List::from(vec!["wrong-type".to_symbol().into(), pv])).await;
-            }
-        }
-    });
+    i.define("buffered-port->string", port_to_string::<BufReader>);
 
     i.define("buffered-port-read-line", |mut i: Handle| async move {
         let p = i.stack_top::<BufReader>().await;
@@ -118,11 +95,5 @@ pub fn install(i: &mut Interpreter) {
         p.as_ref().0.borrow_mut().read_line(&mut buf).unwrap();
         i.stack_push(buf).await;
     });
-
-    i.define("open-string-input-port", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await.into_inner();
-        i.stack_push(StringReader(s)).await;
-    });
-
 }
 

@@ -667,7 +667,7 @@ impl Handle {
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
-    pub async fn stack_pop<T: Value + ImplValue + Clone>(&mut self) -> Vals<T> {
+    pub async fn stack_pop<T: Value + ImplValue>(&mut self) -> Vals<T> {
         self.stack_op(None, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
     }
     

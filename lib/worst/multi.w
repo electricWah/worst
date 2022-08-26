@@ -25,5 +25,10 @@ define (dispatch ((f64? f64?) stack-matches?)) gt [ f64-gt ]
 define (dispatch ((list? list?) stack-matches?)) append [ list-append ]
 define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
 
+define (dispatch ((embedded-file-port?) stack-matches?))
+port->string [ embedded-file-port->string ]
+define (dispatch ((file-port?) stack-matches?))
+port->string [ file-port->string ]
+
 export #t
 
