@@ -1,0 +1,19 @@
+
+# 0.3
+
+- Lexical scope is the true default now
+- Dynamic values:
+- - Add a separate dynamic scope namespace for dynamic values
+- - Add dynamic-set and dynamic-resolve builtins
+- - Add define (dynamic) for dynamic definitions
+- - Add a definition-attributes dynamic value
+      (true in the attributes clause of a define form)
+- standard-worst-prompt is dynamic
+- Add call-stack-dump to show debug information
+- Simplify doc builtins: value-doc, value-doc-set; doc is now in worst
+- Fix a bug where uplevel-ing through an empty stack frame
+    would ignore its paused children
+- Add ', clone2, and equal
+- Remove call (eval calls symbols now)
+- Start a changelog
+

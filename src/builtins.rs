@@ -7,6 +7,7 @@ pub mod util;
 
 pub mod core;
 pub mod define;
+pub mod dynamic;
 pub mod doc;
 #[cfg(feature = "builtin_file_module")]
 pub mod file;
@@ -25,6 +26,7 @@ pub mod string;
 pub fn install(i: &mut Interpreter) {
     core::install(i);
     define::install(i);
+    dynamic::install(i);
     doc::install(i);
     #[cfg(feature = "builtin_file_module")]
     file::install(i);

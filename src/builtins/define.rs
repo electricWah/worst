@@ -43,21 +43,24 @@ pub async fn define(mut i: Handle) {
         };
 
     i.stack_push(body).await;
-    i.stack_push(name).await;
+    i.stack_push(name.clone()).await;
 
-    i.eval_child(attrs, move |mut _i: Handle| async move {
-    }).await;
+    if !attrs.is_empty() {
+        i.eval_child(attrs.clone(), move |mut i: Handle| async move {
+            i.define_dynamic("definition-attributes", true).await;
+        }).await;
+    }
     i.call("default-attributes").await;
 
     let name = i.stack_pop::<Symbol>().await.into_inner();
     let body = i.stack_pop_val().await;
 
-    let env = i.all_definitions().await;
-    i.define_closure(name, body, env).await;
+    i.define(name, body).await;
 }
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
+    i.dynamics_mut().insert("definition-attributes".into(), false);
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {

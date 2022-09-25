@@ -7,69 +7,62 @@ use crate::reader;
 use crate::builtins::file;
 use crate::interpreter::{Interpreter, Handle, DefSet};
 
-fn eval_module(m: List, defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
-    let mut i = Interpreter::default();
-    for (name, def) in defs.iter() {
-        i.define(name, def.clone());
-    }
+fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
 
-    let exports_orig = Place::wrap(List::default());
-    let exports_final = exports_orig.clone();
-    i.define("%exports", move |mut i: Handle| {
-        let e = exports_orig.clone();
+    let exports = Place::wrap(List::default());
+    let exports_inner = exports.clone();
+
+    // define here so it's not in local_definitions
+    defs.define("export".into(), move |mut i: Handle| {
+        let exports = exports_inner.clone();
         async move {
-            i.stack_push(e.clone()).await;
-        }
-    });
-
-    i.define("export", |mut i: Handle| async move {
-        i.call("%exports").await;
-        let mut exports = i.stack_pop::<Place>().await.into_inner();
-        let q = i.quote_val().await;
-        let qqerr = q.clone();
-        if let Some(&b) = q.downcast_ref::<bool>() {
-            if b {
-                exports.set(true);
-            } else {
-                dbg!("not sure how to export #f");
-            }
-        } else if q.is::<Symbol>() {
-            let exp = exports.get();
-            if let Some(mut l) = exp.clone().downcast::<List>() {
-                l.push(q);
-                exports.set(l);
-            } else {
-                dbg!("export symbol failed", &q, &exp);
-            }
-        } else if let Some(coll) = q.downcast::<List>() {
-            if let Some(mut l) = exports.get().downcast::<List>() {
-                for v in coll {
-                    l.push(v);
+            let mut exports = exports.clone();
+            let q = i.quote_val().await;
+            let qqerr = q.clone();
+            if let Some(&b) = q.downcast_ref::<bool>() {
+                if b {
+                    exports.set(true);
+                } else {
+                    dbg!("not sure how to export #f");
                 }
-                exports.set(l);
+            } else if q.is::<Symbol>() {
+                let exp = exports.get();
+                if let Some(mut l) = exp.clone().downcast::<List>() {
+                    l.push(q);
+                    exports.set(l);
+                } else {
+                    dbg!("export symbol failed", &q, &exp);
+                }
+            } else if let Some(coll) = q.downcast::<List>() {
+                if let Some(mut l) = exports.get().downcast::<List>() {
+                    for v in coll {
+                        l.push(v);
+                    }
+                    exports.set(l);
+                } else {
+                    dbg!("export list failed", exports.get());
+                }
             } else {
-                dbg!("export list failed", exports.get());
+                todo!("export this thing {:?}", qqerr);
             }
-        } else {
-            todo!("export this thing {:?}", qqerr);
         }
     });
 
-    i.eval_next(Val::from(m));
+    let mut i = Interpreter::default();
+    i.add_definitions(&defs);
+
+    i.eval_next(m);
     if let Some(ret) = i.run() {
         return Err((ret, i));
     }
 
-    i.definition_remove("%exports");
-    // TODO make sure it's not an overridden 'export' somehow
-    i.definition_remove("export");
+    let all_defs = i.local_definitions();
 
-    let all_defs = i.all_definitions();
     let mut exmap = DefSet::default();
-    let exportsion = exports_final.get();
-    if let Some(&true) = exportsion.downcast_ref::<bool>() {
+    let exports = exports.get();
+    if let Some(&true) = exports.downcast_ref::<bool>() {
         exmap = all_defs;
-    } else if let Some(l) = exportsion.downcast::<List>() {
+    } else if let Some(l) = exports.downcast::<List>() {
         for ex in l {
             let name = ex.downcast::<Symbol>().unwrap().into();
             if let Some(def) = all_defs.get(&name) {
@@ -184,7 +177,7 @@ pub fn install(i: &mut Interpreter) {
                         Err((v, p)) => {
                             return i.error(dbg!(List::from(vec![
                                 "error in eval_module".to_string().into(),
-                                import_name.into(),
+                                import_name,
                                 v,
                                 p.stack_ref().clone().into(),
                             ]))).await;

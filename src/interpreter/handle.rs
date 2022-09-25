@@ -20,15 +20,13 @@ impl Handle {
     }
     /// Evaluate a list or function.
     pub async fn eval(&mut self, f: impl EvalOnce) {
-        self.co.yield_(FrameYield::Eval(f.into())).await;
+        self.co.yield_(FrameYield::Eval(f.into_eval_once())).await;
     }
     /// Evaluate `child` followed by `body`, but `child` is evaluated
     /// inside `body` as a new stack frame so it can add definitions
     /// without affecting the stack frame that called this function.
     pub async fn eval_child(&mut self, body: List, child: impl EvalOnce) {
-        let mut frame = ListFrame::new_body(body);
-        frame.childs.push(child.into());
-        self.co.yield_(FrameYield::Eval(ChildFrame::ListFrame(frame))).await;
+        self.co.yield_(FrameYield::EvalPre(child.into_eval_once(), body)).await;
     }
     /// Look up a definition and evaluate it.
     pub async fn call(&mut self, s: impl Into<Symbol>) {
@@ -114,43 +112,64 @@ impl Handle {
     /// The interpreter will pause, likely indefinitely,
     /// if there is no parent stack frame.
     pub async fn uplevel(&mut self, f: impl EvalOnce) {
-        self.co.yield_(FrameYield::Uplevel(f.into())).await;
+        self.co.yield_(FrameYield::Uplevel(f.into_eval_once())).await;
     }
     /// Add a definition in the current stack frame.
     /// It will likely be a [List] or a Rust function.
     pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.co.yield_(FrameYield::Define(name.into(), def.into_val())).await;
-    }
-    /// Add a definition in the current stack frame,
-    /// with an associated environment of definitions.
-    /// See [local_definitions](Self::local_definitions)
-    /// and [all_definitions](Self::all_definitions).
-    pub async fn define_closure(&mut self, name: impl Into<String>,
-                                body: impl Value, env: DefSet) {
-        let v = body.into().with_meta(|m| m.push(ClosureEnv(env)));
-        self.co.yield_(FrameYield::Define(name.into(), v)).await;
-    }
-    async fn get_definitions(&mut self, global: bool) -> DefSet {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::Definitions(global, Rc::clone(&r))).await;
-        r.take().unwrap()
+        self.co.yield_(FrameYield::Define {
+            name: name.into(),
+            scope: DefScope::Static,
+            def: def.into_val(),
+        }).await;
     }
     /// Get all definitions defined in the current stack frame.
     /// See [define_closure](Self::define_closure).
     pub async fn local_definitions(&mut self) -> DefSet {
-        self.get_definitions(false).await
+        self.get_defs(DefScope::Static, false).await
     }
     /// Get all available definitions.
     /// See [define_closure](Self::define_closure).
     pub async fn all_definitions(&mut self) -> DefSet {
-        self.get_definitions(true).await
+        self.get_defs(DefScope::Static, true).await
     }
     /// Look for a definition by the given name.
     pub async fn resolve_definition(&self, name: impl Into<String>) -> Option<Val> {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::ResolveDefinition(name.into(), Rc::clone(&r))).await;
-        r.take()
+        self.get_def(name.into(), DefScope::Static, true).await
     }
+    
+    /// Define a dynamic value,
+    /// which is a species of value that lives in stack frames, and thus
+    /// lacks the lexical scope gene that other values and definitions carry.
+    pub async fn define_dynamic(&mut self, name: impl Into<String>, def: impl Value) {
+        self.co.yield_(FrameYield::Define {
+            name: name.into(),
+            scope: DefScope::Dynamic,
+            def: def.into(),
+        }).await;
+    }
+
+    /// Get the dynamic value of the given name,
+    /// searching first in the current stack frame
+    /// and then in parent stack frames if it cannot be found.
+    pub async fn resolve_dynamic(&self, name: impl Into<String>) -> Option<Val> {
+        self.get_def(name.into(), DefScope::Dynamic, true).await
+    }
+
+    /// Get all dynamic values in the current stack frame.
+    pub async fn get_dynamics(&self) -> DefSet {
+        self.get_defs(DefScope::Dynamic, false).await
+    }
+
+    /// Remove a dynamic value of the given name from the current stack frame.
+    /// Returns it on success.
+    pub async fn remove_dynamic(&mut self, name: impl Into<String>) -> Option<Val> {
+        self.remove_def(name.into(), DefScope::Dynamic).await
+    }
+
+    // dynamic_depth    - Find out how many stack frames up a dynamic is set
+    // all_dynamics     - Get all dynamic names and defs
+
     /// Query the current call stack.
     /// Child frames (with uplevel) are not given.
     /// Each stack frame may have a name;
@@ -160,6 +179,32 @@ impl Handle {
         self.co.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;
         r.take().unwrap()
     }
+
+
+    async fn get_defs(&self, scope: DefScope, all: bool) -> DefSet {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::Definitions {
+            scope, all, ret: Rc::clone(&r),
+        }).await;
+        r.take().unwrap()
+    }
+
+    async fn get_def(&self, name: String, scope: DefScope, resolve: bool) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::GetDefinition {
+            name, scope, resolve, ret: Rc::clone(&r),
+        }).await;
+        r.take()
+    }
+
+    async fn remove_def(&self, name: String, scope: DefScope) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::RemoveDefinition {
+            name, scope, ret: Rc::clone(&r),
+        }).await;
+        r.take()
+    }
+
 }
 
 

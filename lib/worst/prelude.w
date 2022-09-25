@@ -1,9 +1,13 @@
 
 ; Not really a standard library, more like a random bag of helpful stuff
 
+define default-attributes []
+
 define ' [ upquote ]
 ; updo thing => quote thing uplevel
 define updo [ upquote quote uplevel uplevel ]
+; do [ code... ] => eval code
+define do [ upquote updo eval ]
 
 ; a b clone2 => a b a b
 define clone2 [ swap clone dig clone bury ]
@@ -33,6 +37,27 @@ define (dispatch ((f64? f64?) stack-matches?)) gt [ f64-gt ]
 
 define (dispatch ((list? list?) stack-matches?)) append [ list-append ]
 define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
+
+; dynamic definitions (using dynamic values)
+
+; true only within the attributes clause of a define form
+define in-definition-attributes [ quote definition-attributes dynamic-resolve ]
+
+define (dispatch (in-definition-attributes)) dynamic [
+    const name
+    const body
+
+    ; dynamic-set in calling scope (extra uplevel for attrs scope)
+    body name quote dynamic-set updo uplevel
+
+    ; use body as the default
+    [ dynamic-resolve false? if ]
+    [] [] body list-push quote drop list-push list-push
+    append
+    name list-push quote quote list-push
+    [ [] updo eval ] append
+    name
+]
 
 ; maybe these should eval, so you can do [5 le? (4 3 add)]
 define equal? [ clone2 equal ]

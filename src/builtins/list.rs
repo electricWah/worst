@@ -16,7 +16,7 @@ pub async fn list_empty(mut i: Handle) {
     i.stack_push(l.as_ref().is_empty()).await;
 }
 
-/// list `list-empty?` +-> i64 : the length of the list.
+/// list `list-length` +-> i64 : the length of the list.
 pub async fn list_length(mut i: Handle) {
     let l = i.stack_top::<List>().await;
     i.stack_push(l.as_ref().len() as i64).await;

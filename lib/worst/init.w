@@ -1,8 +1,7 @@
 
-define default-attributes [documentation-attribute]
-
 import {
     worst/prelude
+    worst/doc
     syntax/case
 }
 

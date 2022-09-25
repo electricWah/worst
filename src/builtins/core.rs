@@ -93,17 +93,11 @@ pub async fn eval(mut i: Handle) {
     i.eval(e).await;
 }
 
-/// `call` - Call the value on top of the stack. See [Handle::call].
-pub async fn call(mut i: Handle) {
-    let c = i.stack_pop::<Symbol>().await;
-    i.call(c.into_inner()).await;
-}
-
 /// `uplevel` - Call the value on top of the stack as if in the parent stack frame.
 pub async fn uplevel(mut i: Handle) {
     i.uplevel(|mut i: Handle| async move {
-        let c = i.stack_pop::<Symbol>().await;
-        i.call(c.into_inner()).await;
+        let c = i.stack_pop_val().await;
+        i.eval(c).await;
     }).await;
 }
 
@@ -196,7 +190,6 @@ pub fn install(i: &mut Interpreter) {
     i.define("dig", dig);
     i.define("bury", bury);
     i.define("eval", eval);
-    i.define("call", call);
     i.define("uplevel", uplevel);
     i.define("upquote", upquote);
     i.define("const", const_);
@@ -217,6 +210,13 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("stack-dump", |i: Handle| async move {
         println!("{:?}", Val::from(i.stack_get().await));
+    });
+    i.define("call-stack-dump", |i: Handle| async move {
+        println!("{:?}", List::from(i.call_stack_names().await
+                                    .into_iter().map(|x| {
+                                        if let Some(x) = x { Val::from(x) }
+                                        else { false.into() }
+                                    }).collect::<Vec<Val>>()));
     });
     // for now
     i.define("value->string", |mut i: Handle| async move {

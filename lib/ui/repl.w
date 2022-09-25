@@ -5,12 +5,31 @@ import {
     data/pairs
 }
 
+define (dynamic) standard-worst-prompt [
+    interpreter-stack-get const stack drop
+    ansi [
+        green fg
+        "worst " print
+
+        reset cyan fg
+        stack list-reverse
+        print-value
+
+        bold yellow fg
+        " > " print
+        reset
+    ]
+]
+
 define worst-repl [
 
     define clear-stack [ while [stack-empty not] [drop] ]
 
     interpreter-empty
-    interpreter-inherit-definitions
+    do [
+        import ui/help
+        interpreter-inherit-definitions
+    ]
     ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp
 
@@ -32,7 +51,7 @@ define worst-repl [
     ]
 
     while [
-        standard-worst-prompt
+        interp standard-worst-prompt
         read-line
         equals? "" if [ drop exit-message #f ] [
             reader swap reader-write-string drop
@@ -63,21 +82,5 @@ define worst-repl [
 
 ]
 
-define standard-worst-prompt [
-    interp interpreter-stack-get const stack drop
-    ansi [
-        green fg
-        "worst " print
-
-        reset cyan fg
-        stack list-reverse
-        print-value
-
-        bold yellow fg
-        " > " print
-        reset
-    ]
-]
-
-export #t
+export worst-repl
 

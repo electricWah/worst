@@ -12,9 +12,11 @@ let
     linuxPackages.perf
     rustup
     openssl
-    binaryen
-    nodejs
-    esbuild
+    # binaryen
+    # nodejs
+    # esbuild
+    # wasm-pack
+
     httplz
   ];
   p = { }:
