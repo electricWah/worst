@@ -12,6 +12,7 @@ case [
         import ui
         worst-repl
     }
+    ; TODO check file exists or is a module
     #t {
         list-pop swap drop
         const path

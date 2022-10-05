@@ -11,7 +11,8 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(Place::wrap(v)).await;
     });
     i.define("place-get", |mut i: Handle| async move {
-        i.stack_push(i.stack_top::<Place>().await.as_ref().get()).await;
+        let v = i.stack_pop::<Place>().await.as_ref().get();
+        i.stack_push(v).await;
     });
     i.define("place-set", |mut i: Handle| async move {
         let v = i.stack_pop_val().await;

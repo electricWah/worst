@@ -10,10 +10,10 @@ pub async fn command_line_arguments(mut i: Handle) {
     i.stack_push(List::from_iter(std::env::args())).await;
 }
 
-/// string `get-environment-variable` +-> string|false :
+/// string `environment-variable` -> string|false :
 /// the value of the environment variable. See [std::env::var].
-pub async fn get_environment_variable(mut i: Handle) {
-    match std::env::var(i.stack_top::<String>().await.as_ref()) {
+pub async fn environment_variable(mut i: Handle) {
+    match std::env::var(i.stack_pop::<String>().await.as_ref()) {
         Ok(v) => i.stack_push(v).await,
         Err(_) => i.stack_push(false).await,
     }
@@ -22,6 +22,6 @@ pub async fn get_environment_variable(mut i: Handle) {
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.define("command-line-arguments", command_line_arguments);
-    i.define("get-environment-variable", get_environment_variable);
+    i.define("environment-variable", environment_variable);
 }
 

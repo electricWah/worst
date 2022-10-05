@@ -30,23 +30,11 @@ impl Iterator for List {
     fn next(&mut self) -> Option<Val> { self.pop() }
 }
 
-impl PartialEq for List {
-    fn eq(&self, other: &List) -> bool {
-        if self.len() != other.len() { return false; }
-        for (a, b) in self.data.iter().zip(other.data.iter()) {
-            if a != b { return false; }
-        }
-        true
-    }
-}
-
-impl Eq for List {}
-
 impl Default for List {
     fn default() -> Self { List::from(vec![]) }
 }
 
-impl_value!(List, value_eq::<List>(), value_tostring(List::to_string_debug));
+impl_value!(List, value_tostring(List::to_string_debug));
 
 impl List {
     /// Get the number of values in this list.

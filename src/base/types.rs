@@ -41,25 +41,18 @@ impl From<Symbol> for String {
     fn from(s: Symbol) -> Self { s.v }
 }
 
-impl_value!(Symbol, value_eq::<Symbol>(), value_tostring(Symbol::to_string), type_name("symbol"));
+impl_value!(Symbol, value_tostring(Symbol::to_string), type_name("symbol"));
 fn bool_tostring(b: &bool) -> String { (if *b { "#t" } else { "#f" }).into() }
-impl_value!(bool, value_eq::<bool>(), value_tostring(bool_tostring));
-impl_value!(String, value_eq::<String>(), value_debug::<String>(), type_name("string"));
-// NOTE always use String instead
-// impl_value!(&'static str, type_name("string"));
+impl_value!(bool, value_tostring(bool_tostring));
+impl_value!(String, value_debug::<String>(), type_name("string"));
 
 // TODO bunch of numbers, better than this
-impl_value!(i64, value_eq::<i64>(), value_debug::<i64>(), type_name("int64"));
-impl_value!(f64, value_eq::<f64>(), value_debug::<f64>(), type_name("float64"));
+impl_value!(i64, value_debug::<i64>(), type_name("int64"));
+impl_value!(f64, value_debug::<f64>(), type_name("float64"));
 
 /// Mutable memory location (a wrapper for [RefCell]).
-#[derive(Clone, Eq)]
+#[derive(Clone)]
 pub struct Place(Rc<RefCell<Val>>);
-impl PartialEq for Place {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
-    }
-}
 impl_value!(Place, type_name("place"));
 
 impl Place {

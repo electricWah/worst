@@ -107,6 +107,9 @@ pub fn install(i: &mut Interpreter) {
     i.define("i64?", util::type_predicate::<i64>);
     i.define("f64?", util::type_predicate::<f64>);
 
+    i.define("i64-equal", util::equality::<i64>);
+    i.define("f64-equal", util::equality::<f64>);
+
     i.define("i64-add", add::<i64>);
     i.define("f64-add", add::<f64>);
     i.define("i64-sub", sub::<i64>);

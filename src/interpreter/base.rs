@@ -26,7 +26,7 @@ pub enum FrameYield {
     Call(Symbol),
     Uplevel(ToEvalOnce),
     StackPush(Val),
-    StackGetOp(StackGetOp),
+    StackPop(YieldReturn<Val>),
     StackGetAll(YieldReturn<List>),
     Quote(YieldReturn<Val>),
     Define {
@@ -65,7 +65,7 @@ impl_value!(DefineMeta);
 
 /// Static environment of definition
 /// (all definitions in parent frame when defined)
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone)]
 pub struct DefineEnv(DefSet);
 impl_value!(DefineEnv);
 
@@ -136,39 +136,6 @@ impl ListFrame {
     }
     pub fn find_def(&self, name: impl AsRef<str>) -> Option<&Val> {
         self.locals.get(name.as_ref()).or_else(|| self.defenv.get(name))
-    }
-}
-
-#[derive(Clone)]
-pub enum StackGetRequest {
-    Any,
-    OfType(Type),
-}
-
-impl StackGetRequest {
-    pub fn of_type<T: ImplValue>() -> Self {
-        Self::OfType(T::get_type())
-    }
-}
-
-#[derive(Clone)]
-pub struct StackGetOp {
-    /// None = pop top, Some(nth) = get nth from top (0 being topmost)
-    pub pop: Option<usize>,
-    pub req: Vec<StackGetRequest>,
-    pub res: YieldReturn<Vec<Val>>,
-}
-impl StackGetOp {
-    pub fn from_request(pop: Option<usize>, v: Vec<StackGetRequest>) -> Self {
-        Self {
-            pop, req: v, res: Rc::new(Cell::new(None)),
-        }
-    }
-    pub fn maybe_resolved(&mut self) -> Option<Vec<Val>> {
-        self.res.take()
-    }
-    pub fn resolve_with(&mut self, res: Vec<Val>) {
-        self.res.set(Some(res))
     }
 }
 
@@ -298,7 +265,7 @@ impl PausedFrame {
 }
 
 /// Clone-on-write definition environment for list definitions.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone)]
 pub struct DefSet(Rc<HashMap<String, Val>>);
 impl DefSet {
     /// Add an evaluable definition.

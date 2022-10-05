@@ -63,7 +63,7 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("interpreter-stack-length",  |mut i: Handle| async move {
         let interp = i.stack_top::<Interp>().await;
-        let len = interp.as_ref().0.borrow_mut().stack_len();
+        let len = interp.as_ref().0.borrow_mut().stack_ref().len();
         i.stack_push(len as i64).await;
     });
     i.define("interpreter-stack-push",  |mut i: Handle| async move {
@@ -73,7 +73,7 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("interpreter-stack-pop",  |mut i: Handle| async move {
         let interp = i.stack_top::<Interp>().await;
-        let v = interp.as_ref().0.borrow_mut().stack_pop_val().unwrap_or_else(|| false.into());
+        let v = interp.as_ref().0.borrow_mut().stack_ref_mut().pop().unwrap_or_else(|| false.into());
         i.stack_push(v).await;
     });
     i.define("interpreter-stack-get",  |mut i: Handle| async move {

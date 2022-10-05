@@ -17,20 +17,7 @@ pub fn value_tostring<T: 'static + ImplValue, F: 'static + Fn(&T) -> String>(f: 
 }
 /// Use in [impl_value] as a shorthand for [value_tostring] with [Debug].
 pub fn value_debug<T: 'static + ImplValue + Debug>() -> impl Value {
-    value_tostring(|v: &T| format!("{:?}", v))
-}
-
-struct EqValue(Box<dyn Fn(&Val, &Val) -> bool>);
-impl_value!(EqValue);
-/// Use in [impl_value] to use [eq](PartialEq::eq) instead of object identity
-/// to check for equality between members of the type.
-pub fn value_eq<T: 'static + ImplValue + PartialEq>() -> impl Value {
-    EqValue(Box::new(move |a: &Val, b: &Val| {
-        match (a.downcast_ref::<T>(), b.downcast_ref::<T>()) {
-            (Some(a), Some(b)) => a == b,
-            _ => false
-        }
-    }))
+    value_tostring(|v: &T| format!("{v:?}"))
 }
 
 /// Meta value signalling whether the type or value it is attached to
@@ -58,16 +45,16 @@ impl IsError {
     }
     /// Check whether the value or its type is an error.
     pub fn is_error(v: &Val) -> bool {
-        v.meta_ref().contains::<Self>() || v.type_meta().contains::<Self>()
+        v.meta_ref().contains::<Self>() || v.type_ref().map(|t| t.meta_ref().contains::<Self>()).unwrap_or(false)
     }
 }
 
 impl Debug for Val {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        if let Some(dv) = self.type_meta().first_ref::<DebugValue>() {
+        if let Some(dv) = self.type_ref().and_then(|t| t.meta_ref().first_ref::<DebugValue>()) {
             let d = dv.0(self);
             write!(f, "{}", d)?;
-        } else if let Some(n) = self.type_meta().first_ref::<TypeName>() {
+        } else if let Some(n) = self.type_ref().and_then(|t| t.meta_ref().first_ref::<TypeName>()) {
             write!(f, "<{}>", n.0)?;
         } else {
             write!(f, "<some value>")?;
@@ -75,16 +62,4 @@ impl Debug for Val {
         Ok(())
     }
 }
-
-impl PartialEq for Val {
-    fn eq(&self, you: &Self) -> bool {
-        if self.identical(you) { return true; }
-        if let Some(e) = self.type_meta().first_ref::<EqValue>() {
-            e.0(self, you)
-        } else if let Some(e) = you.type_meta().first_ref::<EqValue>() {
-            e.0(you, self)
-        } else { false }
-    }
-}
-impl Eq for Val { }
 

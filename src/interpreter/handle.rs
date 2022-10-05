@@ -32,56 +32,82 @@ impl Handle {
     pub async fn call(&mut self, s: impl Into<Symbol>) {
         self.co.yield_(FrameYield::Call(s.into())).await;
     }
-    /// Put a value on top of the stack.
-    pub async fn stack_push(&mut self, v: impl Value) {
+
+    // non-mutable so stack_top doesn't have to be mutable
+    async fn inner_stack_push(&self, v: impl Value) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
 
-    async fn stack_op(&self, pop: Option<usize>, reqs: Vec<StackGetRequest>) -> Vec<Val> {
-        let mut op = StackGetOp::from_request(pop, reqs);
+    async fn inner_try_stack_pop_val(&self) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
+        r.take()
+    }
+
+    async fn inner_stack_pop_val(&self) -> Val {
         loop {
-            self.co.yield_(FrameYield::StackGetOp(op.clone())).await;
-            if let Some(v) = op.maybe_resolved() {
+            if let Some(v) = self.inner_try_stack_pop_val().await {
                 return v;
+            } else {
+                self.error("stack-empty".to_symbol()).await;
             }
         }
     }
 
     /// Take the top value off the stack.
-    /// No type is assumed or requested.
-    pub async fn stack_pop_val(&mut self) -> Val {
-        self.stack_op(None, vec![StackGetRequest::Any]).await.pop().unwrap()
+    /// The resulting value will be of the type requested.
+    /// If the stack is empty, the interpreter will pause.
+    async fn inner_stack_pop<T: Value + ImplValue>(&self) -> Vals<T> {
+        loop {
+            match self.inner_stack_pop_val().await.try_into() {
+                Ok(v) => return v,
+                Err(v) => {
+                    self.error(List::from(vec![
+                        "wrong-type".to_symbol().into(),
+                            v, std::any::type_name::<T>().to_string().into(),
+                    ])).await;
+                },
+            }
+        }
     }
+
+    /// Put a value on top of the stack.
+    pub async fn stack_push(&mut self, v: impl Value) {
+        self.inner_stack_push(v).await
+    }
+
+    /// Take the top value off the stack, or `None` if the stack is empty.
+    pub async fn try_stack_pop_val(&mut self) -> Option<Val> {
+        self.inner_try_stack_pop_val().await
+    }
+
+    /// Take the top value off the stack, or error with `stack-empty`.
+    /// Calling code may put a value on the stack and resume the interpreter.
+    pub async fn stack_pop_val(&mut self) -> Val {
+        self.inner_stack_pop_val().await
+    }
+
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
     pub async fn stack_pop<T: Value + ImplValue>(&mut self) -> Vals<T> {
-        self.stack_op(None, vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
-    }
-    
-    /// Get a copy of the nth-from-top value on the stack without removing it.
-    /// See [stack_pop](Self::stack_pop).
-    pub async fn stack_nth_val(&self, nth: usize) -> Val {
-        self.stack_op(Some(nth), vec![StackGetRequest::Any]).await.pop().unwrap()
+        self.inner_stack_pop().await
     }
 
-    /// Get a copy of nth value of the stack without removing it.
-    pub async fn stack_nth<T: Value + ImplValue>(&self, nth: usize) -> Vals<T> {
-        self.stack_op(Some(nth), vec![StackGetRequest::of_type::<T>()]).await.pop().unwrap().try_into().unwrap()
-    }
-    
     /// Get a copy of the top value on the stack without removing it.
-    /// See [stack_pop_val](Self::stack_pop_val)
-    /// and [stack_nth_val](Self::stack_nth_val).
     pub async fn stack_top_val(&self) -> Val {
-        self.stack_nth_val(0).await
+        let v = self.inner_stack_pop_val().await;
+        self.inner_stack_push(v.clone()).await;
+        v
     }
 
     /// Get a copy of the top value of the stack without removing it
     /// (i.e. `stack_nth(0)`).
     /// See [stack_pop](Self::stack_pop).
     pub async fn stack_top<T: Value + ImplValue>(&self) -> Vals<T> {
-        self.stack_nth(0).await
+        let v = self.inner_stack_pop::<T>().await;
+        self.inner_stack_push(v.get_val()).await;
+        v
     }
 
     /// The current state of the stack, as a list (cloned).

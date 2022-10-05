@@ -1,5 +1,12 @@
 
-# 0.3
+# 0.4
+
+- Types are now values
+- equality is now a dispatch definition rather than a meta value
+- More builtins consume their arguments: list-length, place-get
+- Rename get-environment-variable -> environment-variable, now consumes
+
+# 0.3 (2022-09-25)
 
 - Lexical scope is the true default now
 - Dynamic values:

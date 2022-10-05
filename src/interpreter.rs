@@ -77,14 +77,12 @@ impl Interpreter {
     // and just have stack_ref and stack_mut
     /// Get a reference to the stack
     pub fn stack_ref(&self) -> &List { &self.stack }
-    /// Remove and return the top value on the stack if it isn't empty
-    pub fn stack_pop_val(&mut self) -> Option<Val> { self.stack.pop() }
-    /// Get the top value on the stack if it isn't empty
-    pub fn stack_top_val(&self) -> Option<&Val> { self.stack.top() }
+    /// Get a mutable reference to the stack
+    pub fn stack_ref_mut(&mut self) -> &mut List { &mut self.stack }
     /// Put something on top of the stack
-    pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
-    /// Length of the stack :)
-    pub fn stack_len(&self) -> usize { self.stack.len() }
+    pub fn stack_push(&mut self, v: impl Value) { self.stack.push(v.into()); }
+    /// Pop the top thing off the stack
+    pub fn stack_pop(&mut self) -> Option<Val> { self.stack.pop() }
 
     /// Grab a reference to the remaining code in the current stack frame.
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
@@ -167,8 +165,7 @@ impl Interpreter {
             FrameYield::EvalPre(pre, body) => self.handle_eval_pre(pre, body),
             FrameYield::Call(v) => if let r@Some(_) = self.handle_call(v) { return r; },
             FrameYield::StackPush(v) => self.stack_push(v),
-            FrameYield::StackGetOp(op) =>
-                if let r@Some(_) = self.handle_stackop(op) { return r; },
+            FrameYield::StackPop(yr) => yr.set(self.stack_ref_mut().pop()),
             FrameYield::StackGetAll(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
             FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
@@ -201,50 +198,6 @@ impl Interpreter {
                 i.call(s).await;
             }).into_eval_once());
         self.frame.childs.push(child);
-    }
-
-    // maybe this should be a "stack mismatch" (expected stack, actual stack)
-    fn handle_stackop(&mut self, mut op: StackGetOp) -> Option<Val> {
-        let op_nth = op.pop.unwrap_or(0);
-        if op_nth + op.req.len() > self.stack.len() {
-            return Some(IsError::add("stack-empty".to_symbol()));
-        }
-        let mut valiter = 0;
-        let mut res = vec![];
-        for req in op.req.iter() {
-            let val =
-                match op.pop {
-                    None => self.stack.pop().unwrap(),
-                    Some(nth) => {
-                        let v = self.stack.get(valiter + nth).unwrap().clone();
-                        valiter += 1;
-                        v
-                    },
-                };
-            match req {
-                StackGetRequest::OfType(t) => {
-                    // TODO put values back on stack if pop
-                    // and collect these into expected/actual stack lists
-                    // and do (stack-mismatch expected actual)
-                    if t != val.type_ref() {
-                        if op.pop.is_none() {
-                            while let Some(v) = res.pop() {
-                                self.stack.push(v);
-                            }
-                        }
-                        return Some(IsError::add(List::from(vec![
-                            "wrong-type".to_symbol().into(),
-                            // (*t).into(),
-                            val,
-                        ])));
-                    }
-                },
-                StackGetRequest::Any => {},
-            }
-            res.push(val);
-        }
-        op.resolve_with(res);
-        None
     }
 
     /// Evaluate the given code.
@@ -342,13 +295,13 @@ mod tests {
     #[test]
     fn interp_basic() {
         // empty
-        assert_eq!(Interpreter::default().run(), None);
+        assert!(Interpreter::default().run().is_none());
         // stack
         let mut i = new_interp(vec![7.into()]);
-        assert_eq!(i.stack_pop_val(), None);
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some(7.into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.stack_ref().is_empty());
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(7 as i64));
+        assert!(i.stack_ref().is_empty());
     }
 
     async fn toplevel_def(mut i: Handle) {
@@ -366,10 +319,10 @@ mod tests {
             i.stack_push("hello".to_string()).await;
         });
         i.define("thingy", toplevel_def);
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some(String::from("hello").into()));
-        assert_eq!(i.stack_pop_val(), Some(String::from("yay").into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<String>), Some(String::from("hello")));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<String>), Some(String::from("yay")));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -383,9 +336,9 @@ mod tests {
             let q = i.quote_val().await;
             i.stack_push(q).await;
         });
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("egg".to_symbol()));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -402,9 +355,9 @@ mod tests {
             }).await;
         });
         i.define("thing", Val::from(List::from(vec![ "upquote".to_symbol().into() ])));
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("egg".to_symbol()));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -420,9 +373,9 @@ mod tests {
             }).await;
         });
         i.define("thing", Val::from(List::from(vec![ "upfive".to_symbol().into() ])));
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some("five".to_symbol().into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("five".to_symbol()));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -442,9 +395,9 @@ mod tests {
         });
         i.define("thing2", Val::from(List::from(vec![ "upquote2".to_symbol().into() ])));
         i.define("thing1", Val::from(List::from(vec![ "thing2".to_symbol().into() ])));
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some("egg".to_symbol().into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("egg".to_symbol()));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -461,9 +414,9 @@ mod tests {
                 i.stack_push(5).await;
             }).await;
         });
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some(5.into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(5 as i64));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -486,11 +439,11 @@ mod tests {
             "eval-inner".to_symbol().into(),
             3.into()
         ])));
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some(3.into()));
-        assert_eq!(i.stack_pop_val(), Some(2.into()));
-        assert_eq!(i.stack_pop_val(), Some(1.into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -512,8 +465,11 @@ mod tests {
             i.call_stack_names().await;
             i.stack_push(3).await;
         });
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack, vec![3.into(), 2.into(), 1.into()].into());
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -536,8 +492,11 @@ mod tests {
             i.call_stack_names().await;
             i.stack_push(3).await;
         });
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack, vec![3.into(), 2.into(), 1.into()].into());
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -561,8 +520,11 @@ mod tests {
             i.call_stack_names().await;
             i.stack_push(3).await;
         });
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack, vec![3.into(), 2.into(), 1.into()].into());
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
+        assert!(i.stack_ref().is_empty());
     }
 
     #[test]
@@ -577,9 +539,9 @@ mod tests {
                 i.stack_push(five).await;
             }).await;
         });
-        assert_eq!(i.run(), None);
-        assert_eq!(i.stack_pop_val(), Some("five".to_symbol().into()));
-        assert_eq!(i.stack_pop_val(), None);
+        assert!(i.run().is_none());
+        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("five".to_symbol()));
+        assert!(i.stack_ref().is_empty());
     }
 
 }

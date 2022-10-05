@@ -13,7 +13,6 @@ struct OneVal<T> {
 }
 
 /// A typed wrapper for one or more [Val] (currently only one).
-#[derive(Clone)]
 pub struct Vals<T> {
     inner: OneVal<T>,
 }
@@ -39,6 +38,19 @@ impl<T: Value> TryFrom<Val> for Vals<T> {
             Ok(Vals { inner: OneVal { rc, val, modified: false, } })
         } else {
             Err(val)
+        }
+    }
+}
+
+impl<T: Value> Vals<T> {
+    /// Get an untyped Val out, like [into] but non-consuming.
+    pub fn get_val(&self) -> Val {
+        if self.inner.modified {
+            let mut val = self.inner.val.clone();
+            val.try_set(self.inner.rc.clone());
+            val
+        } else {
+            self.inner.val.clone()
         }
     }
 }

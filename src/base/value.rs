@@ -4,26 +4,58 @@ use std::fmt::Debug;
 use std::rc::Rc;
 use std::any::{ Any, TypeId };
 
+/// Metadata for [Val].
+#[derive(Default, Debug, Clone)]
+pub struct Meta(Vec<Val>);
+
+/// A reference-counted value, used directly by Worst programs.
+/// Can be downcast into its original Rust value.
+#[derive(Clone)]
+pub struct Val {
+    v: Rc<dyn Any>,
+    meta: Rc<Meta>,
+}
+
+/// Type value for vals for types. See [ImplValue].
+#[derive(Debug)]
+pub struct TypeVal(TypeId);
+impl TypeVal {
+    /// Get a TypeVal corresponding to the given type.
+    pub fn of<T: 'static>() -> Self { TypeVal(TypeId::of::<T>()) }
+}
+
 /// The Worst value trait.
-/// Usually use [Value] or [impl_value] instead of this directly.
+/// Usually not necessary to mention -
+/// use [Value] in type parameters,
+/// or [impl_value] to implement it.
+///
+/// This associates a [Val] with the implementing type to serve as a concrete
+/// representation of the type for Worst.
 pub trait ImplValue {
-    thread_local!(
+    thread_local! {
         /// A value shared by all instances of this type,
         /// so they can all have the same type within Worst.
-        static TYPE: RefCell<Type> = RefCell::new(Type::default()));
+        // This default value is for TypeVal specifically -
+        // all other types should use impl_value
+        static TYPE: RefCell<Val> =
+            RefCell::new(Val::construct(TypeVal::of::<TypeVal>(),
+                                        Rc::new(Meta::default())));
+    }
 
-    /// Add a new type-meta value. Take care to only do this once per `m`.
+    /// Add a new meta value. Take care to only do this once per `m`.
     /// The new value will only apply to newly-created instances of this type.
-    // (for now - otherwise make it Rc<RefCell<>>
     // this could be a macro somehow?
     fn install_meta(m: impl Value) {
-        Self::TYPE.with(|t| t.borrow_mut().push_meta(m.into()))
+        Self::TYPE.with(|t| t.borrow_mut().meta_ref_mut().push(m))
     }
-    /// Get a copy of this type's Type value.
-    fn get_type() -> Type {
+    /// Get the Worst type value for this type.
+    fn get_type() -> Val {
         Self::TYPE.with(|t| t.borrow().clone())
     }
 }
+// This should be the only type using the default ImplValue,
+// to prevent recursion-based headaches if this were to use impl_value.
+impl ImplValue for TypeVal {}
 
 /// Make a Rust type usable from Worst.
 ///
@@ -51,12 +83,15 @@ macro_rules! impl_value {
     ($t:ty) => { impl_value!($t,); };
     ($t:ty, $($m:expr),*) => {
         impl ImplValue for $t {
-            thread_local!(static TYPE: std::cell::RefCell<Type> =
+            thread_local! {
+                static TYPE: std::cell::RefCell<Val> =
                           std::cell::RefCell::new(
-                                  Type::new_meta::<$t>(Meta::default()
-                                            $(.with($m))*
-                                            .with(type_name(stringify!($t)))
-                                           )));
+                              Val::from(TypeVal::of::<$t>())
+                              .with_meta(|m| {
+                                  $(m.push($m);)*
+                                  m.push(type_name(stringify!($t)));
+                              }));
+            }
         }
     }
 }
@@ -65,54 +100,22 @@ macro_rules! impl_value {
 /// (e.g. to be given to an [Interpreter](crate::interpreter::Interpreter)).
 pub trait Value: 'static + Into<Val> {}
 impl<T: ImplValue + 'static> Value for T {}
-
-/// Every [Val] has a Type, which determines how it works.
-#[derive(Clone, Default)]
-pub struct Type {
-    // option: default T::TYPE requires a value, but doesn't have access to T
-    id: Option<TypeId>,
-    meta: Rc<Meta>,
-}
-impl Type {
-    /// Create a new Type with some metadata in it.
-    /// Mostly just for use by [impl_value].
-    pub fn new_meta<T: 'static>(m: Meta) -> Self {
-        Type { id: Some(TypeId::of::<T>()), meta: Rc::new(m) }
-    }
-    /// Add a new metadata value to this type. It likely won't do anything.
-    /// See [install_meta](ImplValue::install_meta).
-    pub fn push_meta(&mut self, m: Val) {
-        Rc::make_mut(&mut self.meta).0.push(m)
-    }
-}
-impl PartialEq for Type {
-    fn eq(&self, other: &Type) -> bool {
-        // TODO this might be asking for trouble - just use derive?
-        self.id == other.id
-    }
-}
-// TODO a Val wrapper for Type (don't use Type directly)
-// impl ImplValue for Type {}
-
-/// A reference-counted value, used directly by Worst programs.
-/// Can be downcast into its original Rust value.
-#[derive(Clone)]
-pub struct Val {
-    v: Rc<dyn Any>,
-    meta: Rc<Meta>,
-    ty: Type,
-}
 impl Value for Val {}
 
 impl<T: ImplValue + 'static> From<T> for Val {
     fn from(v: T) -> Val {
-        T::TYPE.with(|t| Val::new_type(v, t.borrow().clone()))
+        T::TYPE.with(|t| {
+            // Automatically add TypeVal for T to metadata.
+            // Removing it will probably not break the Val too much
+            // except maybe the things in base::traits.
+            Val::construct(v, Rc::new(Meta::default().with(t.borrow().clone())))
+        })
     }
 }
 
 impl Val {
-    fn new_type<T: Value>(v: T, ty: Type) -> Self {
-        Val { v: Rc::new(v), meta: Rc::new(Meta::default()), ty }
+    fn construct<T: Value>(v: T, meta: Rc<Meta>) -> Self {
+        Val { v: Rc::new(v), meta }
     }
     /// If the inner value is a T, take it.
     /// If there are multiple references, it is cloned.
@@ -181,16 +184,12 @@ impl Val {
         f(self.meta_ref_mut()); self
     }
 
-    /// Get the type for this value.
-    pub fn type_ref(&self) -> &Type { &self.ty }
-    /// Get the metadata attached to the type for this value,
-    /// as given in [impl_value].
-    pub fn type_meta(&self) -> &Meta { &self.ty.meta }
+    /// Get a reference to this value's type.
+    /// Option because type values themselves do not have a type.
+    pub fn type_ref(&self) -> Option<&Val> {
+        self.meta.first_ref_val::<TypeVal>()
+    }
 }
-
-/// Metadata record to be attached to a [Type] or individual [Val].
-#[derive(Default, Debug, Clone)]
-pub struct Meta(Vec<Val>);
 
 impl Meta {
     /// Add a new value.
@@ -201,6 +200,12 @@ impl Meta {
     pub fn with(mut self, v: impl Value) -> Self {
         self.push(v); self
     }
+
+    /// Find the first `T` and get a reference to its value.
+    pub fn first_ref_val<T: Value>(&self) -> Option<&Val> {
+        self.0.iter().rev().find(|v| v.is::<T>())
+    }
+
     /// Find the first `T`.
     pub fn first_ref<T: Value>(&self) -> Option<&T> {
         self.0.iter().rev().find_map(|v| v.downcast_ref::<T>())

@@ -4,6 +4,7 @@
 use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
+use super::util;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
 pub async fn quote(mut i: Handle) {
@@ -55,24 +56,8 @@ pub async fn bury(mut i: Handle) {
     i.stack_push(b).await;
 }
 
-/// `equal` - Compare the top two values on the stack for equality and
-/// a bool on top of the stack (true if they are equal, false otherwise).
-pub async fn equal(mut i: Handle) {
-    let a = i.stack_pop_val().await;
-    let b = i.stack_pop_val().await;
-    i.stack_push(a == b).await;
-}
-
-/// `false?` - Put true on top of the stack if the top value on the stack
-/// is false, and false otherwise. This is awkward wording.
-pub async fn false_(mut i: Handle) {
-    let v = i.stack_top_val().await;
-    let is = Some(&false) == v.downcast_ref::<bool>();
-    i.stack_push(is).await;
-}
-
-/// `not` - Remove the value on top of the stack and replace it with true
-/// if it was false (and false otherwise).
+/// `not` - Replace a false value on the top of the stack with true,
+/// and anything else with false.
 pub async fn not(mut i: Handle) {
     let v = i.stack_pop_val().await;
     let is = Some(&false) == v.downcast_ref::<bool>();
@@ -83,8 +68,7 @@ pub async fn not(mut i: Handle) {
 /// [IsError::is_error], and put its result on top of the stack.
 pub async fn error_(mut i: Handle) {
     let v = i.stack_top_val().await;
-    let is = IsError::is_error(&v);
-    i.stack_push(is).await;
+    i.stack_push(IsError::is_error(&v)).await;
 }
 
 /// `eval` - Evaluate the value on top of the stack. See [Handle::eval].
@@ -196,9 +180,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("swap", swap);
     i.define("if", if_);
     i.define("while", while_);
-    i.define("equal", equal);
     i.define("not", not);
-    i.define("false?", false_);
     i.define("error?", error_);
     i.define("pause", |mut i: Handle| async move {
         let v = i.stack_pop_val().await;
@@ -227,5 +209,11 @@ pub fn install(i: &mut Interpreter) {
         let s = i.stack_get().await;
         i.stack_push(s).await;
     });
+
+    i.define("bool?", util::type_predicate::<bool>);
+    i.define("bool-equal", util::equality::<bool>);
+    i.define("symbol?", util::type_predicate::<Symbol>);
+    i.define("symbol-equal", util::equality::<Symbol>);
+
 }
 

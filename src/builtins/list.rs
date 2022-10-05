@@ -2,23 +2,12 @@
 //! [List](crate::list::List) manipulation basics
 
 use crate::list::*;
+use crate::builtins::util;
 use crate::interpreter::{Interpreter, Handle};
 
-/// any `list?` +-> bool : whether the value on top of the stack is a list.
-pub async fn is_list(mut i: Handle) {
-    let l = i.stack_top_val().await;
-    i.stack_push(l.is::<List>()).await;
-}
-
-/// list `list-empty?` +-> bool : whether the list on top of the stack is empty.
-pub async fn list_empty(mut i: Handle) {
-    let l = i.stack_top::<List>().await;
-    i.stack_push(l.as_ref().is_empty()).await;
-}
-
-/// list `list-length` +-> i64 : the length of the list.
+/// list `list-length` -> i64 : the length of the list.
 pub async fn list_length(mut i: Handle) {
-    let l = i.stack_top::<List>().await;
+    let l = i.stack_pop::<List>().await;
     i.stack_push(l.as_ref().len() as i64).await;
 }
 
@@ -55,9 +44,8 @@ pub async fn list_append(mut i: Handle) {
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.define("list?", is_list);
-    i.define("list-empty?", list_empty);
-    i.define("list-length", list_pop);
+    i.define("list?", util::type_predicate::<List>);
+    i.define("list-length", list_length);
     i.define("list-reverse", list_reverse);
     i.define("list-push", list_push);
     i.define("list-pop", list_pop);

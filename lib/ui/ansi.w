@@ -49,6 +49,3 @@ define ansi [
 ]
 export ansi
 
-; vi: ft=scheme
-
-

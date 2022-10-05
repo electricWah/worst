@@ -10,7 +10,7 @@ define doc [
 ; ]
 
 define default-attributes [
-    current-docs place-get swap drop
+    current-docs place-get
     false? if [] [ bury swap dig value-doc-set swap ]
     default-attributes
 ]

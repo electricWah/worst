@@ -9,8 +9,12 @@ define updo [ upquote quote uplevel uplevel ]
 ; do [ code... ] => eval code
 define do [ upquote updo eval ]
 
-; a b clone2 => a b a b
-define clone2 [ swap clone dig clone bury ]
+define equal [ drop drop #f ]
+define (dispatch ((i64? i64?) stack-matches?)) equal [ i64-equal ]
+define (dispatch ((f64? f64?) stack-matches?)) equal [ f64-equal ]
+define (dispatch ((string? string?) stack-matches?)) equal [ string-equal ]
+define (dispatch ((symbol? symbol?) stack-matches?)) equal [ symbol-equal ]
+define (dispatch ((bool? bool?) stack-matches?)) equal [ bool-equal ]
 
 define (dispatch ((i64? i64?) stack-matches?)) add [ i64-add ]
 define (dispatch ((f64? f64?) stack-matches?)) add [ f64-add ]
@@ -38,6 +42,10 @@ define (dispatch ((f64? f64?) stack-matches?)) gt [ f64-gt ]
 define (dispatch ((list? list?) stack-matches?)) append [ list-append ]
 define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
 
+define (dispatch (list?)) length [ list-length ]
+
+define false? [ clone not ]
+
 ; dynamic definitions (using dynamic values)
 
 ; true only within the attributes clause of a define form
@@ -59,6 +67,11 @@ define (dispatch (in-definition-attributes)) dynamic [
     name
 ]
 
+define list-empty? [clone list-length 0 equal]
+
+; a b clone2 => a b a b
+define clone2 [ swap clone dig clone bury ]
+
 ; maybe these should eval, so you can do [5 le? (4 3 add)]
 define equal? [ clone2 equal ]
 ; a <op> b => a bool
@@ -68,7 +81,6 @@ define le? [ clone upquote le ]
 define gt? [ clone upquote gt ]
 define ge? [ clone upquote ge ]
 
-define not [ false? swap drop ]
 define abs [ lt? 0 if [negate] [] ]
 define max [ clone2 lt if [swap] [] drop ]
 define min [ clone2 lt if [] [swap] drop ]
