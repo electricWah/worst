@@ -3,9 +3,7 @@ use std::cell::RefCell;
 use std::fmt::{ Debug, Display };
 use std::rc::Rc;
 
-use crate::impl_value;
 use super::value::*;
-use super::traits::*;
 
 /// Symbol type: an unquoted word used to look up definitions.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,34 +39,58 @@ impl From<Symbol> for String {
     fn from(s: Symbol) -> Self { s.v }
 }
 
-impl_value!(Symbol, value_tostring(Symbol::to_string), type_name("symbol"));
-fn bool_tostring(b: &bool) -> String { (if *b { "#t" } else { "#f" }).into() }
-impl_value!(bool, value_tostring(bool_tostring));
-impl_value!(String, value_debug::<String>(), type_name("string"));
-
-// TODO bunch of numbers, better than this
-impl_value!(i64, value_debug::<i64>(), type_name("int64"));
-impl_value!(f64, value_debug::<f64>(), type_name("float64"));
+impl Value for Symbol {}
+impl Value for bool {}
+impl Value for String {}
+impl Value for i64 {}
+impl Value for f64 {}
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]
 pub struct Place(Rc<RefCell<Val>>);
-impl_value!(Place, type_name("place"));
+impl Value for Place {}
 
 impl Place {
     /// Create a new [Place] wrapping `v`.
-    pub fn wrap(v: impl Value) -> Place {
+    pub fn wrap(v: impl Into<Val>) -> Place {
         Place(Rc::new(RefCell::new(v.into())))
     }
     /// Trade the contents of this [Place] with a new value.
-    pub fn swap(&mut self, v: impl Value) -> Val {
+    pub fn swap(&mut self, v: impl Into<Val>) -> Val {
         self.0.replace(v.into())
     }
     /// Update the contents of this [Place], discarding the old value.
-    pub fn set(&mut self, v: impl Value) { self.swap(v); }
+    pub fn set(&mut self, v: impl Into<Val>) { self.swap(v); }
 
     /// Get a copy of the contained [Val].
     pub fn get(&self) -> Val { self.0.try_borrow().unwrap().clone() }
 }
 
+/// Meta value signalling that the value represents some kind of error.
+///
+/// Set IsError on all members of a type:
+/// ```ignore
+/// struct BadSituation;
+/// impl_value!(BadSituation, IsError);
+/// assert!(IsError::is_error(&BadSituation));
+/// ```
+/// Set IsError on a single value:
+/// ```ignore
+/// let mut v = IsError::add("an error".to_string());
+/// assert!(IsError::is_error(&v));
+/// ```
+pub struct IsError;
+impl Value for IsError {}
+impl IsError {
+    /// Add IsError metadata to the value.
+    pub fn add(v: impl Into<Val>) -> Val {
+        let mut v: Val = v.into();
+        v.meta_ref_mut().push(IsError);
+        v
+    }
+    /// Check whether the value or its type is an error.
+    pub fn is_error(v: &Val) -> bool {
+        v.meta_ref().contains::<Self>()
+    }
+}
 

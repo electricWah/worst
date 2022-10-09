@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use genawaiter::{ rc::Gen, rc::Co };
 use std::borrow::Borrow;
 
-use crate::impl_value;
 use crate::base::*;
 use crate::list::List;
 
@@ -61,22 +60,21 @@ pub struct DefineMeta {
     /// Name of definition
     pub name: Option<String>,
 }
-impl_value!(DefineMeta);
+impl Value for DefineMeta {}
 
 /// Static environment of definition
 /// (all definitions in parent frame when defined)
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct DefineEnv(DefSet);
-impl_value!(DefineEnv);
+impl Value for DefineEnv {}
 
-#[derive(Debug)]
 #[must_use]
 pub enum ChildFrame {
     ListFrame(ListFrame),
     PausedFrame(PausedFrame),
 }
 
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct ListFrame {
     pub childs: Vec<ChildFrame>,
     pub body: List,
@@ -162,7 +160,6 @@ pub trait Eval {
 }
 
 #[must_use]
-#[derive(Debug)]
 pub enum ToEvalOnce {
     Def(List, DefineMeta, DefSet),
     Body(List),
@@ -221,7 +218,7 @@ impl EvalOnce for Symbol {
 /// A concrete [Eval] fn
 #[derive(Clone)]
 pub struct Builtin(Rc<dyn Fn(Handle) -> Pin<Box<dyn Future<Output = ()> + 'static>>>);
-impl_value!(Builtin);
+impl Value for Builtin {}
 
 impl<F: 'static + Future<Output=()>,
      T: 'static + Fn(Handle) -> F>
@@ -265,7 +262,7 @@ impl PausedFrame {
 }
 
 /// Clone-on-write definition environment for list definitions.
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct DefSet(Rc<HashMap<String, Val>>);
 impl DefSet {
     /// Add an evaluable definition.
@@ -273,7 +270,7 @@ impl DefSet {
         Rc::make_mut(&mut self.0).insert(key, val.into_val());
     }
     /// Add a regular definition.
-    pub fn insert(&mut self, key: String, val: impl Value) {
+    pub fn insert(&mut self, key: String, val: impl Into<Val>) {
         Rc::make_mut(&mut self.0).insert(key, val.into());
     }
     /// Remove a definition by name.

@@ -11,11 +11,11 @@ use super::base::*;
 impl Handle {
     /// See [pause](Self::pause), but the value is given [IsError] metadata
     /// so `error?` will return true.
-    pub async fn error(&self, v: impl Value) {
+    pub async fn error(&self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::Pause(IsError::add(v))).await;
     }
     /// Pause evaluation and return the given value through [Interpreter::run].
-    pub async fn pause(&self, v: impl Value) {
+    pub async fn pause(&self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::Pause(v.into())).await;
     }
     /// Evaluate a list or function.
@@ -34,7 +34,7 @@ impl Handle {
     }
 
     // non-mutable so stack_top doesn't have to be mutable
-    async fn inner_stack_push(&self, v: impl Value) {
+    async fn inner_stack_push(&self, v: impl Into<Val>) {
         self.co.yield_(FrameYield::StackPush(v.into())).await;
     }
 
@@ -57,7 +57,7 @@ impl Handle {
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
-    async fn inner_stack_pop<T: Value + ImplValue>(&self) -> Vals<T> {
+    async fn inner_stack_pop<T: Value>(&self) -> Vals<T> {
         loop {
             match self.inner_stack_pop_val().await.try_into() {
                 Ok(v) => return v,
@@ -72,7 +72,7 @@ impl Handle {
     }
 
     /// Put a value on top of the stack.
-    pub async fn stack_push(&mut self, v: impl Value) {
+    pub async fn stack_push(&mut self, v: impl Into<Val>) {
         self.inner_stack_push(v).await
     }
 
@@ -90,7 +90,7 @@ impl Handle {
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
-    pub async fn stack_pop<T: Value + ImplValue>(&mut self) -> Vals<T> {
+    pub async fn stack_pop<T: Value>(&mut self) -> Vals<T> {
         self.inner_stack_pop().await
     }
 
@@ -104,7 +104,7 @@ impl Handle {
     /// Get a copy of the top value of the stack without removing it
     /// (i.e. `stack_nth(0)`).
     /// See [stack_pop](Self::stack_pop).
-    pub async fn stack_top<T: Value + ImplValue>(&self) -> Vals<T> {
+    pub async fn stack_top<T: Value>(&self) -> Vals<T> {
         let v = self.inner_stack_pop::<T>().await;
         self.inner_stack_push(v.get_val()).await;
         v
@@ -167,7 +167,7 @@ impl Handle {
     /// Define a dynamic value,
     /// which is a species of value that lives in stack frames, and thus
     /// lacks the lexical scope gene that other values and definitions carry.
-    pub async fn define_dynamic(&mut self, name: impl Into<String>, def: impl Value) {
+    pub async fn define_dynamic(&mut self, name: impl Into<String>, def: impl Into<Val>) {
         self.co.yield_(FrameYield::Define {
             name: name.into(),
             scope: DefScope::Dynamic,

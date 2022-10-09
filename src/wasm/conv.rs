@@ -5,11 +5,10 @@ use wasm_bindgen::prelude::*;
 use js_sys::{ self, Array };
 use web_sys;
 
-use crate::impl_value;
 use crate::base::*;
 use crate::list::List;
 
-impl_value!(JsValue);
+impl Value for JsValue {}
 
 // Never fails since any failure is just a JsValue itself
 pub fn from_jsvalue(j: JsValue) -> Val {
@@ -37,7 +36,7 @@ pub fn from_jsvalue(j: JsValue) -> Val {
 }
 
 struct ToJsValue(Box<dyn Fn(&Val) -> JsValue>);
-impl_value!(ToJsValue);
+impl Value for ToJsValue {}
 
 // For values that don't implement ToJsValue
 #[wasm_bindgen]

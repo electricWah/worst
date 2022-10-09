@@ -190,21 +190,16 @@ pub fn install(i: &mut Interpreter) {
         let v = i.stack_empty().await;
         i.stack_push(v).await;
     });
-    i.define("stack-dump", |i: Handle| async move {
-        println!("{:?}", Val::from(i.stack_get().await));
-    });
-    i.define("call-stack-dump", |i: Handle| async move {
-        println!("{:?}", List::from(i.call_stack_names().await
-                                    .into_iter().map(|x| {
-                                        if let Some(x) = x { Val::from(x) }
-                                        else { false.into() }
-                                    }).collect::<Vec<Val>>()));
-    });
-    // for now
-    i.define("value->string", |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
-        i.stack_push(format!("{:?}", v)).await;
-    });
+    // i.define("stack-dump", |i: Handle| async move {
+    //     println!("{:?}", Val::from(i.stack_get().await));
+    // });
+    // i.define("call-stack-dump", |i: Handle| async move {
+    //     println!("{:?}", List::from(i.call_stack_names().await
+    //                                 .into_iter().map(|x| {
+    //                                     if let Some(x) = x { Val::from(x) }
+    //                                     else { false.into() }
+    //                                 }).collect::<Vec<Val>>()));
+    // });
     i.define("stack-get", |mut i: Handle| async move {
         let s = i.stack_get().await;
         i.stack_push(s).await;

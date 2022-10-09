@@ -1,7 +1,6 @@
 
 //! An [Interpreter] for Worst code.
 
-use crate::impl_value;
 use crate::base::*;
 use crate::list::List;
 
@@ -12,14 +11,13 @@ use base::*;
 pub use self::handle::*;
 
 /// A Worst interpreter, the thing you define functions for and run code in and stuff.
-#[derive(Default, Debug)]
+#[derive(Default)]
 pub struct Interpreter {
     frame: ListFrame,
     parents: Vec<ListFrame>,
     stack: List,
 }
-
-impl_value!(Interpreter, value_debug::<Interpreter>());
+impl Value for Interpreter {}
 
 impl Interpreter {
 
@@ -80,7 +78,7 @@ impl Interpreter {
     /// Get a mutable reference to the stack
     pub fn stack_ref_mut(&mut self) -> &mut List { &mut self.stack }
     /// Put something on top of the stack
-    pub fn stack_push(&mut self, v: impl Value) { self.stack.push(v.into()); }
+    pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     /// Pop the top thing off the stack
     pub fn stack_pop(&mut self) -> Option<Val> { self.stack.pop() }
 
@@ -271,7 +269,7 @@ impl Interpreter {
 
     // basic look at all the ListFrame and see
     fn call_stack_names(&self) -> Vec<Option<String>> {
-        dbg!(&self.frame);
+        // dbg!(&self.frame);
         let mut r = vec![];
         r.push(self.frame.def_name().map(String::from));
         for p in self.parents.iter().rev() {

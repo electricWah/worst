@@ -18,7 +18,6 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
         async move {
             let mut exports = exports.clone();
             let q = i.quote_val().await;
-            let qqerr = q.clone();
             if let Some(&b) = q.downcast_ref::<bool>() {
                 if b {
                     exports.set(true);
@@ -31,7 +30,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
                     l.push(q);
                     exports.set(l);
                 } else {
-                    dbg!("export symbol failed", &q, &exp);
+                    dbg!("export symbol failed");
                 }
             } else if let Some(coll) = q.downcast::<List>() {
                 if let Some(mut l) = exports.get().downcast::<List>() {
@@ -40,10 +39,10 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
                     }
                     exports.set(l);
                 } else {
-                    dbg!("export list failed", exports.get());
+                    dbg!("export list failed"); //, exports.get());
                 }
             } else {
-                todo!("export this thing {:?}", qqerr);
+                todo!("export this thing");
             }
         }
     });
@@ -125,7 +124,7 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
                     },
                 }
             } else {
-                eprintln!("Ignored {lpx:?} in WORST_LIBPATH");
+                todo!("Ignored in WORST_LIBPATH");
             }
         }
     }
@@ -175,12 +174,12 @@ pub fn install(i: &mut Interpreter) {
                             }
                         },
                         Err((v, p)) => {
-                            return i.error(dbg!(List::from(vec![
+                            return i.error(List::from(vec![
                                 "error in eval_module".to_string().into(),
                                 import_name,
                                 v,
                                 p.stack_ref().clone().into(),
-                            ]))).await;
+                            ])).await;
                         },
                     },
                     Err(e) => return i.error(e).await,

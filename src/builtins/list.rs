@@ -34,12 +34,23 @@ pub async fn list_reverse(mut i: Handle) {
     i.stack_push(l).await;
 }
 
-/// list list `list-reverse` -> list : append two lists.
+/// list list `list-append` -> list : append two lists.
 pub async fn list_append(mut i: Handle) {
     let mut b = i.stack_pop::<List>().await;
     let a = i.stack_pop::<List>().await;
     b.as_mut().prepend(a.into_inner());
     i.stack_push(b).await;
+}
+
+/// list `list-iter` [ a -> ] :
+/// run the given body on each value in the list in turn.
+pub async fn list_iter(mut i: Handle) {
+    let l = i.stack_pop::<List>().await.into_inner();
+    let body = i.quote_val().await;
+    for v in l.into_iter() {
+        i.stack_push(v).await;
+        i.eval(body.clone()).await;
+    }
 }
 
 /// Install all these functions.
@@ -50,5 +61,6 @@ pub fn install(i: &mut Interpreter) {
     i.define("list-push", list_push);
     i.define("list-pop", list_pop);
     i.define("list-append", list_append);
+    i.define("list-iter", list_iter);
 }
 

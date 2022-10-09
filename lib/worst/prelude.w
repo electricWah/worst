@@ -44,6 +44,20 @@ define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
 
 define (dispatch (list?)) length [ list-length ]
 
+define (dispatch (string?)) value->string []
+define (dispatch (i64?)) value->string [i64->string]
+define (dispatch (f64?)) value->string [f64->string]
+define (dispatch (list?)) value->string [
+    "(" "" dig list-iter [
+        value->string
+        ; concat accumulator with either "" or previous trailing " "
+        bury string-append swap
+        string-append " "
+    ]
+    ; drop trailing " " or semi-sacrificial ""
+    drop ")" string-append
+]
+
 define false? [ clone not ]
 
 ; dynamic definitions (using dynamic values)

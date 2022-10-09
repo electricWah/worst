@@ -2,11 +2,10 @@
 //! Basic documentation attribute and metadata
 
 use crate::base::*;
-use crate::impl_value;
 use crate::interpreter::{Interpreter, Handle};
 
 struct Doc(Val);
-impl_value!(Doc);
+impl Value for Doc {}
 
 /// Install all documentation functions.
 pub fn install(i: &mut Interpreter) {

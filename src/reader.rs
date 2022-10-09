@@ -5,7 +5,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::num::IntErrorKind;
-use crate::impl_value;
 use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
@@ -24,7 +23,7 @@ pub enum ReadError {
     /// A number that looked like it was but isn't
     UnparseableNumber(String),
 }
-impl_value!(ReadError, value_debug::<ReadError>());
+impl Value for ReadError {}
 
 // Interpreter-based reader: feed it text and it will run an interpreter
 // to consume the text and output values
@@ -65,7 +64,7 @@ enum Emit {
     Yield(Val),
     Error(ReadError),
 }
-impl_value!(Emit);
+impl Value for Emit {}
 
 struct ReaderHandle {
     i: Handle,
@@ -90,7 +89,7 @@ impl ReaderHandle {
         }
     }
 
-    async fn emit(&mut self, v: impl Value) {
+    async fn emit(&mut self, v: impl Into<Val>) {
         if let Some((_, _, l)) = self.list_stack.last_mut() {
             l.push(v.into());
         } else {
@@ -203,7 +202,7 @@ impl ReaderHandle {
 /// A [Val] [Interpreter].
 /// Give it text with [write](Reader::write)
 /// and receive code with [read_next](Reader::read_next).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Reader {
     buf: StringBuffer,
     i: Rc<RefCell<Interpreter>>,
@@ -214,7 +213,7 @@ impl PartialEq for Reader {
     }
 }
 impl Eq for Reader {}
-impl_value!(Reader);
+impl Value for Reader {}
 
 impl Default for Reader {
     fn default() -> Self {
@@ -256,7 +255,7 @@ impl Reader {
                         Emit::Error(e) => Err(e),
                     }
                 } else {
-                    dbg!(&v);
+                    // dbg!(&v);
                     Ok(None)
                 }
             },

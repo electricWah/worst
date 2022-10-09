@@ -2,7 +2,6 @@
 //! Filesystem bits, and a bundled filestore built in to the binary when enabled
 
 use std::io;
-use crate::impl_value;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 use crate::builtins::util::*;
@@ -21,7 +20,7 @@ pub(crate) mod fs {
         // path: String,
         handle: Rc<RefCell<fs::File>>,
     }
-    impl_value!(File, type_name("file"));
+    impl Value for File {}
 
     /// Try to open the file.
     pub fn open_read(path: impl AsRef<std::path::Path>) -> io::Result<File> {
@@ -51,7 +50,7 @@ pub mod embedded {
         // path: String,
         handle: &'static [u8],
     }
-    impl_value!(File, type_name("embedded-file"));
+    impl Value for File {}
 
     /// Open the path if it exists.
     pub fn open_read(path: impl AsRef<std::path::Path>) -> Option<File> {

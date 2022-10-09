@@ -3,11 +3,9 @@
 
 mod value;
 mod types;
-mod traits;
 mod vals;
 
 pub use value::*;
 pub use types::*;
-pub use traits::*;
 pub use vals::*;
 

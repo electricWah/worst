@@ -1,7 +1,6 @@
 
 //! Multimethods
 
-use crate::impl_value;
 use crate::base::*;
 use crate::list::*;
 use crate::interpreter::{Interpreter, Handle, Builtin};
@@ -11,7 +10,17 @@ struct DispatchInfo {
     clauses: Vec<(Val, Val)>, // (spec, body)
     default: Option<Val>,
 }
-impl_value!(DispatchInfo);
+impl Value for DispatchInfo {}
+
+// FIXME def environment for each clause is rebound every define
+// symptoms:
+// - recursion can see later clauses
+// - earlier clauses can break if they use imports no longer visible when
+//   later clauses are added
+// fix:
+// - add DefineEnv to each clause body
+// - add separate attribute to enable recursion
+// - have it work somehow
 
 async fn dispatch_impl(mut i: Handle, di: DispatchInfo) {
     for (spec, body) in di.clauses {

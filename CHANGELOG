@@ -2,9 +2,13 @@
 # 0.4
 
 - Types are now values
-- equality is now a dispatch definition rather than a meta value
+- Actually, I lied. Types don't even exist any more
+- No more ImplValue or `impl_value!`, use `impl Value for YourType {}` instead
+- Equality and value->string are now dispatch definitions, not meta values
+- Val is no longer PartialEq or Debug (a consequence of removing types)
 - More builtins consume their arguments: list-length, place-get
 - Rename get-environment-variable -> environment-variable, now consumes
+- Add list-iter builtin
 
 # 0.3 (2022-09-25)
 

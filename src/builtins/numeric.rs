@@ -11,7 +11,7 @@ use crate::interpreter::{Interpreter, Handle};
 // TODO pop two at once with stack_pop::<(T, T)>
 
 /// Add the top two numbers on the stack.
-pub async fn add<T: std::ops::Add<T, Output=T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn add<T: std::ops::Add<T, Output=T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() + b.into_inner()).await;
@@ -21,14 +21,14 @@ pub async fn add<T: std::ops::Add<T, Output=T> + ImplValue + Clone + 'static>(mu
 /// If you need to remember which way around it is, `sub` is `negate add`.
 /// All of these operations are the same order as infix, so
 /// `a b op` infix is `a op b`.
-pub async fn sub<T: std::ops::Sub<T, Output=T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn sub<T: std::ops::Sub<T, Output=T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() - b.into_inner()).await;
 }
 
 /// `a b mul` is `a * b`.
-pub async fn mul<T: std::ops::Mul<T, Output=T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn mul<T: std::ops::Mul<T, Output=T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() * b.into_inner()).await;
@@ -39,14 +39,14 @@ pub async fn mul<T: std::ops::Mul<T, Output=T> + ImplValue + Clone + 'static>(mu
 /// If you need to remember which way around it is, `div` is `recip mul` for f64s.
 /// All of these operations are the same order as infix, so
 /// `a b op` infix is `a op b`.
-pub async fn div<T: std::ops::Div<T, Output=T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn div<T: std::ops::Div<T, Output=T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() / b.into_inner()).await;
 }
 
 /// Negate the number on top of the stack.
-pub async fn negate<T: std::ops::Neg<Output=T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn negate<T: std::ops::Neg<Output=T> + Value + Clone>(mut i: Handle) {
     let a = i.stack_pop::<T>().await;
     i.stack_push(-a.into_inner()).await;
 }
@@ -64,27 +64,27 @@ pub async fn abs_f64(mut i: Handle) {
 }
 
 /// `a b lt` is `a < b`
-pub async fn lt<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn lt<T: std::cmp::PartialOrd<T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() < b.into_inner()).await;
 }
 /// `a b le` is `a <= b`
-pub async fn le<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn le<T: std::cmp::PartialOrd<T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() <= b.into_inner()).await;
 }
 
 /// `a b gt` is `a > b`
-pub async fn gt<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn gt<T: std::cmp::PartialOrd<T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() > b.into_inner()).await;
 }
 
 /// `a b ge` is `a >= b`
-pub async fn ge<T: std::cmp::PartialOrd<T> + ImplValue + Clone + 'static>(mut i: Handle) {
+pub async fn ge<T: std::cmp::PartialOrd<T> + Value + Clone>(mut i: Handle) {
     let b = i.stack_pop::<T>().await;
     let a = i.stack_pop::<T>().await;
     i.stack_push(a.into_inner() >= b.into_inner()).await;
@@ -106,6 +106,9 @@ pub async fn f64_to_i64(mut i: Handle) {
 pub fn install(i: &mut Interpreter) {
     i.define("i64?", util::type_predicate::<i64>);
     i.define("f64?", util::type_predicate::<f64>);
+
+    i.define("i64->string", util::value_tostring_debug::<i64>);
+    i.define("f64->string", util::value_tostring_debug::<f64>);
 
     i.define("i64-equal", util::equality::<i64>);
     i.define("f64-equal", util::equality::<f64>);

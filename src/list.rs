@@ -1,16 +1,16 @@
 
 //! A [Vec] of [Val], basically.
 
-use crate::impl_value;
 use crate::base::*;
 
 /// A list of [Val] values. It is itself a [Value].
 /// This is the primary container type in Worst.
 /// It's a little like a Lisp list.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct List {
     data: Vec<Val>,
 }
+impl Value for List {}
 
 impl From<Vec<Val>> for List {
     fn from(mut data: Vec<Val>) -> List {
@@ -33,8 +33,6 @@ impl Iterator for List {
 impl Default for List {
     fn default() -> Self { List::from(vec![]) }
 }
-
-impl_value!(List, value_tostring(List::to_string_debug));
 
 impl List {
     /// Get the number of values in this list.
@@ -81,17 +79,6 @@ impl List {
     /// Reverse the list in-place.
     pub fn reverse(&mut self) {
         self.data.reverse();
-    }
-
-    fn to_string_debug(&self) -> String {
-        let mut acc = "(".to_string();
-        // ?? I guess?
-        acc.push_str(self.data.iter().rev()
-                     .map(|v| format!("{:?}", v))
-                     .collect::<Vec<String>>().join(" ")
-                     .as_ref());
-        acc.push(')');
-        acc
     }
 
     // pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {

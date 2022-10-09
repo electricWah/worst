@@ -1,11 +1,9 @@
 
-use std::cell::RefCell;
-use std::fmt::Debug;
 use std::rc::Rc;
-use std::any::{ Any, TypeId };
+use std::any::Any;
 
 /// Metadata for [Val].
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Clone)]
 pub struct Meta(Vec<Val>);
 
 /// A reference-counted value, used directly by Worst programs.
@@ -16,100 +14,14 @@ pub struct Val {
     meta: Rc<Meta>,
 }
 
-/// Type value for vals for types. See [ImplValue].
-#[derive(Debug)]
-pub struct TypeVal(TypeId);
-impl TypeVal {
-    /// Get a TypeVal corresponding to the given type.
-    pub fn of<T: 'static>() -> Self { TypeVal(TypeId::of::<T>()) }
-}
-
-/// The Worst value trait.
-/// Usually not necessary to mention -
-/// use [Value] in type parameters,
-/// or [impl_value] to implement it.
-///
-/// This associates a [Val] with the implementing type to serve as a concrete
-/// representation of the type for Worst.
-pub trait ImplValue {
-    thread_local! {
-        /// A value shared by all instances of this type,
-        /// so they can all have the same type within Worst.
-        // This default value is for TypeVal specifically -
-        // all other types should use impl_value
-        static TYPE: RefCell<Val> =
-            RefCell::new(Val::construct(TypeVal::of::<TypeVal>(),
-                                        Rc::new(Meta::default())));
-    }
-
-    /// Add a new meta value. Take care to only do this once per `m`.
-    /// The new value will only apply to newly-created instances of this type.
-    // this could be a macro somehow?
-    fn install_meta(m: impl Value) {
-        Self::TYPE.with(|t| t.borrow_mut().meta_ref_mut().push(m))
-    }
-    /// Get the Worst type value for this type.
-    fn get_type() -> Val {
-        Self::TYPE.with(|t| t.borrow().clone())
-    }
-}
-// This should be the only type using the default ImplValue,
-// to prevent recursion-based headaches if this were to use impl_value.
-impl ImplValue for TypeVal {}
-
-/// Make a Rust type usable from Worst.
-///
-/// At its simplest, use [impl_value] to use Rust types from Worst:
-/// ```ignore
-/// struct Cool;
-/// impl_value!(Cool);
-/// // later, with an interpreter:
-/// i.stack_push(Cool);
-/// ```
-/// You can use functions such as
-/// [value_debug](crate::base::value_debug)
-/// and [value_eq](crate::base::value_eq)
-/// to act as "dynamic traits", designated [Meta] entries for the [Type]
-/// which can wrap built-in traits, override default behaviour,
-/// and let you pretend Worst has some kind of trait system.
-/// ```ignore
-/// #[derive(Debug)]
-/// struct CoolDebuggable;
-/// // type parameter needed because it's not particularly smart
-/// impl_value!(CoolDebuggable, value_debug::<CoolDebuggable>());
-/// ```
-#[macro_export]
-macro_rules! impl_value {
-    ($t:ty) => { impl_value!($t,); };
-    ($t:ty, $($m:expr),*) => {
-        impl ImplValue for $t {
-            thread_local! {
-                static TYPE: std::cell::RefCell<Val> =
-                          std::cell::RefCell::new(
-                              Val::from(TypeVal::of::<$t>())
-                              .with_meta(|m| {
-                                  $(m.push($m);)*
-                                  m.push(type_name(stringify!($t)));
-                              }));
-            }
-        }
-    }
-}
-
 /// Something that is, or could become, a [Val]
 /// (e.g. to be given to an [Interpreter](crate::interpreter::Interpreter)).
-pub trait Value: 'static + Into<Val> {}
-impl<T: ImplValue + 'static> Value for T {}
-impl Value for Val {}
+pub trait Value: 'static {}
+// impl Value for Val {}
 
-impl<T: ImplValue + 'static> From<T> for Val {
+impl<T: Value> From<T> for Val {
     fn from(v: T) -> Val {
-        T::TYPE.with(|t| {
-            // Automatically add TypeVal for T to metadata.
-            // Removing it will probably not break the Val too much
-            // except maybe the things in base::traits.
-            Val::construct(v, Rc::new(Meta::default().with(t.borrow().clone())))
-        })
+        Val::construct(v, Rc::new(Meta::default()))
     }
 }
 
@@ -127,7 +39,6 @@ impl Val {
             Some(Rc::try_unwrap(Rc::downcast::<T>(self.v).unwrap())
                  .unwrap_or_else(|rc| (*rc).clone()))
         } else {
-            dbg!(&self);
             None
         }
     }
@@ -183,21 +94,15 @@ impl Val {
     pub fn with_meta(mut self, f: impl FnOnce(&mut Meta)) -> Self {
         f(self.meta_ref_mut()); self
     }
-
-    /// Get a reference to this value's type.
-    /// Option because type values themselves do not have a type.
-    pub fn type_ref(&self) -> Option<&Val> {
-        self.meta.first_ref_val::<TypeVal>()
-    }
 }
 
 impl Meta {
     /// Add a new value.
-    pub fn push(&mut self, v: impl Value) {
+    pub fn push(&mut self, v: impl Into<Val>) {
         self.0.push(v.into());
     }
     /// Add a new value, builder-style.
-    pub fn with(mut self, v: impl Value) -> Self {
+    pub fn with(mut self, v: impl Into<Val>) -> Self {
         self.push(v); self
     }
 

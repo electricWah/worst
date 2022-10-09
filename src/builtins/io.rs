@@ -5,12 +5,11 @@ use std::rc::Rc;
 use std::io::{ self, Read, BufRead, Write };
 use std::cell::RefCell;
 // use std::collections::VecDeque;
-use crate::impl_value;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 
 struct OutputPort(RefCell<Box<dyn Write>>);
-impl_value!(OutputPort);
+impl Value for OutputPort {}
 
 #[cfg(feature = "enable_stdio")]
 impl OutputPort {
@@ -24,7 +23,7 @@ impl OutputPort {
 
 #[derive(Clone)]
 struct BufReader(Rc<RefCell<dyn BufRead>>);
-impl_value!(BufReader, type_name("bufreader"));
+impl Value for BufReader {}
 impl BufReader {
     #[cfg(feature = "enable_stdio")]
     fn stdin() -> Self {
@@ -42,7 +41,7 @@ impl Read for BufReader {
 /// either the string itself on success,
 /// or an `error?` value on failure
 /// (currently the string representation of the error).
-pub async fn port_to_string<T: ImplValue + Read + Clone + 'static>(mut i: Handle) {
+pub async fn port_to_string<T: Value + Read + Clone>(mut i: Handle) {
     let mut read = i.stack_pop::<T>().await;
     let mut s = String::new();
     match read.as_mut().read_to_string(&mut s) {

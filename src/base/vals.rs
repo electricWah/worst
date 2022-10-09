@@ -66,7 +66,6 @@ impl<T: Value> From<Vals<T>> for Val {
         }
     }
 }
-impl<T: Value + 'static> Value for Vals<T> {}
 
 impl<T: Value + Clone> Vals<T> {
     /// Take this apart to reveal its innards, discarding metadata.
