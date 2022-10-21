@@ -1,8 +1,7 @@
 
 # 0.4
 
-- Types are now values
-- Actually, I lied. Types don't even exist any more
+- Types no longer exist as a Worst-level concept
 - No more ImplValue or `impl_value!`, use `impl Value for YourType {}` instead
 - Equality and value->string are now dispatch definitions, not meta values
 - Val is no longer PartialEq or Debug (a consequence of removing types)

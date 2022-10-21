@@ -24,5 +24,9 @@ pub fn install(i: &mut Interpreter) {
         let s = i.stack_pop::<String>().await;
         i.stack_push(s.into_inner().to_symbol()).await;
     });
+    i.define("symbol->string", |mut i: Handle| async move {
+        let s = i.stack_pop::<Symbol>().await;
+        i.stack_push(s.into_inner().to_string()).await;
+    });
 }
 

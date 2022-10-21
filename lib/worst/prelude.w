@@ -44,7 +44,10 @@ define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
 
 define (dispatch (list?)) length [ list-length ]
 
+define value->string [drop "<value>"]
 define (dispatch (string?)) value->string []
+define (dispatch (bool?)) value->string [if ["#t"] ["#f"]]
+define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
 define (dispatch (list?)) value->string [

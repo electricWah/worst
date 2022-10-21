@@ -2,14 +2,14 @@
 //! Conjuring, manipulating and executing interpreters
 
 use std::rc::Rc;
-use std::cell::RefCell;
+use std::cell::{RefCell, Ref, RefMut};
 
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::{Interpreter, Handle, DefScope};
 
-// TODO no wrapper, just use Interpreter directly
-#[derive(Clone)]
+// TODO no wrapper, just use Interpreter directly and wrap in a place in worst
+#[derive(Clone, Default)]
 struct Interp(Rc<RefCell<Interpreter>>);
 
 impl PartialEq for Interp {
@@ -19,23 +19,11 @@ impl Eq for Interp {}
 impl Value for Interp {}
 
 impl Interp {
-    fn define(&self, name: impl Into<String>, def: Val) {
-        self.0.borrow_mut().define(name, def);
+    fn borrow(&self) -> Ref<Interpreter> {
+        self.0.borrow()
     }
-    fn call(&self, name: impl Into<Symbol>) {
-        self.0.borrow_mut().call(name);
-    }
-    fn run(&self) -> Option<Val> {
-        self.0.borrow_mut().run()
-    }
-    fn body_prepend(&self, body: List) {
-        self.0.borrow_mut().body_mut().prepend(body);
-    }
-}
-
-impl Default for Interp {
-    fn default() -> Self {
-        Interp(Rc::new(RefCell::new(Interpreter::default())))
+    fn borrow_mut(&self) -> RefMut<'_, Interpreter> {
+        self.0.borrow_mut()
     }
 }
 
@@ -46,7 +34,7 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("interpreter-run",  |mut i: Handle| async move {
         let interp = i.stack_pop::<Interp>().await;
-        let r = interp.as_ref().run();
+        let r = interp.as_ref().borrow_mut().run();
         i.stack_push(interp).await;
         match r {
             None => i.stack_push(true).await,
@@ -58,7 +46,7 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("interpreter-reset",  |i: Handle| async move {
         let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().0.borrow_mut().reset();
+        interp.as_ref().borrow_mut().reset();
     });
     i.define("interpreter-stack-length",  |mut i: Handle| async move {
         let interp = i.stack_top::<Interp>().await;
@@ -84,7 +72,7 @@ pub fn install(i: &mut Interpreter) {
         let name = i.stack_pop::<Symbol>().await.into_inner();
         let def = i.stack_pop_val().await;
         let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().define(name, def);
+        interp.as_ref().borrow_mut().add_definition(name, def, DefScope::Static);
     });
     i.define("interpreter-definition-remove", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await;
@@ -94,7 +82,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("interpreter-call", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await.into_inner();
         let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().call(name);
+        interp.as_ref().borrow_mut().call(name);
     });
     i.define("interpreter-body-push",  |mut i: Handle| async move {
         let v = i.stack_pop_val().await;
@@ -104,7 +92,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("interpreter-body-prepend",  |mut i: Handle| async move {
         let body = i.stack_pop::<List>().await.into_inner();
         let interp = i.stack_pop::<Interp>().await;
-        interp.as_ref().body_prepend(body);
+        interp.as_ref().borrow_mut().body_mut().prepend(body);
         i.stack_push(interp).await;
     });
 }

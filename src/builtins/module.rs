@@ -5,7 +5,7 @@ use crate::base::*;
 use crate::list::*;
 use crate::reader;
 use crate::builtins::file;
-use crate::interpreter::{Interpreter, Handle, DefSet};
+use crate::interpreter::{Interpreter, Handle, DefSet, DefScope};
 
 fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
 
@@ -170,7 +170,7 @@ pub fn install(i: &mut Interpreter) {
                     Ok(r) => match eval_module(r, i.all_definitions().await) {
                         Ok(defs) => {
                             for (name, def) in defs.iter() {
-                                i.define(name, def.clone()).await;
+                                i.add_definition(name, def.clone(), DefScope::Static).await;
                             }
                         },
                         Err((v, p)) => {

@@ -11,6 +11,7 @@ use crate::base::*;
 use crate::list::List;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
+#[derive(Debug)]
 pub enum DefScope {
     Static,
     Dynamic,
@@ -28,7 +29,7 @@ pub enum FrameYield {
     StackPop(YieldReturn<Val>),
     StackGetAll(YieldReturn<List>),
     Quote(YieldReturn<Val>),
-    Define {
+    AddDefinition {
         name: String,
         scope: DefScope,
         def: Val,
@@ -62,12 +63,6 @@ pub struct DefineMeta {
 }
 impl Value for DefineMeta {}
 
-/// Static environment of definition
-/// (all definitions in parent frame when defined)
-#[derive(Default, Clone)]
-pub struct DefineEnv(DefSet);
-impl Value for DefineEnv {}
-
 #[must_use]
 pub enum ChildFrame {
     ListFrame(ListFrame),
@@ -97,18 +92,8 @@ impl ListFrame {
         defs.append(&self.locals);
         defs
     }
-    pub fn add_definition(&mut self, name: impl Into<String>, scope: DefScope, def: Val) {
+    pub fn add_definition(&mut self, name: impl Into<String>, def: Val, scope: DefScope) {
         let name = name.into();
-        let def = def.with_meta(|m| {
-            if !m.contains::<DefineMeta>() {
-                m.push(DefineMeta {
-                    name: Some(name.clone()),
-                });
-            }
-            if !m.contains::<DefineEnv>() {
-                m.push(DefineEnv(self.all_defs()));
-            }
-        });
         match scope {
             DefScope::Static => self.locals.insert(name, def),
             DefScope::Dynamic => self.dynamics.insert(name, def),
@@ -157,6 +142,9 @@ pub struct Handle {
 /// Runnable code. [List] and [Builtin] implement it.
 pub trait Eval {
     fn into_val(self) -> Val;
+    /// Whether this requires eval_meta to be added (DefineMeta, DefSet)
+    /// (should be true for lists, false for builtins)
+    fn eval_meta(&self) -> bool;
 }
 
 #[must_use]
@@ -172,16 +160,19 @@ pub trait EvalOnce {
     // fn eval_once(&self, frame: &mut ListFrame);
 }
 
-impl Eval for Val { fn into_val(self) -> Val { self } }
+impl Eval for Val {
+    fn into_val(self) -> Val { self }
+    fn eval_meta(&self) -> bool { self.is::<List>() }
+}
 
 impl EvalOnce for Val {
     fn into_eval_once(self) -> ToEvalOnce {
         if self.is::<Builtin>() {
             self.downcast::<Builtin>().unwrap().into_eval_once()
         } else if self.is::<List>() {
-            if let Some(defs) = self.meta_ref().first_ref::<DefineEnv>().cloned() {
+            if let Some(defs) = self.meta_ref().first_ref::<DefSet>().cloned() {
                 let meta = self.meta_ref().first_ref::<DefineMeta>().cloned().unwrap_or_default();
-                ToEvalOnce::Def(self.downcast::<List>().unwrap(), meta, defs.0)
+                ToEvalOnce::Def(self.downcast::<List>().unwrap(), meta, defs)
             } else {
                 ToEvalOnce::Body(self.downcast::<List>().unwrap())
             }
@@ -230,6 +221,7 @@ impl<F: 'static + Future<Output=()>,
 
 impl<T: Into<Builtin>> Eval for T {
     fn into_val(self) -> Val { Val::from(self.into()) }
+    fn eval_meta(&self) -> bool { false }
 }
 
 impl EvalOnce for Builtin {
@@ -264,6 +256,7 @@ impl PausedFrame {
 /// Clone-on-write definition environment for list definitions.
 #[derive(Default, Clone)]
 pub struct DefSet(Rc<HashMap<String, Val>>);
+impl Value for DefSet {}
 impl DefSet {
     /// Add an evaluable definition.
     pub fn define(&mut self, key: String, val: impl Eval) {

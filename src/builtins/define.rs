@@ -3,7 +3,7 @@
 
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::{Interpreter, Handle, DefScope};
 
 mod dispatch;
 
@@ -47,7 +47,7 @@ pub async fn define(mut i: Handle) {
 
     if !attrs.is_empty() {
         i.eval_child(attrs.clone(), move |mut i: Handle| async move {
-            i.define_dynamic("definition-attributes", true).await;
+            i.add_definition("definition-attributes", true.into(), DefScope::Dynamic).await;
         }).await;
     }
     i.call("default-attributes").await;

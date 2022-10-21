@@ -127,6 +127,9 @@ impl Meta {
         } else { None }
     }
 
+    /// Get the number of elements
+    pub fn len(&self) -> usize { self.0.len() }
+
     /// Get an iterator over the values.
     pub fn iter(&self) -> impl Iterator<Item=&Val> {
         self.0.iter()

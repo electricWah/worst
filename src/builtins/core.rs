@@ -193,13 +193,15 @@ pub fn install(i: &mut Interpreter) {
     // i.define("stack-dump", |i: Handle| async move {
     //     println!("{:?}", Val::from(i.stack_get().await));
     // });
-    // i.define("call-stack-dump", |i: Handle| async move {
-    //     println!("{:?}", List::from(i.call_stack_names().await
-    //                                 .into_iter().map(|x| {
-    //                                     if let Some(x) = x { Val::from(x) }
-    //                                     else { false.into() }
-    //                                 }).collect::<Vec<Val>>()));
-    // });
+    i.define("call-stack", |mut i: Handle| async move {
+        let cs = i.call_stack_names()
+            .await
+            .into_iter().map(|x| {
+                if let Some(x) = x { Val::from(x) }
+                else { false.into() }
+            }).collect::<Vec<Val>>();
+        i.stack_push(List::from(cs)).await;
+    });
     i.define("stack-get", |mut i: Handle| async move {
         let s = i.stack_get().await;
         i.stack_push(s).await;

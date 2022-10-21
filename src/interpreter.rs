@@ -8,6 +8,7 @@ mod base;
 mod handle;
 pub use base::{Handle, DefineMeta, Builtin, DefSet};
 use base::*;
+pub use base::DefScope;
 pub use self::handle::*;
 
 /// A Worst interpreter, the thing you define functions for and run code in and stuff.
@@ -34,9 +35,24 @@ impl Interpreter {
         self.frame.defenv.append(defs);
     }
 
+    /// Insert a value, as-is, as a definition in the current stack frame.
+    pub fn add_definition(&mut self, name: impl Into<String>,
+                          def: impl Into<Val>, scope: DefScope) {
+        self.frame.add_definition(name, def.into(), scope);
+    }
+
     /// Add a definition to the current stack frame.
+    /// Inserts meta values such as name and a static environment.
     pub fn define(&mut self, name: impl Into<String>, def: impl Eval) {
-        self.frame.add_definition(name, DefScope::Static, def.into_val());
+        let name = name.into();
+        let meta = def.eval_meta();
+        let mut def = def.into_val();
+        if meta {
+            let m = def.meta_ref_mut();
+            m.push(DefineMeta { name: Some(name.clone()) });
+            m.push(self.all_definitions());
+        }
+        self.add_definition(name, def, DefScope::Static);
     }
 
     /// Remove a definition from the current stack frame, by name,
@@ -167,8 +183,8 @@ impl Interpreter {
             FrameYield::StackGetAll(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
             FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
-            FrameYield::Define { name, scope, def } =>
-                self.frame.add_definition(name, scope, def),
+            FrameYield::AddDefinition { name, scope, def } =>
+                self.frame.add_definition(name, def, scope),
             FrameYield::Definitions { scope, all, ret } =>
                 ret.set(Some(self.handle_definitions(scope, all))),
             FrameYield::GetDefinition { name, scope, resolve, ret } =>
