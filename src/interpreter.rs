@@ -8,7 +8,6 @@ mod base;
 mod handle;
 pub use base::{Handle, DefineMeta, Builtin, DefSet};
 use base::*;
-pub use base::DefScope;
 pub use self::handle::*;
 
 /// A Worst interpreter, the thing you define functions for and run code in and stuff.
@@ -36,9 +35,8 @@ impl Interpreter {
     }
 
     /// Insert a value, as-is, as a definition in the current stack frame.
-    pub fn add_definition(&mut self, name: impl Into<String>,
-                          def: impl Into<Val>, scope: DefScope) {
-        self.frame.add_definition(name, def.into(), scope);
+    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
+        self.frame.add_definition(name, def);
     }
 
     /// Add a definition to the current stack frame.
@@ -52,7 +50,7 @@ impl Interpreter {
             m.push(DefineMeta { name: Some(name.clone()) });
             m.push(self.all_definitions());
         }
-        self.add_definition(name, def, DefScope::Static);
+        self.add_definition(name, def);
     }
 
     /// Remove a definition from the current stack frame, by name,
@@ -70,16 +68,6 @@ impl Interpreter {
     /// Get all available definitions.
     pub fn all_definitions(&self) -> DefSet {
         self.frame.all_defs()
-    }
-
-    /// Get the dynamics in the current stack frame.
-    pub fn dynamics(&self) -> &DefSet {
-        &self.frame.dynamics
-    }
-
-    /// Get a mutable reference to the dynamics in the current stack frame.
-    pub fn dynamics_mut(&mut self) -> &mut DefSet {
-        &mut self.frame.dynamics
     }
 
     /// Is the interpreter at the top level? If so, uplevel will fail,
@@ -143,33 +131,27 @@ impl Interpreter {
         self.frame.childs.push(ChildFrame::ListFrame(child));
     }
 
-    fn handle_definitions(&self, scope: DefScope, all: bool) -> DefSet {
-        match (scope, all) {
-            (DefScope::Static, false) => self.frame.locals.clone(),
-            (DefScope::Static, true) => self.frame.all_defs(),
-            (DefScope::Dynamic, false) => self.frame.dynamics.clone(),
-            (DefScope::Dynamic, true) => todo!("handle_definitions dynamic all"),
+    fn handle_definitions(&self, all: bool) -> DefSet {
+        if all {
+            self.frame.all_defs()
+        } else {
+            self.frame.locals.clone()
         }
     }
-    fn handle_get_definition(&self, name: &str, scope: DefScope, resolve: bool) -> Option<Val> {
-        match (scope, resolve) {
-            (DefScope::Static, false) => self.frame.locals.get(name).cloned(),
-            (DefScope::Static, true) =>
-                self.frame.locals.get(name).or_else(|| self.frame.defenv.get(name)).cloned(),
-            (DefScope::Dynamic, false) => self.frame.dynamics.get(name).cloned(),
-            (DefScope::Dynamic, true) =>
-                if let r@Some(_) = self.frame.dynamics.get(name) {
-                    r.cloned()
-                } else {
-                    self.parents.iter().find_map(|f| f.dynamics.get(name)).cloned()
-                },
+    fn handle_get_definition(&self, name: &str, resolver: ResolveDefinition) -> Option<Val> {
+        if let Some(def) = self.frame.resolve_definition(name, &resolver).cloned() {
+            return Some(def);
         }
-    }
-    fn handle_remove_definition(&mut self, name: &str, scope: DefScope) -> Option<Val> {
-        match scope {
-            DefScope::Static => self.frame.locals.remove(name),
-            DefScope::Dynamic => self.frame.dynamics.remove(name),
+
+        if resolver.recursive_dynamic {
+            for f in self.parents.iter().rev() {
+                if let Some(def) = f.resolve_definition(name, &resolver).cloned() {
+                    return Some(def);
+                }
+            }
         }
+
+        None
     }
 
     fn handle_yield(&mut self, y: FrameYield) -> Option<Val> {
@@ -183,14 +165,14 @@ impl Interpreter {
             FrameYield::StackGetAll(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
             FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
-            FrameYield::AddDefinition { name, scope, def } =>
-                self.frame.add_definition(name, def, scope),
-            FrameYield::Definitions { scope, all, ret } =>
-                ret.set(Some(self.handle_definitions(scope, all))),
-            FrameYield::GetDefinition { name, scope, resolve, ret } =>
-                ret.set(self.handle_get_definition(name.as_ref(), scope, resolve)),
-            FrameYield::RemoveDefinition { name, scope, ret } =>
-                ret.set(self.handle_remove_definition(name.as_ref(), scope)),
+            FrameYield::AddDefinition { name, def } =>
+                self.frame.add_definition(name, def),
+            FrameYield::Definitions { all, ret } =>
+                ret.set(Some(self.handle_definitions(all))),
+            FrameYield::GetDefinition { name, resolver, ret } =>
+                ret.set(self.handle_get_definition(name.as_ref(), resolver)),
+            FrameYield::RemoveDefinition { name, ret } =>
+                ret.set(self.frame.locals.remove(name)),
             FrameYield::GetCallStack(yr) => yr.set(Some(self.call_stack_names())),
         }
         None

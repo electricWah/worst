@@ -5,7 +5,7 @@ use crate::base::*;
 use crate::list::*;
 use crate::reader;
 use crate::builtins::file;
-use crate::interpreter::{Interpreter, Handle, DefSet, DefScope};
+use crate::interpreter::{Interpreter, Handle, DefSet};
 
 fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
 
@@ -26,7 +26,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
                 }
             } else if q.is::<Symbol>() {
                 let exp = exports.get();
-                if let Some(mut l) = exp.clone().downcast::<List>() {
+                if let Some(mut l) = exp.downcast::<List>() {
                     l.push(q);
                     exports.set(l);
                 } else {
@@ -170,7 +170,7 @@ pub fn install(i: &mut Interpreter) {
                     Ok(r) => match eval_module(r, i.all_definitions().await) {
                         Ok(defs) => {
                             for (name, def) in defs.iter() {
-                                i.add_definition(name, def.clone(), DefScope::Static).await;
+                                i.add_definition(name, def.clone()).await;
                             }
                         },
                         Err((v, p)) => {

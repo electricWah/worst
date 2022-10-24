@@ -50,7 +50,7 @@ define (dispatch (bool?)) value->string [if ["#t"] ["#f"]]
 define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
-define (dispatch (list?)) value->string [
+define (recursive dispatch (list?)) value->string [
     "(" "" dig list-iter [
         value->string
         ; concat accumulator with either "" or previous trailing " "
@@ -67,22 +67,6 @@ define false? [ clone not ]
 
 ; true only within the attributes clause of a define form
 define in-definition-attributes [ quote definition-attributes dynamic-resolve ]
-
-define (dispatch (in-definition-attributes)) dynamic [
-    const name
-    const body
-
-    ; dynamic-set in calling scope (extra uplevel for attrs scope)
-    body name quote dynamic-set updo uplevel
-
-    ; use body as the default
-    [ dynamic-resolve false? if ]
-    [] [] body list-push quote drop list-push list-push
-    append
-    name list-push quote quote list-push
-    [ [] updo eval ] append
-    name
-]
 
 define list-empty? [clone list-length 0 equal]
 

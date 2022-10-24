@@ -8,6 +8,9 @@
 - More builtins consume their arguments: list-length, place-get
 - Rename get-environment-variable -> environment-variable, now consumes
 - Add list-iter builtin
+- Remove separate dynamic scope
+- Make dynamic attribute use locals instead of dynamic scope
+- Add recursive attribute to enable recursive definitions
 
 # 0.3 (2022-09-25)
 

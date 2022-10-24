@@ -3,7 +3,7 @@
 
 use crate::base::*;
 use crate::list::*;
-use crate::interpreter::{Interpreter, Handle, Builtin};
+use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 
 #[derive(Clone)]
 struct DispatchInfo {
@@ -37,7 +37,7 @@ async fn dispatch_impl(mut i: Handle, di: DispatchInfo) {
 }
 
 async fn dispatch_inner(mut i: Handle, first: bool) {
-    let spec = i.quote_val().await;
+    let mut spec = i.quote_val().await;
     let name = i.stack_pop::<Symbol>().await;
     let body = i.stack_pop::<List>().await;
     let prev_def = i.resolve_definition(name.as_ref().clone()).await;
@@ -54,10 +54,18 @@ async fn dispatch_inner(mut i: Handle, first: bool) {
                 }
         };
 
+    // add static def env
+    let env = i.all_definitions().await;
+    spec.meta_ref_mut().push(env.clone());
+    let mut body = Val::from(body);
+    if !body.meta_ref().contains::<DefSet>() {
+        body.meta_ref_mut().push(env);
+    }
+
     if first {
-        info.clauses.insert(0, (spec, body.into()));
+        info.clauses.insert(0, (spec, body));
     } else {
-        info.clauses.push((spec, body.into()));
+        info.clauses.push((spec, body));
     }
 
     // this could be better, perhaps some way of getting metadata for the
@@ -76,12 +84,12 @@ async fn dispatch_inner(mut i: Handle, first: bool) {
     i.stack_push(name).await;
 }
 
-/// `define (stack-dispatch (predicate ...)) name [ body ... ]`
+/// `define (dispatch (predicate ...)) name [ body ... ]`
 pub async fn dispatch(i: Handle) {
     dispatch_inner(i, false).await
 }
 
-/// `define (stack-dispatch-first (predicate ...))
+/// `define (dispatch-first (predicate ...))
 /// name [ body ... ]`
 ///
 /// Usually, `stack-dispatch` puts new definitions at the end

@@ -108,31 +108,26 @@ impl Meta {
 
     /// Find the first `T` and get a reference to its value.
     pub fn first_ref_val<T: Value>(&self) -> Option<&Val> {
-        self.0.iter().rev().find(|v| v.is::<T>())
+        self.iter().find(|v| v.is::<T>())
     }
 
     /// Find the first `T`.
     pub fn first_ref<T: Value>(&self) -> Option<&T> {
-        self.0.iter().rev().find_map(|v| v.downcast_ref::<T>())
+        self.iter().find_map(|v| v.downcast_ref::<T>())
     }
     /// Check if this contains a `T`.
     pub fn contains<T: Value>(&self) -> bool {
-        self.0.iter().rev().any(|v| v.is::<T>())
-    }
-
-    /// Find the first `T` as a [Val] and remove it.
-    pub fn take_first_val<T: Value>(&mut self) -> Option<Val> {
-        if let Some(idx) = self.0.iter().position(|v| v.is::<T>()) {
-            Some(self.0.remove(idx))
-        } else { None }
+        self.iter().any(|v| v.is::<T>())
     }
 
     /// Get the number of elements
     pub fn len(&self) -> usize { self.0.len() }
+    /// Get whether len == 0
+    pub fn is_empty(&self) -> bool { self.0.is_empty() }
 
     /// Get an iterator over the values.
     pub fn iter(&self) -> impl Iterator<Item=&Val> {
-        self.0.iter()
+        self.0.iter().rev()
     }
 }
 

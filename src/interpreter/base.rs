@@ -11,11 +11,20 @@ use crate::base::*;
 use crate::list::List;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
-#[derive(Debug)]
-pub enum DefScope {
-    Static,
-    Dynamic,
+
+/// How to resolve definitions with resolve_definition
+#[derive(Default)]
+pub struct ResolveDefinition {
+    /// Look in local definitions of stack frame
+    locals: bool,
+    /// Look in closure environment of stack frame
+    defenv: bool,
+    /// Continue looking up call stack if not found (dynamic)
+    pub recursive_dynamic: bool,
+    /// Look for definitions with this property (for e.g. avoiding infinite recursion)
+    filter_fn: Option<Box<dyn Fn(&Val) -> bool>>,
 }
+
 pub enum FrameYield {
     Pause(Val),
     Eval(ToEvalOnce),
@@ -31,26 +40,31 @@ pub enum FrameYield {
     Quote(YieldReturn<Val>),
     AddDefinition {
         name: String,
-        scope: DefScope,
         def: Val,
     },
     Definitions {
-        scope: DefScope,
         all: bool,
         ret: YieldReturn<DefSet>,
     },
     GetDefinition {
         name: String,
-        scope: DefScope,
-        resolve: bool,
+        resolver: ResolveDefinition,
         ret: YieldReturn<Val>,
     },
     RemoveDefinition {
         name: String,
-        scope: DefScope,
         ret: YieldReturn<Val>,
     },
     GetCallStack(YieldReturn<Vec<Option<String>>>),
+}
+
+impl ResolveDefinition {
+    pub fn local(mut self) -> Self { self.locals = true; self }
+    pub fn environment(mut self) -> Self { self.defenv = true; self }
+    pub fn dynamic(mut self) -> Self { self.recursive_dynamic = true; self }
+    pub fn filter(mut self, f: impl Fn(&Val) -> bool + 'static) -> Self {
+        self.filter_fn = Some(Box::new(f)); self
+    }
 }
 
 /// Metadata for a definition (currently just name)
@@ -76,7 +90,6 @@ pub struct ListFrame {
     pub meta: DefineMeta,
     pub defenv: DefSet,
     pub locals: DefSet,
-    pub dynamics: DefSet,
     // Also dynamic definitions here? I think?
 }
 
@@ -92,12 +105,8 @@ impl ListFrame {
         defs.append(&self.locals);
         defs
     }
-    pub fn add_definition(&mut self, name: impl Into<String>, def: Val, scope: DefScope) {
-        let name = name.into();
-        match scope {
-            DefScope::Static => self.locals.insert(name, def),
-            DefScope::Dynamic => self.dynamics.insert(name, def),
-        }
+    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
+        self.locals.insert(name.into(), def.into());
     }
     pub fn eval_list(&self, body: List) -> ListFrame {
         ListFrame { body, defenv: self.all_defs(), ..ListFrame::default() }
@@ -117,8 +126,30 @@ impl ListFrame {
     pub fn remove_local(&mut self, name: impl AsRef<str>) -> Option<Val> {
         self.locals.remove(name)
     }
+    /// Find a definition according to the given resolver.
+    /// Ignores the [recursive_dynamic] as that must be handled by the
+    /// enclosing interpreter.
+    pub fn resolve_definition(&self, name: impl AsRef<str>, resolver: &ResolveDefinition) -> Option<&Val> {
+        if resolver.locals {
+            if let Some(def) = self.locals.get(name.as_ref()) {
+                match resolver.filter_fn.as_ref() {
+                    Some(f) => { if f(&def) { return Some(def); } },
+                    None => return Some(def),
+                }
+            }
+        }
+        if resolver.defenv {
+            if let Some(def) = self.defenv.get(name.as_ref()) {
+                match resolver.filter_fn.as_ref() {
+                    Some(f) => { if f(&def) { return Some(def); } },
+                    None => return Some(def),
+                }
+            }
+        }
+        None
+    }
     pub fn find_def(&self, name: impl AsRef<str>) -> Option<&Val> {
-        self.locals.get(name.as_ref()).or_else(|| self.defenv.get(name))
+        self.resolve_definition(name, &ResolveDefinition::default().local().environment())
     }
 }
 

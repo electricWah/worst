@@ -143,8 +143,18 @@ impl Handle {
 
     /// Add a bare value as a definition in the current stack frame.
     /// Use [define] or [define_dynamic] to include a definition environment.
-    pub async fn add_definition(&mut self, name: impl Into<String>, def: Val, scope: DefScope) {
-        self.co.yield_(FrameYield::AddDefinition { name: name.into(), scope, def, }).await;
+    pub async fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
+        self.co.yield_(FrameYield::AddDefinition { name: name.into(), def: def.into() }).await;
+    }
+
+    /// Remove a local definition from the current stack frame.
+    /// Returns the definition removed.
+    pub async fn remove_definition(&mut self, name: impl Into<String>) -> Option<Val> {
+        let r = Rc::new(Cell::new(None));
+        self.co.yield_(FrameYield::RemoveDefinition {
+            name: name.into(), ret: Rc::clone(&r),
+        }).await;
+        r.take()
     }
 
     /// Add a definition in the current stack frame.
@@ -152,51 +162,39 @@ impl Handle {
     pub async fn define(&mut self, name: impl Into<String>, def: impl Eval) {
         let name = name.into();
         let def = self.add_def_meta(name.clone(), def).await;
-        self.add_definition(name, def, DefScope::Static).await;
+        self.add_definition(name, def).await;
     }
 
     /// Get all definitions defined in the current stack frame.
     pub async fn local_definitions(&self) -> DefSet {
-        self.get_defs(DefScope::Static, false).await
+        self.get_defs(false).await
     }
     /// Get all available definitions.
     pub async fn all_definitions(&self) -> DefSet {
-        self.get_defs(DefScope::Static, true).await
+        self.get_defs(true).await
     }
     /// Look for a definition by the given name.
     pub async fn resolve_definition(&self, name: impl Into<String>) -> Option<Val> {
-        self.get_def(name.into(), DefScope::Static, true).await
-    }
-    
-    /// Define a dynamic value,
-    /// which is a species of value that lives in stack frames, and thus
-    /// lacks the lexical scope gene that other values and definitions carry.
-    pub async fn define_dynamic(&mut self, name: impl Into<String>, def: impl Eval) {
-        let name = name.into();
-        let def = self.add_def_meta(name.clone(), def).await;
-        self.add_definition(name, def, DefScope::Dynamic).await;
+        let resolver = ResolveDefinition::default().local().environment();
+        self.get_def(name.into(), resolver).await
     }
 
-    /// Get the dynamic value of the given name,
-    /// searching first in the current stack frame
+    /// Get the dynamic value of the given name
+    /// by searching first in the local definitions of the current stack frame
     /// and then in parent stack frames if it cannot be found.
     pub async fn resolve_dynamic(&self, name: impl Into<String>) -> Option<Val> {
-        self.get_def(name.into(), DefScope::Dynamic, true).await
+        let resolver = ResolveDefinition::default().local().dynamic();
+        self.get_def(name.into(), resolver).await
     }
 
-    /// Get all dynamic values in the current stack frame.
-    pub async fn get_dynamics(&self) -> DefSet {
-        self.get_defs(DefScope::Dynamic, false).await
+    /// Get the dynamic value of the given name
+    /// by searching first in the local definitions of the current stack frame
+    /// and then in parent stack frames if it cannot be found.
+    pub async fn resolve_dynamic_where(&self, name: impl Into<String>,
+                                       f: impl Fn(&Val) -> bool + 'static) -> Option<Val> {
+        let resolver = ResolveDefinition::default().local().dynamic().filter(f);
+        self.get_def(name.into(), resolver).await
     }
-
-    /// Remove a dynamic value of the given name from the current stack frame.
-    /// Returns it on success.
-    pub async fn remove_dynamic(&mut self, name: impl Into<String>) -> Option<Val> {
-        self.remove_def(name.into(), DefScope::Dynamic).await
-    }
-
-    // dynamic_depth    - Find out how many stack frames up a dynamic is set
-    // all_dynamics     - Get all dynamic names and defs
 
     /// Query the current call stack.
     /// Child frames (with uplevel) are not given.
@@ -219,30 +217,21 @@ impl Handle {
         def
     }
 
-    async fn get_defs(&self, scope: DefScope, all: bool) -> DefSet {
+    async fn get_defs(&self, all: bool) -> DefSet {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::Definitions {
-            scope, all, ret: Rc::clone(&r),
+            all, ret: Rc::clone(&r),
         }).await;
         r.take().unwrap()
     }
 
-    async fn get_def(&self, name: String, scope: DefScope, resolve: bool) -> Option<Val> {
+    async fn get_def(&self, name: String, resolver: ResolveDefinition) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
         self.co.yield_(FrameYield::GetDefinition {
-            name, scope, resolve, ret: Rc::clone(&r),
+            name, resolver, ret: Rc::clone(&r),
         }).await;
         r.take()
     }
-
-    async fn remove_def(&self, name: String, scope: DefScope) -> Option<Val> {
-        let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::RemoveDefinition {
-            name, scope, ret: Rc::clone(&r),
-        }).await;
-        r.take()
-    }
-
 }
 
 
