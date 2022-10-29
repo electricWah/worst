@@ -5,6 +5,7 @@ use crate::interpreter::Interpreter;
 
 pub mod util;
 
+pub mod bytevector;
 pub mod core;
 pub mod define;
 pub mod dynamic;
@@ -24,6 +25,7 @@ pub mod string;
 
 /// Define all enabled builtins in the given [Interpreter].
 pub fn install(i: &mut Interpreter) {
+    bytevector::install(i);
     core::install(i);
     define::install(i);
     dynamic::install(i);

@@ -11,6 +11,7 @@
 - Remove separate dynamic scope
 - Make dynamic attribute use locals instead of dynamic scope
 - Add recursive attribute to enable recursive definitions
+- Start on a Bytevector type (Vec<u8>) for operations on bytes
 
 # 0.3 (2022-09-25)
 
