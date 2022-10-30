@@ -37,7 +37,7 @@ fn main() -> ExitCode {
             eprintln!();
             eprint!("\nStack: ");
             for v in i.stack_ref().iter() {
-                basic_printerr(&v);
+                basic_printerr(v);
             }
             return ExitCode::FAILURE;
         }

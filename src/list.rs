@@ -48,8 +48,6 @@ impl List {
 
     /// Iterate this list from front to back :)
     pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
-    /// Consume and iterate this list from front to back :)
-    pub fn into_iter(self) -> impl Iterator<Item=Val> { self.data.into_iter().rev() }
 
     /// Take the front value from this list, if it isn't empty.
     pub fn pop(&mut self) -> Option<Val> {

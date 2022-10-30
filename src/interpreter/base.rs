@@ -11,6 +11,7 @@ use crate::base::*;
 use crate::list::List;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
+type ResolveFilterFn = Box<dyn Fn(&Val) -> bool>;
 
 /// How to resolve definitions with resolve_definition
 #[derive(Default)]
@@ -22,7 +23,7 @@ pub struct ResolveDefinition {
     /// Continue looking up call stack if not found (dynamic)
     pub recursive_dynamic: bool,
     /// Look for definitions with this property (for e.g. avoiding infinite recursion)
-    filter_fn: Option<Box<dyn Fn(&Val) -> bool>>,
+    filter_fn: Option<ResolveFilterFn>,
 }
 
 pub enum FrameYield {
@@ -133,7 +134,7 @@ impl ListFrame {
         if resolver.locals {
             if let Some(def) = self.locals.get(name.as_ref()) {
                 match resolver.filter_fn.as_ref() {
-                    Some(f) => { if f(&def) { return Some(def); } },
+                    Some(f) => { if f(def) { return Some(def); } },
                     None => return Some(def),
                 }
             }
@@ -141,7 +142,7 @@ impl ListFrame {
         if resolver.defenv {
             if let Some(def) = self.defenv.get(name.as_ref()) {
                 match resolver.filter_fn.as_ref() {
-                    Some(f) => { if f(&def) { return Some(def); } },
+                    Some(f) => { if f(def) { return Some(def); } },
                     None => return Some(def),
                 }
             }
@@ -236,10 +237,11 @@ impl EvalOnce for Symbol {
     }
 }
 
+type BuiltinRet<T> = Pin<Box<dyn Future<Output = T> + 'static>>;
 
 /// A concrete [Eval] fn
 #[derive(Clone)]
-pub struct Builtin(Rc<dyn Fn(Handle) -> Pin<Box<dyn Future<Output = ()> + 'static>>>);
+pub struct Builtin(Rc<dyn Fn(Handle) -> BuiltinRet<()>>);
 impl Value for Builtin {}
 
 impl<F: 'static + Future<Output=()>,

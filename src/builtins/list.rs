@@ -47,7 +47,7 @@ pub async fn list_append(mut i: Handle) {
 pub async fn list_iter(mut i: Handle) {
     let l = i.stack_pop::<List>().await.into_inner();
     let body = i.quote_val().await;
-    for v in l.into_iter() {
+    for v in l {
         i.stack_push(v).await;
         i.eval(body.clone()).await;
     }

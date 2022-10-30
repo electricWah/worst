@@ -71,12 +71,6 @@ impl Val {
         }
     }
 
-    /// Whether this and that have the very same memory location.
-    /// More exact and a bit faster than [eq](Val::eq), but not as useful.
-    pub fn identical(&self, ye: &Self) -> bool {
-        Rc::ptr_eq(&self.v, &ye.v)
-    }
-
     /// Is the internal value of the given type?
     /// If so, the various downcasting functions should return correctly.
     pub fn is<T: Value>(&self) -> bool {
