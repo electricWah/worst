@@ -2,7 +2,6 @@
 //! Multimethods
 
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 
 #[derive(Clone)]

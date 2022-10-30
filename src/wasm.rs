@@ -7,7 +7,6 @@ use js_sys;
 use web_sys;
 
 use crate::base::*;
-use crate::list::*;
 use crate::builtins;
 use crate::interpreter;
 use crate::reader;

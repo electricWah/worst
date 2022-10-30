@@ -2,7 +2,6 @@
 //! An [Interpreter] for Worst code.
 
 use crate::base::*;
-use crate::list::List;
 
 mod base;
 mod handle;

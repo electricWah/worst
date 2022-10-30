@@ -2,7 +2,6 @@
 //! `define` and other definition-related builtins
 
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle, DefineMeta, DefSet};
 
 mod dispatch;

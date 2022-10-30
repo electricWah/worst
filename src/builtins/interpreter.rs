@@ -5,7 +5,6 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
 // TODO no wrapper, just use Interpreter directly and wrap in a place in worst

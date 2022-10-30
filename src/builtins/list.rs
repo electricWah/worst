@@ -1,7 +1,7 @@
 
 //! [List](crate::list::List) manipulation basics
 
-use crate::list::*;
+use crate::base::*;
 use crate::builtins::util;
 use crate::interpreter::{Interpreter, Handle};
 

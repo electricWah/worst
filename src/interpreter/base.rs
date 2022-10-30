@@ -8,7 +8,6 @@ use genawaiter::{ rc::Gen, rc::Co };
 use std::borrow::Borrow;
 
 use crate::base::*;
-use crate::list::List;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
 type ResolveFilterFn = Box<dyn Fn(&Val) -> bool>;

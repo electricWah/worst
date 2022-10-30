@@ -3,13 +3,6 @@
 
 use crate::base::*;
 
-/// A list of [Val] values. It is itself a [Value].
-/// This is the primary container type in Worst.
-/// It's a little like a Lisp list.
-#[derive(Clone)]
-pub struct List {
-    data: Vec<Val>,
-}
 impl Value for List {}
 
 impl From<Vec<Val>> for List {
@@ -28,10 +21,6 @@ impl<T: Value> FromIterator<T> for List {
 impl Iterator for List {
     type Item = Val;
     fn next(&mut self) -> Option<Val> { self.pop() }
-}
-
-impl Default for List {
-    fn default() -> Self { List::from(vec![]) }
 }
 
 impl List {
@@ -54,8 +43,8 @@ impl List {
         self.data.pop()
     }
     /// Put just one value at the front of this list.
-    pub fn push(&mut self, v: Val) {
-        self.data.push(v);
+    pub fn push(&mut self, v: impl Into<Val>) {
+        self.data.push(v.into());
     }
     /// Put the contents of an entire list in front of this list.
     pub fn prepend(&mut self, mut other: List) {
@@ -77,6 +66,21 @@ impl List {
     /// Reverse the list in-place.
     pub fn reverse(&mut self) {
         self.data.reverse();
+    }
+
+    /// Check if this contains a `T`.
+    pub fn contains<T: Value>(&self) -> bool {
+        self.iter().any(|v| v.is::<T>())
+    }
+
+    // /// Find the first `T` and get a reference to its value.
+    // pub fn first_ref_val<T: Value>(&self) -> Option<&Val> {
+    //     self.iter().find(|v| v.is::<T>())
+    // }
+
+    /// Find the first `T`.
+    pub fn first_ref<T: Value>(&self) -> Option<&T> {
+        self.iter().find_map(|v| v.downcast_ref::<T>())
     }
 
     // pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {

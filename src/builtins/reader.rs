@@ -2,7 +2,6 @@
 //! Reading code
 
 use crate::base::*;
-use crate::list::*;
 use crate::reader::*;
 use crate::interpreter::{Interpreter, Handle};
 

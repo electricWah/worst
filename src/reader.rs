@@ -6,7 +6,6 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::num::IntErrorKind;
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 
 /// Various ways parsing could fail.

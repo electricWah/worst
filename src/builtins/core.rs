@@ -2,7 +2,6 @@
 //! Basic stack-shuffling and control flow builtins
 
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle};
 use super::util;
 

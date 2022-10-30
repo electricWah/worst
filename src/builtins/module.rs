@@ -2,7 +2,6 @@
 //! `import` and `export`
 
 use crate::base::*;
-use crate::list::*;
 use crate::reader;
 use crate::builtins::file;
 use crate::interpreter::{Interpreter, Handle, DefSet};

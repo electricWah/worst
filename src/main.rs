@@ -3,7 +3,6 @@ use std::process::ExitCode;
 use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;
-use worst::list::List;
 
 fn basic_printerr(v: &Val) {
     if let Some(v) = v.downcast_ref::<Symbol>() {

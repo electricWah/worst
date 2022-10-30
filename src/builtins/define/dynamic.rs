@@ -2,7 +2,6 @@
 //! Dynamic definition attribute
 
 use crate::base::*;
-use crate::list::*;
 use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 
 /// Marker to prevent infinite recursion

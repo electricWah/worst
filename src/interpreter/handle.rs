@@ -3,7 +3,6 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::base::*;
-use crate::list::List;
 
 use super::base::*;
 

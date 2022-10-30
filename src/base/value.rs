@@ -2,16 +2,21 @@
 use std::rc::Rc;
 use std::any::Any;
 
-/// Metadata for [Val].
-#[derive(Default, Clone)]
-pub struct Meta(Vec<Val>);
+/// A list of [Val] values. It is itself a [Value].
+/// This is the primary container type in Worst.
+/// It's a little like a Lisp list.
+// defined here because the metadata for a Val is a List.
+#[derive(Clone, Default)]
+pub struct List {
+    pub(crate) data: Vec<Val>,
+}
 
 /// A reference-counted value, used directly by Worst programs.
 /// Can be downcast into its original Rust value.
 #[derive(Clone)]
 pub struct Val {
     v: Rc<dyn Any>,
-    meta: Rc<Meta>,
+    meta: Rc<List>,
 }
 
 /// Something that is, or could become, a [Val]
@@ -21,12 +26,12 @@ pub trait Value: 'static {}
 
 impl<T: Value> From<T> for Val {
     fn from(v: T) -> Val {
-        Val::construct(v, Rc::new(Meta::default()))
+        Val::construct(v, Rc::new(List::default()))
     }
 }
 
 impl Val {
-    fn construct<T: Value>(v: T, meta: Rc<Meta>) -> Self {
+    fn construct<T: Value>(v: T, meta: Rc<List>) -> Self {
         Val { v: Rc::new(v), meta }
     }
     /// If the inner value is a T, take it.
@@ -78,50 +83,15 @@ impl Val {
     }
 
     /// Get a reference to this value's Meta in order to query it and such.
-    pub fn meta_ref(&self) -> &Meta { &self.meta }
+    pub fn meta_ref(&self) -> &List { &self.meta }
     /// Update this value's metadata willy-nilly.
     /// Modifying the metadata won't affect other copies.
-    pub fn meta_ref_mut(&mut self) -> &mut Meta {
+    pub fn meta_ref_mut(&mut self) -> &mut List {
         Rc::make_mut(&mut self.meta)
     }
     /// Builder-style wrapper for [meta_ref_mut]
-    pub fn with_meta(mut self, f: impl FnOnce(&mut Meta)) -> Self {
+    pub fn with_meta(mut self, f: impl FnOnce(&mut List)) -> Self {
         f(self.meta_ref_mut()); self
-    }
-}
-
-impl Meta {
-    /// Add a new value.
-    pub fn push(&mut self, v: impl Into<Val>) {
-        self.0.push(v.into());
-    }
-    /// Add a new value, builder-style.
-    pub fn with(mut self, v: impl Into<Val>) -> Self {
-        self.push(v); self
-    }
-
-    /// Find the first `T` and get a reference to its value.
-    pub fn first_ref_val<T: Value>(&self) -> Option<&Val> {
-        self.iter().find(|v| v.is::<T>())
-    }
-
-    /// Find the first `T`.
-    pub fn first_ref<T: Value>(&self) -> Option<&T> {
-        self.iter().find_map(|v| v.downcast_ref::<T>())
-    }
-    /// Check if this contains a `T`.
-    pub fn contains<T: Value>(&self) -> bool {
-        self.iter().any(|v| v.is::<T>())
-    }
-
-    /// Get the number of elements
-    pub fn len(&self) -> usize { self.0.len() }
-    /// Get whether len == 0
-    pub fn is_empty(&self) -> bool { self.0.is_empty() }
-
-    /// Get an iterator over the values.
-    pub fn iter(&self) -> impl Iterator<Item=&Val> {
-        self.0.iter().rev()
     }
 }
 
