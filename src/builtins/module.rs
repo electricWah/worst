@@ -3,7 +3,7 @@
 
 use crate::base::*;
 use crate::reader;
-use crate::builtins::file;
+use crate::builtins::fs;
 use crate::interpreter::{Interpreter, Handle, DefSet};
 
 fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
@@ -92,10 +92,10 @@ fn read_module(read: &mut dyn std::io::Read) -> Result<List, String> {
 async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>> {
 
     // if it's a string, load the file
-    #[cfg(feature = "enable_fs")] {
+    #[cfg(feature = "enable_fs_os")] {
         if v.is::<String>() {
             let s = v.downcast::<String>().unwrap();
-            if let Ok(f) = file::fs::open_read(s) {
+            if let Ok(f) = fs::os::open_read(s) {
                 return Some(Box::new(f));
             } else {
                 // maybe interp.error no file?
@@ -107,12 +107,12 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
     if !v.is::<Symbol>() { return None; }
     let module_path = v.downcast::<Symbol>().unwrap().to_string();
 
-    #[cfg(feature = "enable_fs")] {
+    #[cfg(feature = "enable_fs_os")] {
         i.call("WORST_LIBPATH").await;
         let libpath = i.stack_pop::<List>().await.into_inner();
         for lpx in libpath {
             if let Some(lp) = lpx.downcast_ref::<String>() {
-                match file::fs::open_read(format!("{lp}/{module_path}.w")) {
+                match fs::os::open_read(format!("{lp}/{module_path}.w")) {
                     Ok(f) => {
                         return Some(Box::new(f));
                     },
@@ -128,11 +128,12 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
         }
     }
 
-    let mod_file = format!("{module_path}.w");
 
-    #[cfg(feature = "bundled_fs_embed")]
-    if let Some(f) = file::embedded::open_read(&mod_file) {
-        return Some(Box::new(f));
+    #[cfg(feature = "enable_fs_embed")] {
+        let mod_file = format!("{module_path}.w");
+        if let Some(f) = fs::embed::open_read(&mod_file) {
+            return Some(Box::new(f));
+        }
     }
     // TODO bundled zip feature
 
@@ -142,7 +143,7 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     // No point having a libpath if the filesystem isn't accessible
-    #[cfg(feature = "enable_fs")]
+    #[cfg(feature = "enable_fs_os")]
     i.define("WORST_LIBPATH", |mut i: Handle| async move {
         if let Ok(s) = std::env::var("WORST_LIBPATH") {
             i.stack_push(List::from_iter(s.split(':').map(String::from))).await;

@@ -8,10 +8,8 @@ pub mod util;
 pub mod bytevector;
 pub mod core;
 pub mod define;
-pub mod dynamic;
 pub mod doc;
-#[cfg(feature = "builtin_file_module")]
-pub mod file;
+pub mod fs;
 pub mod interpreter;
 pub mod io;
 pub mod list;
@@ -28,10 +26,8 @@ pub fn install(i: &mut Interpreter) {
     bytevector::install(i);
     core::install(i);
     define::install(i);
-    dynamic::install(i);
     doc::install(i);
-    #[cfg(feature = "builtin_file_module")]
-    file::install(i);
+    fs::install(i);
     interpreter::install(i);
     io::install(i);
     list::install(i);

@@ -1,6 +1,6 @@
 [package]
 name = "worst"
-version = "0.3.0"
+version = "0.4.0"
 description = "An interpreter for the Worst programming language"
 edition = "2021"
 
@@ -13,24 +13,29 @@ include_dir = { version = "^0.7", optional = true } #, features = ["nightly"] }
 
 [features]
 # Toggle-able builtins modules
-# Access to filesystem
-enable_fs = ["builtin_file_module"]
+
 # OS builtins: environment variables
 enable_os = []
+
 # Access to stdin, stdout, stderr using current-{input,output,error}-port
 enable_stdio = []
 
-# include builtins::file module at all (simplifies #[cfg] usage)
-builtin_file_module = []
-
-all_builtins = ["enable_fs", "enable_os", "enable_stdio"]
-
-bundled_fs_embed = ["dep:include_dir", "builtin_file_module"]
+# Access to filesystem
+enable_fs_os = []
+# Include lib directory as a filesystem embedded directly in the worst binary
+enable_fs_embed = ["dep:include_dir"]
 # (TODO) Embed lib files in program as `cat worst lib.zip > worst`
-bundled_fs_zip = []
+enable_fs_zip = []
 
-wasm = ["bundled_fs_embed"]
-full = ["bundled_fs_embed", "bundled_fs_zip", "all_builtins"]
+# Builtins suitable for a wasm build (no os/fs/etc)
+wasm = ["enable_fs_embed"]
+
+# All builtins
+full = [
+    "enable_fs_os", "enable_fs_embed", "enable_fs_zip",
+    "enable_os", "enable_stdio"
+]
+
 default = ["full"]
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
