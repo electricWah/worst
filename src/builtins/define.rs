@@ -35,8 +35,8 @@ pub async fn define(mut i: Handle) {
     };
 
     let body =
-        if let Some(l) = i.quote_val().await.downcast::<List>() {
-            l
+        if let Ok(l) = i.quote_val().await.try_downcast::<List>() {
+            l.into_inner()
         } else {
             return i.error(List::from(vec![
                 "define: expected list".to_string().into(),
@@ -57,10 +57,10 @@ pub async fn define(mut i: Handle) {
     let mut body = i.stack_pop_val().await;
 
     if !body.meta_ref().contains::<DefineMeta>() {
-        body.meta_ref_mut().push(DefineMeta { name: Some(name.clone().to_string()) });
+        body.meta_mut().push(DefineMeta { name: Some(name.clone().to_string()) });
     }
     if !body.meta_ref().contains::<DefSet>() {
-        body.meta_ref_mut().push(i.all_definitions().await);
+        body.meta_mut().push(i.all_definitions().await);
     }
 
     i.add_definition(name, body).await;

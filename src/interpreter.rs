@@ -5,9 +5,11 @@ use crate::base::*;
 
 mod base;
 mod handle;
-pub use base::{Handle, DefineMeta, Builtin, DefSet};
+mod defset;
+pub use base::{Handle, DefineMeta, Builtin};
+pub use defset::DefSet;
 use base::*;
-pub use self::handle::*;
+pub use handle::*;
 
 /// A Worst interpreter, the thing you define functions for and run code in and stuff.
 #[derive(Default)]
@@ -45,7 +47,7 @@ impl Interpreter {
         let meta = def.eval_meta();
         let mut def = def.into_val();
         if meta {
-            let m = def.meta_ref_mut();
+            let m = def.meta_mut();
             m.push(DefineMeta { name: Some(name.clone()) });
             m.push(self.all_definitions());
         }

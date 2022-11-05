@@ -24,6 +24,25 @@ pub struct Val {
 pub trait Value: 'static {}
 // impl Value for Val {}
 
+/// A [Val] but you know the type.
+pub struct ValOf<T> {
+    orig: Rc<dyn Any>,
+    v: Rc<T>,
+    modified: bool,
+    meta: Rc<List>,
+}
+
+impl<T> Clone for ValOf<T> {
+    fn clone(&self) -> ValOf<T> {
+        ValOf {
+            orig: self.orig.clone(),
+            v: self.v.clone(),
+            modified: self.modified,
+            meta: self.meta.clone(),
+        }
+    }
+}
+
 impl<T: Value> From<T> for Val {
     fn from(v: T) -> Val {
         Val::construct(v, Rc::new(List::default()))
@@ -34,46 +53,17 @@ impl Val {
     fn construct<T: Value>(v: T, meta: Rc<List>) -> Self {
         Val { v: Rc::new(v), meta }
     }
-    /// If the inner value is a T, take it.
-    /// If there are multiple references, it is cloned.
-    ///
-    /// Not recommended as this loses metadata.
-    pub fn downcast<T: Value + Clone>(self) -> Option<T> {
-        if self.is::<T>() {
-            // Rc::make_mut(&mut self.v);
-            Some(Rc::try_unwrap(Rc::downcast::<T>(self.v).unwrap())
-                 .unwrap_or_else(|rc| (*rc).clone()))
-        } else {
-            None
-        }
-    }
-    /// If the inner value is a T, get a reference to it.
-    pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
-        self.v.downcast_ref::<T>()
-    }
 
-    /// If the inner value is a T, get an Rc of it
-    /// which shares the same location as the inner value.
-    pub fn downcast_rc<T: Value>(&self) -> Option<Rc<T>> {
-        Rc::downcast::<T>(self.v.clone()).ok()
+    /// Get a reference to this value's Meta in order to query it and such.
+    pub fn meta_ref(&self) -> &List { &self.meta }
+    /// Update this value's metadata willy-nilly.
+    /// Modifying the metadata won't affect other copies.
+    pub fn meta_mut(&mut self) -> &mut List {
+        Rc::make_mut(&mut self.meta)
     }
-
-    /// If the inner value is a T, overwrite it with the given new value.
-    /// Returns whether it succeeded.
-    pub fn try_set<T: Value>(&mut self, v: Rc<T>) -> bool {
-        if !self.is::<T>() { return false; }
-        self.v = v as Rc<dyn Any>;
-        true
-    }
-
-    /// If this is the only reference to its inner value,
-    /// and it's a T, get a mutable reference to it.
-    pub fn try_downcast_mut<T: Value>(&mut self) -> Option<&mut T> {
-        if let Some(v) = Rc::get_mut(&mut self.v) {
-            v.downcast_mut::<T>()
-        } else {
-            None
-        }
+    /// Builder-style wrapper for [meta_mut]
+    pub fn with_meta(mut self, f: impl FnOnce(&mut List)) -> Self {
+        f(self.meta_mut()); self
     }
 
     /// Is the internal value of the given type?
@@ -82,16 +72,68 @@ impl Val {
         self.v.is::<T>()
     }
 
-    /// Get a reference to this value's Meta in order to query it and such.
-    pub fn meta_ref(&self) -> &List { &self.meta }
-    /// Update this value's metadata willy-nilly.
-    /// Modifying the metadata won't affect other copies.
-    pub fn meta_ref_mut(&mut self) -> &mut List {
-        Rc::make_mut(&mut self.meta)
+    /// Get a reference to the inner value, if it is of the given type.
+    pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
+        self.v.downcast_ref::<T>()
     }
-    /// Builder-style wrapper for [meta_ref_mut]
-    pub fn with_meta(mut self, f: impl FnOnce(&mut List)) -> Self {
-        f(self.meta_ref_mut()); self
+
+    /// Turn this into a [ValOf] of the given type
+    /// (or Err(self) with no changes).
+    pub fn try_downcast<T: Value>(self) -> Result<ValOf<T>, Val> {
+        ValOf::<T>::try_from(self)
+    }
+}
+
+impl<T: Value> ValOf<T> {
+}
+
+impl<T: Value> From<ValOf<T>> for Val {
+    fn from(v: ValOf<T>) -> Val {
+        if v.modified {
+            Val { v: v.v, meta: v.meta, }
+        } else {
+            Val { v: v.orig, meta: v.meta, }
+        }
+    }
+}
+
+impl<T: Value> TryFrom<Val> for ValOf<T> {
+    type Error = Val;
+    fn try_from(this: Val) -> Result<ValOf<T>, Val> {
+        let orig = this.v.clone();
+        let meta = this.meta;
+        match Rc::downcast::<T>(this.v) {
+            Ok(v) => Ok(ValOf { orig, v, modified: false, meta, }),
+            Err(v) => Err(Val { v, meta, }),
+        }
+    }
+}
+
+impl<T: Value> std::ops::Deref for ValOf<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &*self.v
+    }
+}
+
+impl<T: Value> AsRef<T> for ValOf<T> {
+    fn as_ref(&self) -> &T {
+        &*self.v
+    }
+}
+
+impl<T: Value + Clone> AsMut<T> for ValOf<T> {
+    // is this too much work for as_mut? should it be borrow_mut? who knows
+    fn as_mut(&mut self) -> &mut T {
+        self.modified = true;
+        Rc::make_mut(&mut self.v)
+    }
+}
+
+impl<T: Value + Clone> ValOf<T> {
+    /// Take this apart to reveal its innards, discarding metadata.
+    pub fn into_inner(self) -> T {
+        Rc::try_unwrap(self.v).unwrap_or_else(|rc| (*rc).clone())
     }
 }
 

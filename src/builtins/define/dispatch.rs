@@ -55,10 +55,10 @@ async fn dispatch_inner(mut i: Handle, first: bool) {
 
     // add static def env
     let env = i.all_definitions().await;
-    spec.meta_ref_mut().push(env.clone());
+    spec.meta_mut().push(env.clone());
     let mut body = Val::from(body);
     if !body.meta_ref().contains::<DefSet>() {
-        body.meta_ref_mut().push(env);
+        body.meta_mut().push(env);
     }
 
     if first {

@@ -85,7 +85,7 @@ impl IsError {
     /// Add IsError metadata to the value.
     pub fn add(v: impl Into<Val>) -> Val {
         let mut v: Val = v.into();
-        v.meta_ref_mut().push(IsError);
+        v.meta_mut().push(IsError);
         v
     }
     /// Check whether the value or its type is an error.

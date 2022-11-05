@@ -4,7 +4,7 @@
 use crate::base::*;
 use crate::reader;
 use crate::builtins::fs;
-use crate::interpreter::{Interpreter, Handle, DefSet};
+use crate::interpreter::{Builtin, Interpreter, Handle, DefSet};
 
 fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> {
 
@@ -12,7 +12,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
     let exports_inner = exports.clone();
 
     // define here so it's not in local_definitions
-    defs.define("export".into(), move |mut i: Handle| {
+    defs.insert("export".into(), Builtin::from(move |mut i: Handle| {
         let exports = exports_inner.clone();
         async move {
             let mut exports = exports.clone();
@@ -25,16 +25,16 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
                 }
             } else if q.is::<Symbol>() {
                 let exp = exports.get();
-                if let Some(mut l) = exp.downcast::<List>() {
-                    l.push(q);
+                if let Ok(mut l) = exp.try_downcast::<List>() {
+                    l.as_mut().push(q);
                     exports.set(l);
                 } else {
                     dbg!("export symbol failed");
                 }
-            } else if let Some(coll) = q.downcast::<List>() {
-                if let Some(mut l) = exports.get().downcast::<List>() {
-                    for v in coll {
-                        l.push(v);
+            } else if let Ok(coll) = q.try_downcast::<List>() {
+                if let Ok(mut l) = exports.get().try_downcast::<List>() {
+                    for v in coll.into_inner() {
+                        l.as_mut().push(v);
                     }
                     exports.set(l);
                 } else {
@@ -44,7 +44,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
                 todo!("export this thing");
             }
         }
-    });
+    }));
 
     let mut i = Interpreter::default();
     i.add_definitions(&defs);
@@ -60,9 +60,9 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
     let exports = exports.get();
     if let Some(&true) = exports.downcast_ref::<bool>() {
         exmap = all_defs;
-    } else if let Some(l) = exports.downcast::<List>() {
-        for ex in l {
-            let name = ex.downcast::<Symbol>().unwrap().into();
+    } else if let Ok(l) = exports.try_downcast::<List>() {
+        for ex in l.into_inner() {
+            let name = ex.try_downcast::<Symbol>().ok().unwrap().into_inner().into();
             if let Some(def) = all_defs.get(&name) {
                 exmap.insert(name, def.clone());
             } else {
@@ -94,7 +94,7 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
     // if it's a string, load the file
     #[cfg(feature = "enable_fs_os")] {
         if v.is::<String>() {
-            let s = v.downcast::<String>().unwrap();
+            let s = v.try_downcast::<String>().ok().unwrap().into_inner();
             if let Ok(f) = fs::os::open_read(s) {
                 return Some(Box::new(f));
             } else {
@@ -105,7 +105,7 @@ async fn resolve_import(i: &mut Handle, v: Val) -> Option<Box<dyn std::io::Read>
     }
 
     if !v.is::<Symbol>() { return None; }
-    let module_path = v.downcast::<Symbol>().unwrap().to_string();
+    let module_path = v.try_downcast::<Symbol>().ok().unwrap().into_inner().to_string();
 
     #[cfg(feature = "enable_fs_os")] {
         i.call("WORST_LIBPATH").await;
@@ -156,8 +156,8 @@ pub fn install(i: &mut Interpreter) {
             let q = i.quote_val().await;
             if q.is::<Symbol>() || q.is::<String>() {
                 List::from(vec![q])
-            } else if let Some(l) = q.downcast::<List>() {
-                l
+            } else if let Ok(l) = q.try_downcast::<List>() {
+                l.into_inner()
             } else {
                 return i.error("expected list, symbol or string".to_string()).await;
             }

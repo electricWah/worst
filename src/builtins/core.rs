@@ -97,13 +97,13 @@ pub async fn const_(mut i: Handle) {
     let qname = i.quote_val().await;
     let name =
         // TODO quote_ty::<Symbol>()
-        if let Some(v) = qname.downcast_ref::<Symbol>() {
-            v
-        } else {
-            return i.error(List::from(vec![
-                "const: not a symbol".to_string().into(),
-                    qname,
-            ])).await;
+        match qname.try_downcast::<Symbol>() {
+            Ok(v) => v.into_inner(),
+            Err(qname) => {
+                return i.error(List::from(vec![
+                    "const: not a symbol".to_string().into(), qname,
+                ])).await;
+            },
         };
 
     i.define(name.as_ref(), move |mut i: Handle| {

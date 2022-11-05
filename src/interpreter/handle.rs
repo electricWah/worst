@@ -3,6 +3,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use crate::base::*;
+use crate::interpreter::defset::*;
 
 use super::base::*;
 
@@ -56,7 +57,7 @@ impl Handle {
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
-    async fn inner_stack_pop<T: Value>(&self) -> Vals<T> {
+    async fn inner_stack_pop<T: Value>(&self) -> ValOf<T> {
         loop {
             match self.inner_stack_pop_val().await.try_into() {
                 Ok(v) => return v,
@@ -89,7 +90,7 @@ impl Handle {
     /// Take the top value off the stack.
     /// The resulting value will be of the type requested.
     /// If the stack is empty, the interpreter will pause.
-    pub async fn stack_pop<T: Value>(&mut self) -> Vals<T> {
+    pub async fn stack_pop<T: Value>(&mut self) -> ValOf<T> {
         self.inner_stack_pop().await
     }
 
@@ -103,9 +104,9 @@ impl Handle {
     /// Get a copy of the top value of the stack without removing it
     /// (i.e. `stack_nth(0)`).
     /// See [stack_pop](Self::stack_pop).
-    pub async fn stack_top<T: Value>(&self) -> Vals<T> {
+    pub async fn stack_top<T: Value>(&self) -> ValOf<T> {
         let v = self.inner_stack_pop::<T>().await;
-        self.inner_stack_push(v.get_val()).await;
+        self.inner_stack_push(v.clone()).await;
         v
     }
 
@@ -209,7 +210,7 @@ impl Handle {
         let meta = def.eval_meta();
         let mut def = def.into_val();
         if meta {
-            let m = def.meta_ref_mut();
+            let m = def.meta_mut();
             m.push(DefineMeta { name: Some(name) });
             m.push(self.all_definitions().await);
         }

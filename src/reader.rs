@@ -247,15 +247,13 @@ impl Reader {
         match self.i.borrow_mut().run() {
             None => Ok(None), // maybe?
             Some(v) => {
-                if v.is::<Emit>() {
-                    match v.downcast::<Emit>().unwrap() {
+                match v.try_downcast::<Emit>() {
+                    Ok(emit) => match emit.into_inner() {
                         Emit::Eof => Ok(None),
                         Emit::Yield(v) => Ok(Some(v)),
                         Emit::Error(e) => Err(e),
-                    }
-                } else {
-                    // dbg!(&v);
-                    Ok(None)
+                    },
+                    Err(_) => Ok(None),
                 }
             },
         }

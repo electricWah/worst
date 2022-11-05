@@ -3,11 +3,10 @@ use std::cell::Cell;
 use std::rc::Rc;
 use core::pin::Pin;
 use core::future::Future;
-use std::collections::HashMap;
 use genawaiter::{ rc::Gen, rc::Co };
-use std::borrow::Borrow;
 
 use crate::base::*;
+use crate::interpreter::defset::*;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
 type ResolveFilterFn = Box<dyn Fn(&Val) -> bool>;
@@ -198,17 +197,18 @@ impl Eval for Val {
 
 impl EvalOnce for Val {
     fn into_eval_once(self) -> ToEvalOnce {
+        // TODO match try_downcast
         if self.is::<Builtin>() {
-            self.downcast::<Builtin>().unwrap().into_eval_once()
+            self.try_downcast::<Builtin>().ok().unwrap().into_inner().into_eval_once()
         } else if self.is::<List>() {
             if let Some(defs) = self.meta_ref().first_ref::<DefSet>().cloned() {
                 let meta = self.meta_ref().first_ref::<DefineMeta>().cloned().unwrap_or_default();
-                ToEvalOnce::Def(self.downcast::<List>().unwrap(), meta, defs)
+                ToEvalOnce::Def(self.try_downcast::<List>().ok().unwrap().into_inner(), meta, defs)
             } else {
-                ToEvalOnce::Body(self.downcast::<List>().unwrap())
+                ToEvalOnce::Body(self.try_downcast::<List>().ok().unwrap().into_inner())
             }
         } else if self.is::<Symbol>() {
-            self.downcast::<Symbol>().unwrap().into_eval_once()
+            self.try_downcast::<Symbol>().ok().unwrap().into_inner().into_eval_once()
         } else {
             (move |mut i: Handle| {
                 let vv = self.clone();
@@ -282,58 +282,6 @@ impl<F: 'static + Future<Output=()>,
 impl PausedFrame {
     pub fn next(&mut self) -> Option<FrameYield> {
         self.body.next()
-    }
-}
-
-/// Clone-on-write definition environment for list definitions.
-#[derive(Default, Clone)]
-pub struct DefSet(Rc<HashMap<String, Val>>);
-impl Value for DefSet {}
-impl DefSet {
-    /// Add an evaluable definition.
-    pub fn define(&mut self, key: String, val: impl Eval) {
-        Rc::make_mut(&mut self.0).insert(key, val.into_val());
-    }
-    /// Add a regular definition.
-    pub fn insert(&mut self, key: String, val: impl Into<Val>) {
-        Rc::make_mut(&mut self.0).insert(key, val.into());
-    }
-    /// Remove a definition by name.
-    pub fn remove(&mut self, key: impl AsRef<str>) -> Option<Val> {
-        Rc::make_mut(&mut self.0).remove(key.as_ref())
-    }
-    /// Look for a definition by name.
-    pub fn get(&self, key: impl AsRef<str>) -> Option<&Val> {
-        self.0.get(key.as_ref())
-    }
-    /// An iterator over the contained definition names.
-    pub fn keys(&self) -> impl Iterator<Item = &str> {
-        self.0.keys().map(|k| k.borrow())
-    }
-    /// An iterator over the contained definition name/body pairs.
-    pub fn iter(&self) -> impl Iterator<Item = (&str, &Val)> {
-        self.0.iter().map(|(k, v)| (k.borrow(), v))
-    }
-    /// Whether there are no entries.
-    pub fn is_empty(&self) -> bool { self.0.is_empty() }
-    /// How many entries there are.
-    pub fn len(&self) -> usize { self.0.len() }
-
-    /// Retain definitions based on the given criterion.
-    pub fn filter<F: Fn(&str, &Val) -> bool>(&mut self, f: F) {
-        Rc::make_mut(&mut self.0).retain(|k, v| f(k.as_ref(), v));
-    }
-
-    /// Take everything from `thee` and put it in `self`.
-    pub fn append(&mut self, thee: &DefSet) {
-        if thee.is_empty() { return; }
-        if self.is_empty() {
-            *Rc::make_mut(&mut self.0) = (*thee.0).clone();
-            return;
-        }
-        for (k, v) in thee.iter() {
-            self.insert(k.into(), v.clone());
-        }
     }
 }
 

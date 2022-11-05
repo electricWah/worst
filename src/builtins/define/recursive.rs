@@ -33,7 +33,7 @@ pub async fn recursive(mut i: Handle) {
         }
     })).with_meta(|m| m.push(RecursiveCall)));
 
-    body.meta_ref_mut().push(defs);
+    body.meta_mut().push(defs);
 
     i.stack_push(body).await;
     i.stack_push(name).await;

@@ -3,9 +3,7 @@
 
 mod value;
 mod types;
-mod vals;
 
 pub use value::*;
 pub use types::*;
-pub use vals::*;
 

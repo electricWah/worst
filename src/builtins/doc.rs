@@ -12,7 +12,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("value-doc-set", move |mut i: Handle| async move {
         let doc = i.stack_pop_val().await;
         let mut v = i.stack_pop_val().await;
-        v.meta_ref_mut().push(Doc(doc));
+        v.meta_mut().push(Doc(doc));
         i.stack_push(v).await;
     });
 

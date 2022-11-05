@@ -20,10 +20,10 @@ impl Value for Dynamic {}
 /// which contains the original body.
 pub async fn dynamic(mut i: Handle) {
     let name = i.stack_pop::<Symbol>().await;
-    let mut body = i.stack_pop::<List>().await.get_val();
+    let mut body: Val = i.stack_pop::<List>().await.into();
 
     if !body.meta_ref().contains::<DefSet>() {
-        body.meta_ref_mut().push(i.all_definitions().await);
+        body.meta_mut().push(i.all_definitions().await);
     }
 
     let dynamic_meta = Dynamic(body.clone());
