@@ -53,7 +53,6 @@ async fn dispatch_inner(mut i: Handle, first: bool) {
                 }
         };
 
-    // add static def env
     let env = i.all_definitions().await;
     DefSet::upsert_val(&mut spec, |ds| ds.prepend(&env));
     let mut body = Val::from(body);
