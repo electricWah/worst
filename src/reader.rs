@@ -278,8 +278,9 @@ mod tests {
     // assert nothing trailing here?
     fn vec_read<T: Value + Clone>(s: &str) -> Vec<T> {
         read_all(&mut s.chars()).unwrap()
-            .into_iter().map(Val::downcast::<T>)
-            .map(Option::unwrap).collect::<Vec<T>>()
+            .into_iter().map(Val::try_downcast::<T>)
+            .map(Result::ok).map(Option::unwrap)
+            .map(ValOf::into_inner).collect::<Vec<T>>()
     }
 
     #[test]

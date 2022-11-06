@@ -281,6 +281,13 @@ mod tests {
         i
     }
 
+    /// Pop the top of the stack and assume it's a T
+    fn pop_cast<T: Value + Clone>(i: &mut Interpreter) -> T {
+        i.stack_pop().expect("stack empty")
+        .try_downcast::<T>().ok().expect("wrong type")
+        .into_inner()
+    }
+
     #[test]
     fn interp_basic() {
         // empty
@@ -289,7 +296,7 @@ mod tests {
         let mut i = new_interp(vec![7.into()]);
         assert!(i.stack_ref().is_empty());
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(7 as i64));
+        assert_eq!(pop_cast::<i64>(&mut i), 7);
         assert!(i.stack_ref().is_empty());
     }
 
@@ -309,8 +316,8 @@ mod tests {
         });
         i.define("thingy", toplevel_def);
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<String>), Some(String::from("hello")));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<String>), Some(String::from("yay")));
+        assert_eq!(pop_cast::<String>(&mut i), "hello".to_string());
+        assert_eq!(pop_cast::<String>(&mut i), "yay".to_string());
         assert!(i.stack_ref().is_empty());
     }
 
@@ -326,7 +333,7 @@ mod tests {
             i.stack_push(q).await;
         });
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("egg".to_symbol()));
+        assert_eq!(pop_cast::<Symbol>(&mut i), "egg".to_symbol());
         assert!(i.stack_ref().is_empty());
     }
 
@@ -345,7 +352,7 @@ mod tests {
         });
         i.define("thing", Val::from(List::from(vec![ "upquote".to_symbol().into() ])));
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("egg".to_symbol()));
+        assert_eq!(pop_cast::<Symbol>(&mut i), "egg".to_symbol());
         assert!(i.stack_ref().is_empty());
     }
 
@@ -363,7 +370,7 @@ mod tests {
         });
         i.define("thing", Val::from(List::from(vec![ "upfive".to_symbol().into() ])));
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("five".to_symbol()));
+        assert_eq!(pop_cast::<Symbol>(&mut i), "five".to_symbol());
         assert!(i.stack_ref().is_empty());
     }
 
@@ -385,7 +392,7 @@ mod tests {
         i.define("thing2", Val::from(List::from(vec![ "upquote2".to_symbol().into() ])));
         i.define("thing1", Val::from(List::from(vec![ "thing2".to_symbol().into() ])));
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("egg".to_symbol()));
+        assert_eq!(pop_cast::<Symbol>(&mut i), "egg".to_symbol());
         assert!(i.stack_ref().is_empty());
     }
 
@@ -404,115 +411,7 @@ mod tests {
             }).await;
         });
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(5 as i64));
-        assert!(i.stack_ref().is_empty());
-    }
-
-    #[test]
-    fn test_eval_uplevel() {
-        let mut i = new_interp(vec![ "eval".to_symbol().into(), ]);
-        i.define("uplevel", |mut i: Handle| async move {
-            let v = i.stack_pop_val().await;
-            i.uplevel(v).await;
-        });
-        i.define("one", |mut i: Handle| async move {
-            i.stack_push(1).await;
-        });
-        i.define("eval-inner", |mut i: Handle| async move {
-            i.stack_push("one".to_symbol()).await;
-            i.stack_push("uplevel".to_symbol()).await;
-            i.eval(List::from(vec![ "uplevel".to_symbol().into() ])).await;
-            i.stack_push(2).await;
-        });
-        i.define("eval", Val::from(List::from(vec![
-            "eval-inner".to_symbol().into(),
-            3.into()
-        ])));
-        assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
-        assert!(i.stack_ref().is_empty());
-    }
-
-    #[test]
-    fn test_eval_pre_uplevel1() {
-        let mut i = new_interp(vec![ "eval".to_symbol().into(), ]);
-        i.define("uplevel", |mut i: Handle| async move {
-            let v = i.stack_pop_val().await;
-            i.uplevel(v).await;
-        });
-        i.define("one", |mut i: Handle| async move {
-            i.stack_push(1).await;
-        });
-        i.define("eval", |mut i: Handle| async move {
-            i.eval_child(List::default(), |mut i: Handle| async move {
-                i.stack_push("one".to_symbol()).await;
-                i.eval(List::from(vec![ "uplevel".to_symbol().into() ])).await;
-                i.stack_push(2).await;
-            }).await;
-            i.call_stack_names().await;
-            i.stack_push(3).await;
-        });
-        assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
-        assert!(i.stack_ref().is_empty());
-    }
-
-    #[test]
-    fn test_eval_pre_uplevel2() {
-        let mut i = new_interp(vec![ "eval".to_symbol().into(), ]);
-        i.define("uplevel", |mut i: Handle| async move {
-            let v = i.stack_pop_val().await;
-            i.uplevel(v).await;
-        });
-        i.define("one", |mut i: Handle| async move {
-            i.stack_push(1).await;
-        });
-        i.define("eval", |mut i: Handle| async move {
-            i.eval_child(List::default(), |mut i: Handle| async move {
-                i.stack_push("one".to_symbol()).await;
-                i.stack_push("uplevel".to_symbol()).await;
-                i.eval(List::from(vec![ "uplevel".to_symbol().into() ])).await;
-                i.stack_push(2).await;
-            }).await;
-            i.call_stack_names().await;
-            i.stack_push(3).await;
-        });
-        assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
-        assert!(i.stack_ref().is_empty());
-    }
-
-    #[test]
-    fn test_eval_pre_uplevel3() {
-        let mut i = new_interp(vec![ "eval".to_symbol().into(), ]);
-        i.define("noop", Val::from(List::default()));
-        i.define("uplevel", |mut i: Handle| async move {
-            let v = i.stack_pop_val().await;
-            i.uplevel(v).await;
-        });
-        i.define("one", |mut i: Handle| async move {
-            i.stack_push(1).await;
-        });
-        i.define("eval", |mut i: Handle| async move {
-            i.eval_child(List::from(vec!["noop".to_symbol().into()]), |mut i: Handle| async move {
-                i.stack_push("one".to_symbol()).await;
-                i.stack_push("uplevel".to_symbol()).await;
-                i.eval(List::from(vec![ "uplevel".to_symbol().into() ])).await;
-                i.stack_push(2).await;
-            }).await;
-            i.call_stack_names().await;
-            i.stack_push(3).await;
-        });
-        assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(3 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(2 as i64));
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<i64>), Some(1 as i64));
+        assert_eq!(pop_cast::<i64>(&mut i), 5);
         assert!(i.stack_ref().is_empty());
     }
 
@@ -529,7 +428,7 @@ mod tests {
             }).await;
         });
         assert!(i.run().is_none());
-        assert_eq!(i.stack_pop().and_then(Val::downcast::<Symbol>), Some("five".to_symbol()));
+        assert_eq!(pop_cast::<Symbol>(&mut i), "five".to_symbol());
         assert!(i.stack_ref().is_empty());
     }
 
