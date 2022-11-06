@@ -22,9 +22,8 @@ pub async fn dynamic(mut i: Handle) {
     let name = i.stack_pop::<Symbol>().await;
     let mut body: Val = i.stack_pop::<List>().await.into();
 
-    if !body.meta_ref().contains::<DefSet>() {
-        body.meta_mut().push(i.all_definitions().await);
-    }
+    let all_defs = i.all_definitions().await;
+    DefSet::upsert_val(&mut body, |ds| ds.prepend(&all_defs));
 
     let dynamic_meta = Dynamic(body.clone());
 

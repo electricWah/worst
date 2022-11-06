@@ -38,6 +38,11 @@ impl List {
     /// Iterate this list from front to back :)
     pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
 
+    /// Iterate this list from front to back - mutable edition!
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=&mut Val> {
+        self.data.iter_mut().rev()
+    }
+
     /// Take the front value from this list, if it isn't empty.
     pub fn pop(&mut self) -> Option<Val> {
         self.data.pop()

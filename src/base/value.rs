@@ -82,6 +82,26 @@ impl Val {
     pub fn try_downcast<T: Value>(self) -> Result<ValOf<T>, Val> {
         ValOf::<T>::try_from(self)
     }
+
+    // Not yet used, also, can't think of a good name
+//     /// Try to create a `ValOf<T>` with this value, if it is of the given type.
+//     pub fn downcast<T: Value>(&self) -> Option<ValOf<T>> {
+//         if self.is::<T>() {
+//             ValOf::<T>::try_from(self.clone()).ok()
+//         } else { None }
+//     }
+
+    /// If this is a `T`, swap it in-place with the given value.
+    /// Metadata for `self` remains untouched.
+    /// Return whether it was a `T` or not.
+    pub fn try_downcast_swap<T: Value + Clone>(&mut self, thee: &mut T) -> bool {
+        if self.is::<T>() {
+            let mut this = Rc::downcast::<T>(self.v.clone()).unwrap();
+            std::mem::swap(Rc::make_mut(&mut this), thee);
+            self.v = this; // because of this = self.v.clone()
+            true
+        } else { false }
+    }
 }
 
 impl<T: Value> ValOf<T> {

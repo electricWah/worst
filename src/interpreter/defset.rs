@@ -18,6 +18,10 @@ impl DefSet {
     pub fn remove(&mut self, key: impl AsRef<str>) -> Option<Val> {
         Rc::make_mut(&mut self.0).remove(key.as_ref())
     }
+    /// See whether a definition by the given name exists.
+    pub fn contains(&self, key: impl AsRef<str>) -> bool {
+        self.0.contains_key(key.as_ref())
+    }
     /// Look for a definition by name.
     pub fn get(&self, key: impl AsRef<str>) -> Option<&Val> {
         self.0.get(key.as_ref())
@@ -40,16 +44,51 @@ impl DefSet {
         Rc::make_mut(&mut self.0).retain(|k, v| f(k.as_ref(), v));
     }
 
-    /// Take everything from `thee` and put it in `self`.
-    pub fn append(&mut self, thee: &DefSet) {
+    fn merge_with(&mut self, thee: &DefSet, overwrite: bool) {
         if thee.is_empty() { return; }
         if self.is_empty() {
             *Rc::make_mut(&mut self.0) = (*thee.0).clone();
             return;
         }
         for (k, v) in thee.iter() {
-            self.insert(k.into(), v.clone());
+            if overwrite || !self.contains(&k) {
+                self.insert(k.into(), v.clone());
+            }
         }
     }
+
+    /// Take everything from `thee` and put it in `self`.
+    /// This will overwrite existing values in `self` - see also [prepend].
+    pub fn append(&mut self, thee: &DefSet) {
+        self.merge_with(thee, true);
+    }
+    /// Take everything from `thee` and put it in `self`,
+    /// unless `self` already contains an entry with the same name.
+    /// See also [append].
+    pub fn prepend(&mut self, thee: &DefSet) {
+        self.merge_with(thee, false);
+    }
+
+    /// Find (or create an empty) DefSet in meta for the value
+    /// and do a function on it.
+    /// Use this to e.g.
+    /// add a closure environment for [List] values that will be evaluated later.
+    pub fn upsert_val(v: &mut Val, f: impl FnOnce(&mut DefSet)) {
+        let meta = v.meta_mut();
+        let mut defs = DefSet::default();
+        if !meta.contains::<DefSet>() {
+            f(&mut defs);
+            meta.push(defs);
+        } else {
+            'find_defs: for ds in meta.iter_mut() {
+                if ds.try_downcast_swap::<DefSet>(&mut defs) {
+                    f(&mut defs);
+                    ds.try_downcast_swap(&mut defs);
+                    break 'find_defs;
+                }
+            }
+        }
+    }
+
 }
 

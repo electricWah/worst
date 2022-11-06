@@ -146,3 +146,93 @@ pub fn install(i: &mut Interpreter) {
     i.define("f64->i64", f64_to_i64);
 }
 
+
+
+// max
+// min
+// gcd
+// lcm
+// round
+// floor
+// ceiling
+// truncate
+// numerator
+// denominator
+// rationalize
+// 4.3.2.3 Powers and Roots
+// sqrt
+// integer-sqrt
+// integer-sqrt/  remainder
+// expt
+// exp
+// log
+// 4.3.2.4 Trigonometric Functions
+// sin
+// cos
+// tan
+// asin
+// acos
+// atan
+// 4.3.2.5 Complex Numbers
+// make-rectangular
+// make-polar
+// real-part
+// imag-part
+// magnitude
+// angle
+// 4.3.2.6 Bitwise Operations
+// bitwise-ior
+// bitwise-and
+// bitwise-xor
+// bitwise-not
+// bitwise-bit-set?
+// bitwise-bit-field
+// arithmetic-shift
+// integer-length
+// 4.3.2.7 Random Numbers
+// random
+// random-seed
+// make-pseudo-random-generator
+// pseudo-random-generator?
+// current-pseudo-random-generator
+// pseudo-random-generator->vector
+// vector->pseudo-random-generator
+// vector->pseudo-random-generator!
+// pseudo-random-generator-vector?
+// 4.3.2.8 Other Randomness Utilities
+// crypto-random-bytes
+// random-ref
+// random-sample
+// 4.3.2.9 Number–String Conversions
+// number->string
+// string->number
+// real->decimal-string
+// integer-bytes->integer
+// integer->integer-bytes
+// floating-point-bytes->real
+// real->floating-point-bytes
+// system-big-endian?
+// 4.3.2.10 Extra Constants and Functions
+// pi
+// pi.f
+// degrees->radians
+// radians->degrees
+// sqr
+// sgn
+// conjugate
+// sinh
+// cosh
+// tanh
+// exact-round
+// exact-floor
+// exact-ceiling
+// exact-truncate
+// order-of-magnitude
+// nan?
+// infinite?
+// positive-integer?
+// negative-integer?
+// nonpositive-integer?
+// nonnegative-integer?
+// natural?
+

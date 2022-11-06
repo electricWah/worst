@@ -59,9 +59,9 @@ pub async fn define(mut i: Handle) {
     if !body.meta_ref().contains::<DefineMeta>() {
         body.meta_mut().push(DefineMeta { name: Some(name.clone().to_string()) });
     }
-    if !body.meta_ref().contains::<DefSet>() {
-        body.meta_mut().push(i.all_definitions().await);
-    }
+
+    let all_defs = i.all_definitions().await;
+    DefSet::upsert_val(&mut body, |ds| ds.prepend(&all_defs));
 
     i.add_definition(name, body).await;
 }
