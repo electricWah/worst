@@ -46,10 +46,15 @@ pub async fn define(mut i: Handle) {
     i.stack_push(body).await;
     i.stack_push(name.clone()).await;
 
+    let all_defs = i.all_definitions().await;
+
     if !attrs.is_empty() {
-        i.eval_child(attrs.clone(), move |mut i: Handle| async move {
-            i.add_definition("definition-attributes", true).await;
-        }).await;
+        let mut attr_val = Val::from(attrs);
+        DefSet::upsert_val(&mut attr_val, |ds| {
+            ds.append(&all_defs);
+            ds.insert("definition-attributes".to_string(), true);
+        });
+        i.eval(attr_val).await;
     }
     i.call("default-attributes").await;
 
@@ -60,7 +65,6 @@ pub async fn define(mut i: Handle) {
         body.meta_mut().push(DefineMeta { name: Some(name.clone().to_string()) });
     }
 
-    let all_defs = i.all_definitions().await;
     DefSet::upsert_val(&mut body, |ds| ds.prepend(&all_defs));
 
     i.add_definition(name, body).await;

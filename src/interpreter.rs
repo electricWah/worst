@@ -125,13 +125,6 @@ impl Interpreter {
         self.frame.childs.push(child);
     }
 
-    fn handle_eval_pre(&mut self, pre: ToEvalOnce, body: List) {
-        let mut child = self.frame.eval_list(body);
-        let grandchild = child.eval_once(pre);
-        child.childs.push(grandchild);
-        self.frame.childs.push(ChildFrame::ListFrame(child));
-    }
-
     fn handle_definitions(&self, all: bool) -> DefSet {
         if all {
             self.frame.all_defs()
@@ -159,7 +152,6 @@ impl Interpreter {
         match y {
             FrameYield::Pause(v) => return Some(v),
             FrameYield::Eval(v) => self.handle_eval_once(v),
-            FrameYield::EvalPre(pre, body) => self.handle_eval_pre(pre, body),
             FrameYield::Call(v) => if let r@Some(_) = self.handle_call(v) { return r; },
             FrameYield::StackPush(v) => self.stack_push(v),
             FrameYield::StackPop(yr) => yr.set(self.stack_ref_mut().pop()),

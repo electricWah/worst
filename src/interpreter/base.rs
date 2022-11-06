@@ -27,10 +27,6 @@ pub struct ResolveDefinition {
 pub enum FrameYield {
     Pause(Val),
     Eval(ToEvalOnce),
-    /// EvalPre(pre, body)
-    /// Evaluate `body`, but in the new child stack frame
-    /// and before the first thing in `body`, eval `pre`.
-    EvalPre(ToEvalOnce, List),
     Call(Symbol),
     Uplevel(ToEvalOnce),
     StackPush(Val),

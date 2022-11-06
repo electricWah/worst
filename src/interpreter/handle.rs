@@ -22,12 +22,6 @@ impl Handle {
     pub async fn eval(&mut self, f: impl EvalOnce) {
         self.co.yield_(FrameYield::Eval(f.into_eval_once())).await;
     }
-    /// Evaluate `child` followed by `body`, but `child` is evaluated
-    /// inside `body` as a new stack frame so it can add definitions
-    /// without affecting the stack frame that called this function.
-    pub async fn eval_child(&mut self, body: List, child: impl EvalOnce) {
-        self.co.yield_(FrameYield::EvalPre(child.into_eval_once(), body)).await;
-    }
     /// Look up a definition and evaluate it.
     pub async fn call(&mut self, s: impl Into<Symbol>) {
         self.co.yield_(FrameYield::Call(s.into())).await;
