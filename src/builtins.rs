@@ -18,6 +18,8 @@ pub mod numeric;
 #[cfg(feature = "enable_os")]
 pub mod os;
 pub mod place;
+#[cfg(feature = "enable_process")]
+pub mod process;
 pub mod reader;
 pub mod string;
 
@@ -36,6 +38,8 @@ pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "enable_os")]
     os::install(i);
     place::install(i);
+    #[cfg(feature = "enable_process")]
+    process::install(i);
     reader::install(i);
     string::install(i);
 }

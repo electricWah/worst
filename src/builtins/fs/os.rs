@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 use crate::builtins::util::*;
-use crate::builtins::io::port_to_string;
+use crate::builtins::io::{ or_io_error, port_to_string, port_read_range };
 
 /// A reference-counted [fs::File] [Val].
 #[derive(Clone)]
@@ -33,16 +33,13 @@ impl io::Read for File {
 pub fn install(i: &mut Interpreter) {
     i.define("open-file/read", |mut i: Handle| async move {
         let path = i.stack_pop::<String>().await;
-        match open_read(path.as_ref()) {
-            Ok(f) => i.stack_push(f).await,
-            Err(e) => {
-                i.stack_push(format!("{}", e)).await;
-                i.stack_push(false).await;
-            },
+        if let Some(f) = or_io_error(&mut i, open_read(path.as_ref())).await {
+            i.stack_push(f).await;
         }
     });
 
     i.define("file-port?", type_predicate::<File>);
     i.define("file-port->string", port_to_string::<File>);
+    i.define("file-port-read-range", port_read_range::<File>);
 }
 

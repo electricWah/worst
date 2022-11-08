@@ -7,6 +7,7 @@ use std::cell::RefCell;
 // use std::collections::VecDeque;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
+use crate::builtins::bytevector::bytes_range_mut;
 
 struct OutputPort(RefCell<Box<dyn Write>>);
 impl Value for OutputPort {}
@@ -36,6 +37,18 @@ impl Read for BufReader {
     }
 }
 
+/// Given an [io::Result], either return its `Ok` arm or put the error on the stack.
+/// You should push one value to the stack in the `Some` return case.
+pub async fn or_io_error<T>(i: &mut Handle, e: io::Result<T>) -> Option<T> {
+    match e {
+        Ok(v) => Some(v),
+        Err(e) => {
+            i.stack_push(IsError::add(format!("{}", e))).await;
+            None
+        }
+    }
+}
+
 /// Slurp entire port (i.e. until eof) into a string.
 /// Pops a `T` and pushes the result,
 /// either the string itself on success,
@@ -44,14 +57,30 @@ impl Read for BufReader {
 pub async fn port_to_string<T: Value + Read + Clone>(mut i: Handle) {
     let mut read = i.stack_pop::<T>().await;
     let mut s = String::new();
-    match read.as_mut().read_to_string(&mut s) {
-        Ok(_count) => {
-            i.stack_push(s).await;
-        },
-        Err(e) => {
-            i.stack_push(IsError::add(format!("{}", e))).await;
-        },
+    if let Some(_count) = or_io_error(&mut i, read.as_mut().read_to_string(&mut s)).await {
+        i.stack_push(s).await;
     }
+}
+
+/// Read a specified range from a port into a bytevector.
+/// Creates a builtin with the following signature:
+/// `port bytevector start len port-read-bytevector-range -> port bytevector read-count-or-error`
+/// See [bytes_range_mut] for da rulez.
+pub async fn port_read_range<T: Value + Read + Clone>(mut i: Handle) {
+    let len = i.stack_pop::<i64>().await.into_inner();
+    let start = i.stack_pop::<i64>().await.into_inner();
+    let mut bytevector = i.stack_pop::<Vec<u8>>().await;
+    let mut port = i.stack_pop::<T>().await;
+    let mut bv = bytevector.as_mut();
+    let mut range = bytes_range_mut(&mut bv, start, len);
+    let res = 
+        match port.as_mut().read(&mut range) {
+            Ok(count) => Val::from(count as i64),
+            Err(e) => IsError::add(format!("{}", e)),
+        };
+    i.stack_push(port).await;
+    i.stack_push(bytevector).await;
+    i.stack_push(res).await;
 }
 
 /// Install all these functions if enabled.

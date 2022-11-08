@@ -43,6 +43,7 @@ define (dispatch ((list? list?) stack-matches?)) append [ list-append ]
 define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
 
 define (dispatch (list?)) length [ list-length ]
+define (dispatch (bytevector?)) length [ bytevector-length ]
 
 define value->string [drop "<value>"]
 define (dispatch (string?)) value->string []
@@ -50,6 +51,8 @@ define (dispatch (bool?)) value->string [if ["#t"] ["#f"]]
 define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
+define (dispatch (file-port?)) value->string [drop "<file-port>"]
+
 define (recursive dispatch (list?)) value->string [
     "(" "" dig list-iter [
         value->string
@@ -59,6 +62,11 @@ define (recursive dispatch (list?)) value->string [
     ]
     ; drop trailing " " or semi-sacrificial ""
     drop ")" string-append
+]
+define (dispatch (bytevector?)) value->string [
+    length const len
+    "[" len value->string append " bytes]" append
+    swap drop
 ]
 
 define false? [ clone not ]

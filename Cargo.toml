@@ -27,13 +27,15 @@ enable_fs_embed = ["dep:include_dir"]
 # (TODO) Embed lib files in program as `cat worst lib.zip > worst`
 enable_fs_zip = []
 
+enable_process = []
+
 # Builtins suitable for a wasm build (no os/fs/etc)
 wasm = ["enable_fs_embed"]
 
 # All builtins
 full = [
     "enable_fs_os", "enable_fs_embed", "enable_fs_zip",
-    "enable_os", "enable_stdio"
+    "enable_os", "enable_process", "enable_stdio"
 ]
 
 default = ["full"]
