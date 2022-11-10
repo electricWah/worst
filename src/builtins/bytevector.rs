@@ -11,23 +11,32 @@ use crate::interpreter::{Interpreter, Handle};
 
 impl Value for Vec<u8> {}
 
+fn index_range(len: usize, idx: i64, extend: bool) -> usize {
+    let r = (if idx < 0 { len as i64 + idx } else { idx }).max(0) as usize;
+    if extend { r } else { r.min(len) }
+}
+
 // len < 0 could swap start/end positions? or go from the end of the vec?
-fn get_range(slice: &[u8], start: i64, len: i64, extend: bool) -> (usize, usize) {
-    let vlen = slice.len() as i64;
-    let start = if start < 0 { vlen + start } else { start };
-    let start = start.max(0).min(vlen);
-    let len = len.max(0);
-    let len = if extend { len } else { len.min(vlen) };
-    (start as usize, len as usize)
+fn get_range(slice: &[u8], start: i64, end: i64, extend: bool) -> (usize, usize) {
+    let vlen = slice.len();
+    let start = index_range(vlen, start, false);
+    let end = index_range(vlen, end, extend);
+    (start, end)
 }
 
 /// Get a reference to a range of bytes in a vector.
-/// If start < 0, it is counted from the end. Then it's clipped within bounds.
-/// If len < 0, len = 0.
-/// The returned slice may be shorter than requested if start + len > bytes.len().
-pub fn bytes_range_mut(bytes: &mut Vec<u8>, start: i64, len: i64) -> &mut [u8] {
-    let (start, len) = get_range(&bytes, start, len, false);
-    &mut bytes[start .. start + len]
+/// If start or end < 0, they are counted from the end.
+/// Then they are clipped within bounds.
+/// The returned slice may be shorter than requested if end > bytes.len().
+pub fn bytes_range(bytes: &Vec<u8>, start: i64, end: i64) -> &[u8] {
+    let (start, end) = get_range(&bytes, start, end, false);
+    &bytes[start .. end]
+}
+
+/// Get a mutable reference to a range of bytes in a vector. See [bytes_range]
+pub fn bytes_range_mut(bytes: &mut Vec<u8>, start: i64, end: i64) -> &mut [u8] {
+    let (start, end) = get_range(&bytes, start, end, false);
+    &mut bytes[start .. end]
 }
 
 /// Install some bytevector definitions.
@@ -51,28 +60,26 @@ pub fn install(i: &mut Interpreter) {
     // if start > 0, remove < start bytes
     // if len goes beyond end, pad with zeroes
     i.define("bytevector-range", |mut i: Handle| async move {
-        let len = i.stack_pop::<i64>().await.into_inner();
+        let end = i.stack_pop::<i64>().await.into_inner();
         let start = i.stack_pop::<i64>().await.into_inner();
         let mut v = i.stack_pop::<Vec<u8>>().await;
-        let (start, len) = get_range(v.as_ref(), start, len, true);
-        if len == 0 {
+        let (start, end) = get_range(v.as_ref(), start, end, true);
+        if start == end {
             (*v.as_mut()) = vec![];
         } else {
             let vmut = v.as_mut();
             let mut newv = vmut.split_off(start);
             std::mem::swap(vmut, &mut newv);
         }
-        v.as_mut().resize(len, 0);
+        v.as_mut().resize(end - start, 0);
         i.stack_push(v).await;
     });
 
     i.define("bytevector-split", |mut i: Handle| async move {
         let idx = i.stack_pop::<i64>().await.into_inner();
         let mut a = i.stack_pop::<Vec<u8>>().await;
-        let len = a.as_ref().len() as i64;
-        let idx = if idx < 0 { len + idx } else { idx };
-        let idx = idx.max(0).min(len as i64);
-        let b = a.as_mut().split_off(idx as usize);
+        let idx = index_range(a.as_ref().len(), idx, false);
+        let b = a.as_mut().split_off(idx);
         i.stack_push(b).await;
         i.stack_push(a).await;
     });

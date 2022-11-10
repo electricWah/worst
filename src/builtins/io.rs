@@ -7,7 +7,7 @@ use std::cell::RefCell;
 // use std::collections::VecDeque;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
-use crate::builtins::bytevector::bytes_range_mut;
+use crate::builtins::bytevector::{bytes_range, bytes_range_mut};
 
 struct OutputPort(RefCell<Box<dyn Write>>);
 impl Value for OutputPort {}
@@ -64,17 +64,37 @@ pub async fn port_to_string<T: Value + Read + Clone>(mut i: Handle) {
 
 /// Read a specified range from a port into a bytevector.
 /// Creates a builtin with the following signature:
-/// `port bytevector start len port-read-bytevector-range -> port bytevector read-count-or-error`
+/// `port bytevector start end port-read-bytevector-range -> port bytevector read-count-or-error`
 /// See [bytes_range_mut] for da rulez.
 pub async fn port_read_range<T: Value + Read + Clone>(mut i: Handle) {
-    let len = i.stack_pop::<i64>().await.into_inner();
+    let end = i.stack_pop::<i64>().await.into_inner();
     let start = i.stack_pop::<i64>().await.into_inner();
     let mut bytevector = i.stack_pop::<Vec<u8>>().await;
     let mut port = i.stack_pop::<T>().await;
     let mut bv = bytevector.as_mut();
-    let mut range = bytes_range_mut(&mut bv, start, len);
+    let mut range = bytes_range_mut(&mut bv, start, end);
     let res = 
         match port.as_mut().read(&mut range) {
+            Ok(count) => Val::from(count as i64),
+            Err(e) => IsError::add(format!("{}", e)),
+        };
+    i.stack_push(port).await;
+    i.stack_push(bytevector).await;
+    i.stack_push(res).await;
+}
+
+/// Write a specified range from a bytevector into a port.
+/// Creates a builtin with the following signature:
+/// `port bytevector start end port-write-bytevector-range -> port bytevector write-count-or-error`
+/// See [bytes_range_mut] for da rulez.
+pub async fn port_write_range<T: Value + Write + Clone>(mut i: Handle) {
+    let end = i.stack_pop::<i64>().await.into_inner();
+    let start = i.stack_pop::<i64>().await.into_inner();
+    let bytevector = i.stack_pop::<Vec<u8>>().await;
+    let mut port = i.stack_pop::<T>().await;
+    let mut range = bytes_range(&bytevector.as_ref(), start, end);
+    let res =
+        match port.as_mut().write(&mut range) {
             Ok(count) => Val::from(count as i64),
             Err(e) => IsError::add(format!("{}", e)),
         };

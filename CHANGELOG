@@ -12,6 +12,7 @@
 - Make dynamic attribute use locals instead of dynamic scope
 - Add recursive attribute to enable recursive definitions
 - Start on a Bytevector type (Vec<u8>) for operations on bytes
+- Add a thin wrapper around Rust's API for OS subprocesses
 
 # 0.3 (2022-09-25)
 
