@@ -103,11 +103,11 @@ define read-port->list [ port->string read-string->list ]
 
 define ->string [ value->string ]
 
-define print [ current-output-port swap port-write-string port-flush drop ]
+define print [ stdout-port swap stdout-port-write-string stdout-port-flush drop drop ]
 define print-value [ ->string print ]
 define println [ ->string "\n" string-append print ]
 
-define read-line [ current-input-port buffered-port-read-line swap drop ]
+define read-line [ stdin-port-read-line ]
 
 export #t
 

@@ -11,7 +11,6 @@ pub mod define;
 pub mod doc;
 pub mod fs;
 pub mod interpreter;
-pub mod io;
 pub mod list;
 pub mod module;
 pub mod numeric;
@@ -21,6 +20,8 @@ pub mod place;
 #[cfg(feature = "enable_process")]
 pub mod process;
 pub mod reader;
+#[cfg(feature = "enable_stdio")]
+pub mod stdio;
 pub mod string;
 
 /// Define all enabled builtins in the given [Interpreter].
@@ -31,7 +32,6 @@ pub fn install(i: &mut Interpreter) {
     doc::install(i);
     fs::install(i);
     interpreter::install(i);
-    io::install(i);
     list::install(i);
     module::install(i);
     numeric::install(i);
@@ -41,6 +41,8 @@ pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "enable_process")]
     process::install(i);
     reader::install(i);
+    #[cfg(feature = "enable_stdio")]
+    stdio::install(i);
     string::install(i);
 }
 

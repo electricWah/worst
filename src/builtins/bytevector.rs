@@ -6,44 +6,16 @@
 //! and whatever else it is you want to do with a bunch of bytes.
 
 use crate::base::*;
-use super::util;
+use super::util::*;
 use crate::interpreter::{Interpreter, Handle};
 
 impl Value for Vec<u8> {}
 
-fn index_range(len: usize, idx: i64, extend: bool) -> usize {
-    let r = (if idx < 0 { len as i64 + idx } else { idx }).max(0) as usize;
-    if extend { r } else { r.min(len) }
-}
-
-// len < 0 could swap start/end positions? or go from the end of the vec?
-fn get_range(slice: &[u8], start: i64, end: i64, extend: bool) -> (usize, usize) {
-    let vlen = slice.len();
-    let start = index_range(vlen, start, false);
-    let end = index_range(vlen, end, extend);
-    (start, end)
-}
-
-/// Get a reference to a range of bytes in a vector.
-/// If start or end < 0, they are counted from the end.
-/// Then they are clipped within bounds.
-/// The returned slice may be shorter than requested if end > bytes.len().
-pub fn bytes_range(bytes: &Vec<u8>, start: i64, end: i64) -> &[u8] {
-    let (start, end) = get_range(&bytes, start, end, false);
-    &bytes[start .. end]
-}
-
-/// Get a mutable reference to a range of bytes in a vector. See [bytes_range]
-pub fn bytes_range_mut(bytes: &mut Vec<u8>, start: i64, end: i64) -> &mut [u8] {
-    let (start, end) = get_range(&bytes, start, end, false);
-    &mut bytes[start .. end]
-}
-
 /// Install some bytevector definitions.
 pub fn install(i: &mut Interpreter) {
 
-    i.define("bytevector?", util::type_predicate::<Vec<u8>>);
-    i.define("bytevector-equal", util::equality::<Vec<u8>>);
+    i.define("bytevector?", type_predicate::<Vec<u8>>);
+    i.define("bytevector-equal", equality::<Vec<u8>>);
     i.define("bytevector-length", |mut i: Handle| async move {
         let v = i.stack_top::<Vec<u8>>().await;
         i.stack_push(v.as_ref().len() as i64).await;

@@ -6,7 +6,6 @@ use std::io;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 use crate::builtins::util::*;
-use crate::builtins::io::port_to_string;
 use include_dir::{include_dir, Dir};
 
 static EMBED_FS: Dir = include_dir!("$CARGO_MANIFEST_DIR/lib");

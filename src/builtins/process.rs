@@ -5,8 +5,9 @@
 
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
-use super::util;
-use super::io::{or_io_error, port_read_range, port_write_range};
+use super::util::*;
+#[cfg(feature = "enable_fs_os")]
+use std::fs;
 use std::io;
 use std::process;
 use std::rc::Rc;
@@ -18,8 +19,8 @@ impl Value for Command {}
 
 impl Command {
     async fn with(i: &Handle, f: impl FnOnce(&mut process::Command)) {
-        let mut c = i.stack_top::<Command>().await;
-        f(&mut c.as_mut().0.borrow_mut());
+        let c = i.stack_top::<Command>().await;
+        f(&mut c.as_ref().0.borrow_mut());
     }
 }
 
@@ -28,19 +29,14 @@ struct Child(Rc<RefCell<process::Child>>);
 impl Value for Child {}
 
 impl Child {
-    // async fn with(i: &mut Handle, f: impl FnOnce(&mut process::Command)) {
-    //     let mut c = i.stack_pop::<Command>().await;
-    //     f(&mut c.as_mut().0.borrow_mut());
-    //     i.stack_push(c).await;
-    // }
     async fn get<T>(i: &Handle, f: impl FnOnce(&process::Child) -> T) -> T {
         let c = i.stack_top::<Child>().await;
         let r = f(&c.as_ref().0.borrow());
         r
     }
     async fn get_mut<T>(i: &Handle, f: impl FnOnce(&mut process::Child) -> T) -> T {
-        let mut c = i.stack_top::<Child>().await;
-        let r = f(&mut c.as_mut().0.borrow_mut());
+        let c = i.stack_top::<Child>().await;
+        let r = f(&mut c.as_ref().0.borrow_mut());
         r
     }
 }
@@ -77,69 +73,82 @@ impl io::Read for ChildStderr {
 async fn with_command_child(i: &mut Handle,
                             f: impl FnOnce(&mut process::Command,
                                            &mut process::Child)) {
-    let mut ch = i.stack_pop::<Child>().await;
-    let mut co = i.stack_pop::<Command>().await;
-    f(&mut co.as_mut().0.borrow_mut(), &mut ch.as_mut().0.borrow_mut());
+    let ch = i.stack_pop::<Child>().await;
+    let co = i.stack_pop::<Command>().await;
+    f(&mut co.as_ref().0.borrow_mut(), &mut ch.as_ref().0.borrow_mut());
     i.stack_push(co).await;
     i.stack_push(ch).await;
 }
 
+#[cfg(feature = "enable_fs_os")]
+async fn with_command_file_options(i: &mut Handle,
+                                   f: impl FnOnce(&mut process::Command,
+                                                  fs::File)) {
+    let opts = i.stack_pop::<fs::OpenOptions>().await;
+    let path = i.stack_pop::<String>().await;
+    if let Some(file) = or_io_error(i, opts.as_ref().open(path.as_ref())).await {
+        let co = i.stack_pop::<Command>().await;
+        f(&mut co.as_ref().0.borrow_mut(), file);
+        i.stack_push(co).await;
+    }
+}
+
 /// Install 'em
 pub fn install(i: &mut Interpreter) {
-    i.define("process-command?", util::type_predicate::<Command>);
+    i.define("process-command?", type_predicate::<Command>);
     i.define("process-command-create", |mut i: Handle| async move {
         let path = i.stack_pop::<String>().await.into_inner();
         i.stack_push(Command(Rc::new(RefCell::new(process::Command::new(path))))).await;
     });
     i.define("process-command-arg-add", |mut i: Handle| async move {
         let arg = i.stack_pop::<String>().await.into_inner();
-        Command::with(&mut i, |c| { c.arg(arg); }).await;
+        Command::with(&i, |c| { c.arg(arg); }).await;
     });
 
     i.define("process-command-env-add", |mut i: Handle| async move {
         let val = i.stack_pop::<String>().await.into_inner();
         let key = i.stack_pop::<String>().await.into_inner();
-        Command::with(&mut i, |c| { c.env(key, val); }).await;
+        Command::with(&i, |c| { c.env(key, val); }).await;
     });
     i.define("process-command-env-remove", |mut i: Handle| async move {
         let key = i.stack_pop::<String>().await.into_inner();
-        Command::with(&mut i, |c| { c.env_remove(key); }).await;
+        Command::with(&i, |c| { c.env_remove(key); }).await;
     });
-    i.define("process-command-env-clear", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.env_clear(); }).await;
+    i.define("process-command-env-clear", |i: Handle| async move {
+        Command::with(&i, |c| { c.env_clear(); }).await;
     });
     i.define("process-command-directory", |mut i: Handle| async move {
         let dir = i.stack_pop::<String>().await.into_inner();
-        Command::with(&mut i, |c| { c.current_dir(dir); }).await;
+        Command::with(&i, |c| { c.current_dir(dir); }).await;
     });
 
     // wow
-    i.define("process-command-stdin-inherit", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stdin(process::Stdio::inherit()); }).await;
+    i.define("process-command-stdin-inherit", |i: Handle| async move {
+        Command::with(&i, |c| { c.stdin(process::Stdio::inherit()); }).await;
     });
-    i.define("process-command-stdin-null", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stdin(process::Stdio::null()); }).await;
+    i.define("process-command-stdin-null", |i: Handle| async move {
+        Command::with(&i, |c| { c.stdin(process::Stdio::null()); }).await;
     });
-    i.define("process-command-stdin-piped", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stdin(process::Stdio::piped()); }).await;
+    i.define("process-command-stdin-piped", |i: Handle| async move {
+        Command::with(&i, |c| { c.stdin(process::Stdio::piped()); }).await;
     });
-    i.define("process-command-stdout-inherit", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stdout(process::Stdio::inherit()); }).await;
+    i.define("process-command-stdout-inherit", |i: Handle| async move {
+        Command::with(&i, |c| { c.stdout(process::Stdio::inherit()); }).await;
     });
-    i.define("process-command-stdout-null", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stdout(process::Stdio::null()); }).await;
+    i.define("process-command-stdout-null", |i: Handle| async move {
+        Command::with(&i, |c| { c.stdout(process::Stdio::null()); }).await;
     });
-    i.define("process-command-stdout-piped", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stdout(process::Stdio::piped()); }).await;
+    i.define("process-command-stdout-piped", |i: Handle| async move {
+        Command::with(&i, |c| { c.stdout(process::Stdio::piped()); }).await;
     });
-    i.define("process-command-stderr-inherit", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stderr(process::Stdio::inherit()); }).await;
+    i.define("process-command-stderr-inherit", |i: Handle| async move {
+        Command::with(&i, |c| { c.stderr(process::Stdio::inherit()); }).await;
     });
-    i.define("process-command-stderr-null", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stderr(process::Stdio::null()); }).await;
+    i.define("process-command-stderr-null", |i: Handle| async move {
+        Command::with(&i, |c| { c.stderr(process::Stdio::null()); }).await;
     });
-    i.define("process-command-stderr-piped", |mut i: Handle| async move {
-        Command::with(&mut i, |c| { c.stderr(process::Stdio::piped()); }).await;
+    i.define("process-command-stderr-piped", |i: Handle| async move {
+        Command::with(&i, |c| { c.stderr(process::Stdio::piped()); }).await;
     });
 
     i.define("process-command-stdin-child-stdout", |mut i: Handle| async move {
@@ -163,15 +172,27 @@ pub fn install(i: &mut Interpreter) {
         }).await;
     });
 
+    #[cfg(feature = "enable_fs_os")] {
+        i.define("process-command-stdin-file", |mut i: Handle| async move {
+            with_command_file_options(&mut i, |c, f| { c.stdin(f); }).await;
+        });
+        i.define("process-command-stdout-file", |mut i: Handle| async move {
+            with_command_file_options(&mut i, |c, f| { c.stdout(f); }).await;
+        });
+        i.define("process-command-stderr-file", |mut i: Handle| async move {
+            with_command_file_options(&mut i, |c, f| { c.stderr(f); }).await;
+        });
+    }
+
     i.define("process-command-spawn-child", |mut i: Handle| async move {
-        let mut c = i.stack_pop::<Command>().await;
-        let spawned = c.as_mut().0.borrow_mut().spawn();
+        let c = i.stack_pop::<Command>().await;
+        let spawned = c.as_ref().0.borrow_mut().spawn();
         if let Some(child) = or_io_error(&mut i, spawned).await {
             i.stack_push(Child(Rc::new(RefCell::new(child)))).await;
         }
     });
 
-    i.define("process-child?", util::type_predicate::<Child>);
+    i.define("process-child?", type_predicate::<Child>);
     i.define("process-child-id", |mut i: Handle| async move {
         let id = Child::get(&i, |c| c.id()).await;
         i.stack_push(id as i64).await;
@@ -189,9 +210,9 @@ pub fn install(i: &mut Interpreter) {
         }
     });
 
-    i.define("process-child-stdin-port?", util::type_predicate::<ChildStdin>);
-    i.define("process-child-stdout-port?", util::type_predicate::<ChildStdout>);
-    i.define("process-child-stderr-port?", util::type_predicate::<ChildStderr>);
+    i.define("process-child-stdin-port?", type_predicate::<ChildStdin>);
+    i.define("process-child-stdout-port?", type_predicate::<ChildStdout>);
+    i.define("process-child-stderr-port?", type_predicate::<ChildStderr>);
 
     i.define("process-child-stdin-port", |mut i: Handle| async move {
         if let Some(p) = Child::get_mut(&i, |c| c.stdin.take()).await {
@@ -216,6 +237,7 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.define("process-child-stdin-write-range", port_write_range::<ChildStdin>);
+    i.define("process-child-stdin-flush", port_flush::<ChildStdin>);
     i.define("process-child-stdout-read-range", port_read_range::<ChildStdout>);
     i.define("process-child-stderr-read-range", port_read_range::<ChildStderr>);
 
