@@ -33,7 +33,7 @@ define info [
     upquote const topic
     topic updo definition-resolve
     value-doc
-    bury drop drop
+    swap drop
     case [
         (false?) [
             drop ansi [ bright red fg "No info available.\n" print reset ]

@@ -13,6 +13,11 @@
 - Add recursive attribute to enable recursive definitions
 - Start on a Bytevector type (Vec<u8>) for operations on bytes
 - Add thin wrappers around Rust's APIs for OS subprocesses and opening files
+- const is now defined in terms of value->constant
+- all-definitions is now just a list of names (use definition-resolve on them)
+- Add local-definitions, which is like all-definitions but only lists locals
+- Add value-definition-add for building up a closure environment for eval
+- definition-resolve now consumes its argument
 
 # 0.3 (2022-09-25)
 

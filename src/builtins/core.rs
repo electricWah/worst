@@ -2,7 +2,7 @@
 //! Basic stack-shuffling and control flow builtins
 
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::{Interpreter, Handle, Builtin};
 use super::util;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
@@ -84,34 +84,17 @@ pub async fn uplevel(mut i: Handle) {
     }).await;
 }
 
-/// `const` - Awkward `let`
-/// ```ignore
-/// define const [
-///     [quote] swap list-push list-reverse
-///     upquote
-///     quote definition-add uplevel
-/// ]
-/// ```
-pub async fn const_(mut i: Handle) {
+/// `value->constant` - Turn any value into a builtin that, when evaluated,
+/// simply puts a copy of itself on the stack.
+/// This lets you eval anything without having to handle lists and symbols specially.
+pub async fn value_to_constant(mut i: Handle) {
     let v = i.stack_pop_val().await;
-    let qname = i.quote_val().await;
-    let name =
-        // TODO quote_ty::<Symbol>()
-        match qname.try_downcast::<Symbol>() {
-            Ok(v) => v.into_inner(),
-            Err(qname) => {
-                return i.error(List::from(vec![
-                    "const: not a symbol".to_string().into(), qname,
-                ])).await;
-            },
-        };
-
-    i.define(name.as_ref(), move |mut i: Handle| {
+    i.stack_push(Builtin::from(move |mut i: Handle| {
         let vv = v.clone();
         async move {
             i.stack_push(vv.clone()).await;
         }
-    }).await;
+    })).await;
 }
 
 /// `[ quote quote quote uplevel uplevel ] quote upquote definition-add`
@@ -175,7 +158,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("eval", eval);
     i.define("uplevel", uplevel);
     i.define("upquote", upquote);
-    i.define("const", const_);
+    i.define("value->constant", value_to_constant);
     i.define("swap", swap);
     i.define("if", if_);
     i.define("while", while_);

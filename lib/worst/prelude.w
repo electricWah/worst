@@ -8,6 +8,8 @@ define ' [ upquote ]
 define updo [ upquote quote uplevel uplevel ]
 ; do [ code... ] => eval code
 define do [ upquote updo eval ]
+; value const name -> define name [value]
+define const [ value->constant upquote updo definition-add ]
 
 define equal [ drop drop #f ]
 define (dispatch ((i64? i64?) stack-matches?)) equal [ i64-equal ]

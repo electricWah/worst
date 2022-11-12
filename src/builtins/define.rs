@@ -82,17 +82,31 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("all-definitions", |mut i: Handle| async move {
         let p = i.all_definitions().await;
-        i.stack_push(List::from_pairs(p.iter().map(|(k, v)| (k.to_symbol(), v.clone())))).await;
+        i.stack_push(List::from_iter(p.keys().map(|k| k.to_symbol()))).await;
+    });
+    i.define("local-definitions", |mut i: Handle| async move {
+        let p = i.local_definitions().await;
+        i.stack_push(List::from_iter(p.keys().map(|k| k.to_symbol()))).await;
     });
     i.define("definition-resolve", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await.into_inner();
         let res = i.resolve_definition(name.clone()).await;
-        i.stack_push(name).await;
         match res {
             Some(def) => i.stack_push(def).await,
             None => i.stack_push(false).await,
         }
     });
+
+    // defset stuff
+    // add a definition to a value's env
+    i.define("value-definition-add", |mut i: Handle| async move {
+        let name = i.stack_pop::<Symbol>().await.into_inner();
+        let def = i.stack_pop_val().await;
+        let mut v = i.stack_pop_val().await;
+        DefSet::upsert_val(&mut v, |ds| ds.insert(name.to_string(), def));
+        i.stack_push(v).await;
+    });
+
     dispatch::install(i);
     dynamic::install(i);
     recursive::install(i);
