@@ -45,6 +45,18 @@ pub async fn div<T: std::ops::Div<T, Output=T> + Value + Clone>(mut i: Handle) {
     i.stack_push(a.into_inner() / b.into_inner()).await;
 }
 
+/// Division that produces `false` instead of crashing when dividing by 0.
+/// See [div] for more information.
+pub async fn div_nozero<T: std::ops::Div<T, Output=T> + Value + Clone + std::cmp::PartialEq<T> + From<i8>>(mut i: Handle) {
+    let b = i.stack_pop::<T>().await.into_inner();
+    let a = i.stack_pop::<T>().await.into_inner();
+    if b == 0.into() {
+        i.stack_push(false).await;
+    } else {
+        i.stack_push(a / b).await;
+    }
+}
+
 /// Negate the number on top of the stack.
 pub async fn negate<T: std::ops::Neg<Output=T> + Value + Clone>(mut i: Handle) {
     let a = i.stack_pop::<T>().await;
@@ -119,7 +131,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("f64-sub", sub::<f64>);
     i.define("i64-mul", mul::<i64>);
     i.define("f64-mul", mul::<f64>);
-    i.define("i64-div", div::<i64>);
+    i.define("i64-div", div_nozero::<i64>);
     i.define("f64-div", div::<f64>);
 
     i.define("i64-negate", negate::<i64>);
