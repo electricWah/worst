@@ -11,6 +11,19 @@ define do [ upquote updo eval ]
 ; value const name -> define name [value]
 define const [ value->constant upquote updo definition-add ]
 
+define list-iter [
+    upquote const body
+    const list
+    0 while [
+        const n
+        list n list-get
+        error? const end
+        end if [ drop [] ] [ body ] quote eval quote uplevel uplevel
+        n 1 i64-add
+        end not
+    ] [] drop ; n
+]
+
 define equal [ drop drop #f ]
 define (dispatch ((i64? i64?) stack-matches?)) equal [ i64-equal ]
 define (dispatch ((f64? f64?) stack-matches?)) equal [ f64-equal ]

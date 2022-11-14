@@ -14,10 +14,12 @@ fn basic_printerr(v: &Val) {
     } else if let Some(v) = v.downcast_ref::<f64>() {
         eprint!("{v}");
     } else if let Some(v) = v.downcast_ref::<List>() {
+        eprint!("(");
         for v in v.iter() {
             basic_printerr(v);
             eprint!(" ");
         }
+        eprint!(")");
     } else {
         eprint!("(value)");
     }

@@ -45,13 +45,14 @@ pub async fn div<T: std::ops::Div<T, Output=T> + Value + Clone>(mut i: Handle) {
     i.stack_push(a.into_inner() / b.into_inner()).await;
 }
 
-/// Division that produces `false` instead of crashing when dividing by 0.
+/// Division that produces a `false` `error?`
+/// instead of crashing when dividing by 0.
 /// See [div] for more information.
 pub async fn div_nozero<T: std::ops::Div<T, Output=T> + Value + Clone + std::cmp::PartialEq<T> + From<i8>>(mut i: Handle) {
     let b = i.stack_pop::<T>().await.into_inner();
     let a = i.stack_pop::<T>().await.into_inner();
     if b == 0.into() {
-        i.stack_push(false).await;
+        i.stack_push(IsError::add(false)).await;
     } else {
         i.stack_push(a / b).await;
     }

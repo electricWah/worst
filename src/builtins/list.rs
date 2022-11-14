@@ -42,14 +42,19 @@ pub async fn list_append(mut i: Handle) {
     i.stack_push(b).await;
 }
 
-/// list `list-iter` [ a -> ] :
-/// run the given body on each value in the list in turn.
-pub async fn list_iter(mut i: Handle) {
-    let l = i.stack_pop::<List>().await.into_inner();
-    let body = i.quote_val().await;
-    for v in l {
-        i.stack_push(v).await;
-        i.eval(body.clone()).await;
+/// list n `list-get` -> value : get the value at index n of list.
+/// 0-indexed, negative numbers are from the other end of the list,
+/// and out of range gives false with error? as true.
+pub async fn list_get(mut i: Handle) {
+    let n = i.stack_pop::<i64>().await;
+    let l = i.stack_pop::<List>().await;
+    let n = n.into_inner();
+    let l = l.as_ref();
+    let n = if n < 0 { l.len() as i64 + n } else { n };
+    if let Some(v) = l.get(n as usize) {
+        i.stack_push(v.clone()).await;
+    } else {
+        i.stack_push(IsError::add(false)).await;
     }
 }
 
@@ -61,6 +66,6 @@ pub fn install(i: &mut Interpreter) {
     i.define("list-push", list_push);
     i.define("list-pop", list_pop);
     i.define("list-append", list_append);
-    i.define("list-iter", list_iter);
+    i.define("list-get", list_get);
 }
 

@@ -18,6 +18,9 @@
 - Add local-definitions, which is like all-definitions but only lists locals
 - Add value-definition-add for building up a closure environment for eval
 - definition-resolve now consumes its argument
+- Division by 0 returns `false` with `error?`
+- Add list-get, move list-iter into worst/prelude
+
 
 # 0.3 (2022-09-25)
 
