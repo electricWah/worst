@@ -63,7 +63,7 @@ define worst-repl [
             while [
                 interpreter-run if [ drop #f ] [
                     error? if [
-                        equals? quote-nothing if [ drop ] [
+                        equals? ' quote-nothing if [ drop ] [
                             ansi [ bright red fg value->string print reset ]
                             "\n" print
                             interpreter-reset drop
