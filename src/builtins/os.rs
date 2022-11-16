@@ -13,10 +13,8 @@ pub async fn command_line_arguments(mut i: Handle) {
 /// string `environment-variable` -> string|false :
 /// the value of the environment variable. See [std::env::var].
 pub async fn environment_variable(mut i: Handle) {
-    match std::env::var(i.stack_pop::<String>().await.as_ref()) {
-        Ok(v) => i.stack_push(v).await,
-        Err(_) => i.stack_push(false).await,
-    }
+    let v = i.stack_pop::<String>().await;
+    i.stack_push_option(std::env::var(v.as_ref()).ok()).await;
 }
 
 /// Install all these functions.

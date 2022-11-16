@@ -2,7 +2,7 @@
 ; import worst/doc/attribute
 import {
     ui/ansi
-    data/list
+    data/pairs
     syntax/case
 }
 
@@ -14,7 +14,7 @@ doc [
 define help [
     ansi [
         define $ [ upquote print ]
-        define ^ [ yellow fg upquote ->string print reset ]
+        define ^ [ yellow fg upquote value->string print reset ]
         define ex [ green fg updo $ reset ]
 
         $"Some useful commands:\n"
@@ -40,19 +40,19 @@ define info [
         ]
         (string?) [
             ansi [
-                topic ->string yellow fg print
+                topic value->string yellow fg print
                 reset ": " print
                 cyan fg print
                 reset "\n" print
             ]
         ]
         (list?) [
-            list-iterate-pairs [ ansi [
+            pairs-iter [ ansi [
                 cyan fg
-                ->string print
+                value->string print
                 reset
                 "\t" print
-                string? if [] [ ->string ] print
+                string? if [] [ value->string ] print
                 "\n" print
             ] ]
         ]

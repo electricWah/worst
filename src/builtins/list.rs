@@ -51,11 +51,7 @@ pub async fn list_get(mut i: Handle) {
     let n = n.into_inner();
     let l = l.as_ref();
     let n = if n < 0 { l.len() as i64 + n } else { n };
-    if let Some(v) = l.get(n as usize) {
-        i.stack_push(v.clone()).await;
-    } else {
-        i.stack_push(IsError::add(false)).await;
-    }
+    i.stack_push_result(l.get(n as usize).cloned().ok_or(false)).await;
 }
 
 /// Install all these functions.

@@ -74,7 +74,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("file-open", |mut i: Handle| async move {
         let opts = i.stack_pop::<fs::OpenOptions>().await;
         let path = i.stack_pop::<String>().await;
-        if let Some(handle) = or_io_error(&mut i, opts.open(path.as_ref())).await {
+        if let Some(handle) = or_io_error(&mut i, opts.as_ref().open(path.as_ref())).await {
             i.stack_push(File { handle: Rc::new(RefCell::new(handle)) }).await;
         }
     });

@@ -29,7 +29,7 @@ define profile-dtrace [
         1000000 mul
         ; 1 modulo
         0.5 add clone 1 modulo negate add ; round
-        ->string write-str
+        value->string write-str
     ]
     define write-clear [ "" write-str ]
 

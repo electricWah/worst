@@ -68,12 +68,6 @@ impl Place {
 
 /// Meta value signalling that the value represents some kind of error.
 ///
-/// Set IsError on all members of a type:
-/// ```ignore
-/// struct BadSituation;
-/// impl_value!(BadSituation, IsError);
-/// assert!(IsError::is_error(&BadSituation));
-/// ```
 /// Set IsError on a single value:
 /// ```ignore
 /// let mut v = IsError::add("an error".to_string());

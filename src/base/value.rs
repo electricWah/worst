@@ -129,13 +129,6 @@ impl<T: Value> TryFrom<Val> for ValOf<T> {
     }
 }
 
-impl<T: Value> std::ops::Deref for ValOf<T> {
-    type Target = T;
-    fn deref(&self) -> &T {
-        &*self.v
-    }
-}
-
 impl<T: Value> AsRef<T> for ValOf<T> {
     fn as_ref(&self) -> &T {
         &*self.v

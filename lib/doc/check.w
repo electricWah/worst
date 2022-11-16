@@ -12,7 +12,7 @@ define check-docs [
                 bold red fg "Warning: " print
                 reset print
                 ": " print
-                reset yellow fg name ->string print
+                reset yellow fg name value->string print
                 "\n" print
                 reset
             ]
@@ -56,12 +56,12 @@ define check-docs [
 
                 ; num-tags get 1 lt? swap drop if [
                 ;     warn("need more tags: want 1, have "
-                ;         swap ->string string-append)
+                ;         swap value->string string-append)
                 ; ] [ drop ]
 
                 ; examples get 2 lt? swap drop if [
                 ;     warn("need more examples: want 2, have "
-                ;         swap ->string string-append)
+                ;         swap value->string string-append)
                 ; ] [ drop ]
             ]
             ; drop

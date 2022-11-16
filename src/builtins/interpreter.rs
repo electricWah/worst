@@ -18,9 +18,8 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(Interp::default()).await;
     });
     i.define("interpreter-run",  |mut i: Handle| async move {
-        let interp = i.stack_pop::<Interp>().await;
+        let interp = i.stack_top::<Interp>().await;
         let r = interp.as_ref().0.borrow_mut().run();
-        i.stack_push(interp).await;
         match r {
             None => i.stack_push(true).await,
             Some(e) => {
@@ -54,8 +53,8 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(s).await;
     });
     i.define("interpreter-definition-add", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await.into_inner();
         let def = i.stack_pop_val().await;
+        let name = i.stack_pop::<Symbol>().await.into_inner();
         let interp = i.stack_top::<Interp>().await;
         interp.as_ref().0.borrow_mut().add_definition(name, def);
     });

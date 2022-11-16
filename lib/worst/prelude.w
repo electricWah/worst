@@ -11,18 +11,7 @@ define do [ upquote updo eval ]
 ; value const name -> define name [value]
 define const [ value->constant upquote updo definition-add ]
 
-define list-iter [
-    upquote const body
-    const list
-    0 while [
-        const n
-        list n list-get
-        error? const end
-        end if [ drop [] ] [ body ] quote eval quote uplevel uplevel
-        n 1 i64-add
-        end not
-    ] [] drop ; n
-]
+define false? [ clone not ]
 
 define equal [ drop drop #f ]
 define (dispatch ((i64? i64?) stack-matches?)) equal [ i64-equal ]
@@ -54,6 +43,27 @@ define (dispatch ((f64? f64?) stack-matches?)) ge [ f64-ge ]
 define (dispatch ((i64? i64?) stack-matches?)) gt [ i64-gt ]
 define (dispatch ((f64? f64?) stack-matches?)) gt [ f64-gt ]
 
+; maybe these should eval, so you can do [5 le? (4 3 add)]
+define equal? [ clone2 equal ]
+; a <op> b => a bool
+define equals? [ clone upquote updo eval equal ]
+define lt? [ clone upquote updo eval lt ]
+define le? [ clone upquote updo eval le ]
+define gt? [ clone upquote updo eval gt ]
+define ge? [ clone upquote updo eval ge ]
+
+define list-iter [
+    upquote const body
+    const list
+    list list-length const len
+    0 while (clone len lt) [
+        const n
+        list n list-get
+        body quote eval quote uplevel uplevel
+        n 1 i64-add
+    ] drop
+]
+
 define (dispatch ((list? list?) stack-matches?)) append [ list-append ]
 define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
 
@@ -67,6 +77,12 @@ define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
 define (dispatch (file-port?)) value->string [drop "<file-port>"]
+
+define (dispatch (builtin?)) value->string [
+    builtin-name false? if [ drop "<builtin>" ] [
+        value->string "<builtin " swap string-append ">" string-append
+    ]
+]
 
 define (recursive dispatch (list?)) value->string [
     "(" "" dig list-iter [
@@ -84,8 +100,6 @@ define (dispatch (bytevector?)) value->string [
     swap drop
 ]
 
-define false? [ clone not ]
-
 ; dynamic definitions (using dynamic values)
 
 ; true only within the attributes clause of a define form
@@ -95,15 +109,6 @@ define list-empty? [clone list-length 0 equal]
 
 ; a b clone2 => a b a b
 define clone2 [ swap clone dig clone bury ]
-
-; maybe these should eval, so you can do [5 le? (4 3 add)]
-define equal? [ clone2 equal ]
-; a <op> b => a bool
-define equals? [ clone upquote equal ]
-define lt? [ clone upquote lt ]
-define le? [ clone upquote le ]
-define gt? [ clone upquote gt ]
-define ge? [ clone upquote ge ]
 
 define abs [ lt? 0 if [negate] [] ]
 define max [ clone2 lt if [swap] [] drop ]
@@ -116,11 +121,9 @@ port->string [ file-port->string ]
 
 define read-port->list [ port->string read-string->list ]
 
-define ->string [ value->string ]
-
 define print [ stdout-port swap stdout-port-write-string stdout-port-flush drop drop ]
-define print-value [ ->string print ]
-define println [ ->string "\n" string-append print ]
+define print-value [ value->string print ]
+define println [ value->string "\n" string-append print ]
 
 define read-line [ stdin-port-read-line ]
 

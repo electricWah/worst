@@ -10,7 +10,7 @@ define define-object-constructor [
     ; ]
 
     ; 6 variable n
-    ; n get ->string print
+    ; n get value->string print
     ; 12 n set"
     ; ]
     import syntax/variable

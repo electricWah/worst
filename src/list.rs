@@ -35,6 +35,13 @@ impl List {
     /// Is this list devoid of contents?
     pub fn is_empty(&self) -> bool { self.data.is_empty() }
 
+    /// Remove and return the value at index
+    fn remove(&mut self, i: usize) -> Option<Val> {
+        if i < self.data.len() {
+            Some(self.data.remove(self.data.len() - 1 - i))
+        } else { None }
+    }
+
     /// Iterate this list from front to back :)
     pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
 
@@ -88,33 +95,15 @@ impl List {
         self.iter().find_map(|v| v.downcast_ref::<T>())
     }
 
-    // pub fn pairs_find_key(&self, v: impl Value) -> Option<&Val> {
-    //     for i in 0 .. self.len()/2 {
-    //         if let Some(k) = self.get(i * 2) {
-    //             // dbg!(i, &k);
-    //             if v == k {
-    //                 return self.get(i * 2 + 1);
-    //             }
-    //         }
-    //     }
-    //     None
-    // }
+    /// Find and remove the first `T`.
+    pub fn take_first<T: Value>(&mut self) -> Option<ValOf<T>> {
+        for i in 0 .. self.len() {
+            if self.get(i).unwrap().is::<T>() {
+                return self.remove(i).unwrap().try_downcast::<T>().ok();
+            }
+        }
+        None
+    }
+
 }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn pairs() {
-//         let thing =
-//             List::from_pairs(vec![
-//                 ("test".to_string().into(), 5.into()),
-//                 (Val::from("beans".to_string()), Val::from(7)),
-//             ].into_iter());
-//         assert_eq!(Some(&5.into()), thing.pairs_find_key("test".to_string()));
-//         assert_eq!(Some(&7.into()), thing.pairs_find_key("beans".to_string()));
-//         assert_eq!(None, thing.pairs_find_key(123));
-//     }
-// }
 

@@ -43,5 +43,3 @@ pub fn install(i: &mut Interpreter) {
     i.define("embedded-file-port->string", port_to_string::<File>);
 }
 
-
-

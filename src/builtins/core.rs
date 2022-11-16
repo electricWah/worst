@@ -2,7 +2,7 @@
 //! Basic stack-shuffling and control flow builtins
 
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle, Builtin};
+use crate::interpreter::{Interpreter, Handle, Builtin, DefineMeta};
 use super::util;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
@@ -193,6 +193,26 @@ pub fn install(i: &mut Interpreter) {
     i.define("bool-equal", util::equality::<bool>);
     i.define("symbol?", util::type_predicate::<Symbol>);
     i.define("symbol-equal", util::equality::<Symbol>);
+
+    i.define("builtin?", util::type_predicate::<Builtin>);
+    i.define("builtin-name", |mut i: Handle| async move {
+        let b = i.stack_pop::<Builtin>().await;
+        i.stack_push_option(Val::from(b).meta_ref().first_ref::<DefineMeta>()
+                            .and_then(|m| m.name.as_ref()).map(|s| s.clone().to_symbol())).await;
+    });
+
+    i.define("value-set-error", |mut i: Handle| async move {
+        let v = i.stack_pop_val().await;
+        i.stack_push(IsError::add(v)).await;
+    });
+
+    i.define("value-unset-error", |mut i: Handle| async move {
+        let mut v = i.stack_pop_val().await;
+        let m = v.meta_mut();
+        // remove all errors
+        while m.take_first::<IsError>().is_some() {}
+        i.stack_push(v).await;
+    });
 
 }
 

@@ -28,7 +28,7 @@ export-name write-profile-trace-enter-call
 
 define write-profile-trace-clock [
     ; drop
-    ->string
+    value->string
     current-error-port swap port-write-string drop
 ]
 export-name write-profile-trace-clock
@@ -99,7 +99,7 @@ define-attribute profile [
             
             write-trace if [
                 [ write-profile-trace-enter-call ]
-                timer-name ->string list-push
+                timer-name value->string list-push
             ] [[]]
 
             [ interpreter-cpu-time const %%t0 ]

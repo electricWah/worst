@@ -70,6 +70,23 @@ impl Handle {
         self.inner_stack_push(v).await
     }
 
+    /// Put a value, or false, on top of the stack.
+    pub async fn stack_push_option<T: Into<Val>>(&mut self, v: Option<T>) {
+        if let Some(v) = v {
+            self.stack_push(v).await
+        } else {
+            self.stack_push(false).await
+        }
+    }
+
+    /// Put an Ok value, or Err with IsError set, on top of the stack.
+    pub async fn stack_push_result<T: Into<Val>, E: Into<Val>>(&mut self, v: Result<T, E>) {
+        match v {
+            Ok(ok) => self.stack_push(ok).await,
+            Err(e) => self.stack_push(IsError::add(e)).await,
+        }
+    }
+
     /// Take the top value off the stack, or `None` if the stack is empty.
     pub async fn try_stack_pop_val(&mut self) -> Option<Val> {
         self.inner_try_stack_pop_val().await

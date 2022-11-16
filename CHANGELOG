@@ -14,13 +14,18 @@
 - Start on a Bytevector type (Vec<u8>) for operations on bytes
 - Add thin wrappers around Rust's APIs for OS subprocesses and opening files
 - const is now defined in terms of value->constant
-- all-definitions is now just a list of names (use definition-resolve on them)
 - Add local-definitions, which is like all-definitions but only lists locals
 - Add value-definition-add for building up a closure environment for eval
+- Add value-inherit-all-definitions and value-inherit-local-definitions for speed
 - definition-resolve now consumes its argument
 - Division by 0 returns `false` with `error?`
 - Add list-get, move list-iter into worst/prelude
-
+- Remove list-iterate-pairs and pairs-iterate(??), add pairs-iter and pairs-keys
+- Remove ->string, use value->string instead
+- Displaying builtins shows their name, also added builtin? and builtin-name
+- Change arg order of interpreter-definition-add: now it's interp key value
+- equals?, lt? and other comparators understand parens now: 6 lt? (4 5 add)
+- Add value-set-error and value-unset-error to set error? on a value
 
 # 0.3 (2022-09-25)
 
