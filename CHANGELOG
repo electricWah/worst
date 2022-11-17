@@ -26,6 +26,7 @@
 - Change arg order of interpreter-definition-add: now it's interp key value
 - equals?, lt? and other comparators understand parens now: 6 lt? (4 5 add)
 - Add value-set-error and value-unset-error to set error? on a value
+- Add a whole bunch of filesystem and some file path builtins
 
 # 0.3 (2022-09-25)
 
