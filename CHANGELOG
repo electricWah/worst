@@ -1,5 +1,8 @@
 
-# 0.4
+# 0.4 (2022-11-19)
+
+In which the innards are simplified somewhat,
+and some basic I/O facilities are introduced.
 
 - Types no longer exist as a Worst-level concept
 - No more ImplValue or `impl_value!`, use `impl Value for YourType {}` instead
