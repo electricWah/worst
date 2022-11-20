@@ -127,5 +127,10 @@ define println [ value->string "\n" string-append print ]
 
 define read-line [ stdin-port-read-line ]
 
+define feature-enabled? [
+    upquote const name
+    #f enabled-features list-iter [ name equal if [ drop #t ] [ ] ]
+]
+
 export #t
 

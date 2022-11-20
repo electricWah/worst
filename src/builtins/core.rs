@@ -214,5 +214,21 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(v).await;
     });
 
+    let enabled_features = List::from_iter(vec![
+        #[cfg(feature = "enable_os")] "os".to_symbol(),
+        #[cfg(feature = "enable_stdio")] "stdio".to_symbol(),
+        #[cfg(feature = "enable_fs_os")] "fs-os".to_symbol(),
+        #[cfg(feature = "enable_fs_embed")] "fs-embed".to_symbol(),
+        #[cfg(feature = "enable_fs_zip")] "fs-zip".to_symbol(),
+        #[cfg(feature = "enable_process")] "process".to_symbol(),
+        #[cfg(feature = "wasm")] "wasm".to_symbol(),
+    ]);
+    i.define("enabled-features", move |mut i: Handle| {
+        let enabled_features = enabled_features.clone();
+        async move {
+            i.stack_push(enabled_features.clone()).await;
+        }
+    });
+
 }
 
