@@ -4,7 +4,7 @@
 //! Hello and welcome to my programming language :)
 
 pub mod base;
-pub mod list;
+pub mod data;
 pub mod interpreter;
 pub mod reader;
 pub mod builtins;

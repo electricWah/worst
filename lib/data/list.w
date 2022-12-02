@@ -174,7 +174,50 @@ define list-gtsort [
     list-psort [] [%%list-gtsort-body]
 ]
 
-export #t
+; [list...] list-merge-sort-lt [ a b -> a b lt ] -> [sorted ascending list...]
+define list-merge-sort-lt [
+    upquote updo value-inherit-all-definitions const compare
+    define (recursive) list-split-merge [
+        clone list-length
+        lt? 2 if [ drop ] [
+            equals? 2 if [
+                drop
+                list-pop const b
+                list-pop const a
+                drop ; it's empty
+                a b compare eval if [ a b ] [ b a ]
+                [] swap list-push swap list-push
+            ] [
+                2 div list-split-at ; tail len will always be >= head
+                list-split-merge const head
+                list-split-merge const tail
+                ; build up accumulator in reverse
+                [] tail head
+                while [
+                    list-empty? not const h const head
+                    list-empty? not const t
+                    head
+                    h t bool-and
+                ] [
+                    clone 0 list-get const h const head
+                    clone 0 list-get const t const tail
+                    h t compare eval if [
+                        h list-push
+                        tail head list-pop drop
+                    ] [
+                        t list-push
+                        tail list-pop drop head
+                    ]
+                ]
+                ; one of them is empty, append them both
+                const head const tail
+                list-reverse ; accumulator
+                tail list-append head list-append
+            ]
+        ]
+    ]
+    list-split-merge
+]
 
-; vi: ft=scheme
+export #t
 

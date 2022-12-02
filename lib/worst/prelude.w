@@ -11,7 +11,8 @@ define do [ upquote updo eval ]
 ; value const name -> define name [value]
 define const [ value->constant upquote updo definition-add ]
 
-define false? [ clone not ]
+; a b clone2 => a b a b
+define clone2 [ swap clone dig clone bury ]
 
 define equal [ drop drop #f ]
 define (dispatch ((i64? i64?) stack-matches?)) equal [ i64-equal ]
@@ -43,7 +44,7 @@ define (dispatch ((f64? f64?) stack-matches?)) ge [ f64-ge ]
 define (dispatch ((i64? i64?) stack-matches?)) gt [ i64-gt ]
 define (dispatch ((f64? f64?) stack-matches?)) gt [ f64-gt ]
 
-; maybe these should eval, so you can do [5 le? (4 3 add)]
+define false? [ clone not ]
 define equal? [ clone2 equal ]
 ; a <op> b => a bool
 define equals? [ clone upquote updo eval equal ]
@@ -51,6 +52,10 @@ define lt? [ clone upquote updo eval lt ]
 define le? [ clone upquote updo eval le ]
 define gt? [ clone upquote updo eval gt ]
 define ge? [ clone upquote updo eval ge ]
+
+; a b bool-and => bool
+define bool-and [ if [ ] [ drop #f ] ]
+define bool-and? [ clone2 bool-and ] ; idk
 
 define list-iter [
     upquote const body
@@ -106,9 +111,6 @@ define (dispatch (bytevector?)) value->string [
 define in-definition-attributes [ quote definition-attributes dynamic-resolve ]
 
 define list-empty? [clone list-length 0 equal]
-
-; a b clone2 => a b a b
-define clone2 [ swap clone dig clone bury ]
 
 define abs [ lt? 0 if [negate] [] ]
 define max [ clone2 lt if [swap] [] drop ]

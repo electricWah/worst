@@ -2,6 +2,8 @@
 # 0.5
 
 - Add enabled-features and feature-enabled? to query features from Cargo.toml
+- Add string-split
+- Add list-merge-sort-lt [lt-comparator]
 
 # 0.4 (2022-11-19)
 

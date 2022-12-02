@@ -54,6 +54,21 @@ pub async fn list_get(mut i: Handle) {
     i.stack_push_result(l.get(n as usize).cloned().ok_or(false)).await;
 }
 
+/// list n `list-split-at` -> list-tail list-head : split a list into two at index n.
+/// 0-indexed, negative numbers are from the other end of the list,
+/// and out of range indexes are saturated so that one of the lists is empty.
+pub async fn list_split_at(mut i: Handle) {
+    let n = i.stack_pop::<i64>().await.into_inner();
+    let mut l = i.stack_pop::<List>().await;
+    let len = l.as_ref().len() as i64;
+    let n = if n < 0 { len + n } else { n };
+    let n = if n < 0 { 0 } else if n > len { len } else { n };
+    let head = l.as_mut().pop_n(n as usize);
+    i.stack_push(l).await;
+    i.stack_push(head).await;
+}
+
+
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.define("list?", util::type_predicate::<List>);
@@ -63,5 +78,6 @@ pub fn install(i: &mut Interpreter) {
     i.define("list-pop", list_pop);
     i.define("list-append", list_append);
     i.define("list-get", list_get);
+    i.define("list-split-at", list_split_at);
 }
 

@@ -15,6 +15,12 @@ pub fn install(i: &mut Interpreter) {
         a.as_mut().push_str(b.as_ref());
         i.stack_push(a).await;
     });
+    i.define("string-split", |mut i: Handle| async move {
+        let p = i.stack_pop::<String>().await;
+        let s = i.stack_pop::<String>().await;
+        let split = s.as_ref().split(p.as_ref()).map(String::from);
+        i.stack_push(List::from_iter(split)).await;
+    });
     i.define("whitespace?", |mut i:Handle| async move {
         let s = i.stack_top::<String>().await;
         let ws = s.as_ref().chars().all(char::is_whitespace);

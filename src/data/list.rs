@@ -80,6 +80,19 @@ impl List {
         self.data.reverse();
     }
 
+    /// Pop the first n elements from the list into the returned list.
+    /// Out-of-range values result in returning the list unchanged and
+    /// setting `self` to an empty list.
+    pub fn pop_n(&mut self, count: usize) -> List {
+        if count > self.len() {
+            let mut l = List::default();
+            std::mem::swap(self, &mut l);
+            l
+        } else {
+            List::from(self.data.split_off(self.len() - count))
+        }
+    }
+
     /// Check if this contains a `T`.
     pub fn contains<T: Value>(&self) -> bool {
         self.iter().any(|v| v.is::<T>())
