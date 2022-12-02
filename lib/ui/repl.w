@@ -1,7 +1,6 @@
 
 import {
     worst/interpreter
-    data/string
     data/pairs
 }
 
