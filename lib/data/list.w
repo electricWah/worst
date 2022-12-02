@@ -15,16 +15,10 @@ define list-iterate [
 
 ; [l...] list-map [ body : l -> l' ] -> [l' ...]
 define list-map [
-    upquote quote %body definition-add
+    upquote updo value-inherit-all-definitions
+    const %body
     [] swap ; acc
-    while [list-empty? not] [
-        list-pop swap const %l
-        swap const %acc
-        %body
-        %acc swap list-push
-        %l
-    ]
-    drop
+    list-iter [ %body eval list-push ]
     list-reverse
 ]
 
