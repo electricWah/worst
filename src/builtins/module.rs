@@ -185,7 +185,10 @@ pub fn install(i: &mut Interpreter) {
                     Err(e) => return i.error(e).await,
                 }
             } else {
-                return i.error("error resolving module".to_string()).await;
+                return i.error(List::from(vec![
+                    "error resolving module".to_string().into(),
+                    import_name,
+                ])).await;
             }
         }
     });
