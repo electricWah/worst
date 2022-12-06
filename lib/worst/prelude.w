@@ -82,6 +82,7 @@ define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
 define (dispatch (file-port?)) value->string [drop "<file-port>"]
+define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
 
 define (dispatch (builtin?)) value->string [
     builtin-name false? if [ drop "<builtin>" ] [
@@ -105,7 +106,8 @@ define (dispatch (bytevector?)) value->string [
     swap drop
 ]
 
-; dynamic definitions (using dynamic values)
+define (dispatch (file-port?)) port->string [ file-port->string ]
+define (dispatch (embedded-file-port?)) port->string [ embedded-file-port->string ]
 
 ; true only within the attributes clause of a define form
 define in-definition-attributes [ quote definition-attributes dynamic-resolve ]

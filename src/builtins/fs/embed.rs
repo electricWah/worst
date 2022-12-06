@@ -3,6 +3,7 @@
 //! courtesy of [include_dir].
 
 use std::io;
+use std::path::PathBuf;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle};
 use crate::builtins::util::*;
@@ -31,8 +32,8 @@ impl io::Read for File {
 
 /// Install embedded filesystem builtins.
 pub fn install(i: &mut Interpreter) {
-    i.define("open-embedded-file/read", |mut i: Handle| async move {
-        let path = i.stack_pop::<String>().await;
+    i.define("embedded-file-open", |mut i: Handle| async move {
+        let path = i.stack_pop::<PathBuf>().await;
         if let Some(f) = open_read(path.as_ref()) {
             i.stack_push(f).await;
         } else {
@@ -41,5 +42,6 @@ pub fn install(i: &mut Interpreter) {
     });
     i.define("embedded-file-port?", type_predicate::<File>);
     i.define("embedded-file-port->string", port_to_string::<File>);
+    i.define("embedded-file-port-read-range", port_read_range::<File>);
 }
 

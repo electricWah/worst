@@ -4,6 +4,8 @@
 - Add features-enabled and feature-enabled? to query features from Cargo.toml
 - Add string-split
 - Add list-merge-sort-lt [lt-comparator]
+- Rename open-embedded-file/read to embedded-file-open (it'll always be read!)
+- Add embedded-file-port-read-range, embedded-file-port? and port->string
 
 # 0.4 (2022-11-19)
 
