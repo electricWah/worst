@@ -89,7 +89,7 @@ impl List {
             std::mem::swap(self, &mut l);
             l
         } else {
-            List::from(self.data.split_off(self.len() - count))
+            List { data: self.data.split_off(self.len() - count) }
         }
     }
 
