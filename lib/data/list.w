@@ -219,5 +219,64 @@ define list-merge-sort-lt [
     list-split-merge
 ]
 
+; list-a list-b list-set-differsection -> only-in-a only-in-b in-both
+; calculates a - b, b - a, and a intersect b
+; uses [compare], results are sorted, in-both uses items from list-a
+define list-set-differsection [
+    const list-b
+    const list-a
+    ; use gt: [equals? 1] below is reversed
+    list-a list-merge-sort-lt [compare 0 gt] const list-a
+    list-b list-merge-sort-lt [compare 0 gt] const list-b
+    [] [] [] ; a b in-both
+    list-a list-b
+    while [
+        list-empty? not const b
+        swap list-empty? not const a
+        swap
+        a b bool-and
+    ] [
+        const list-b const list-a
+        list-a 0 list-get const a
+        list-b 0 list-get const b
+        const in-both const in-b const in-a
+        a b compare
+        equals? 0 if [
+            drop
+            ; a = b, push to in-both
+            in-a in-b
+            in-both a list-push
+            ; then drop from in-both lists
+            list-a list-pop drop
+            list-b list-pop drop
+        ] [
+            equals? 1 if [
+                drop
+                ; a < b, since they're sorted, a is not in list-b
+                in-a a list-push
+                in-b in-both
+                ; drop from a
+                list-a list-pop drop
+                list-b
+            ] [
+                drop
+                ; equals? -1
+                ; ditto a > b
+                in-a
+                in-b b list-push
+                in-both
+                list-a
+                list-b list-pop drop
+            ]
+        ]
+    ]
+    ; finally concatenate remainders
+    const list-b const list-a
+    const in-both const in-b
+    list-a list-append ; in-a
+    in-b list-b list-append
+    in-both
+]
+
 export #t
 

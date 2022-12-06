@@ -7,6 +7,7 @@
 - Rename open-embedded-file/read to embedded-file-open (it'll always be read!)
 - Add embedded-file-port-read-range, embedded-file-port? and port->string
 - Add compare for i64/f64/string and redefine lt/le/gt/ge in terms of it
+- Add list-set-differsection for set difference and intersection
 
 # 0.4 (2022-11-19)
 
