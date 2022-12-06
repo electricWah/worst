@@ -27,17 +27,14 @@ impl Interpreter {
         self.frame.is_empty() && self.parents.is_empty()
     }
 
-    /// Add a definition into the environment for the current stack frame.
-    /// This is different to [define] as it will not be removable with
-    /// [definition_remove] later.
-    // ... but that butld change
-    pub fn add_definitions(&mut self, defs: &DefSet) {
-        self.frame.defenv.append(defs);
+    /// Get a mutable reference to the definition environment for the current frame.
+    pub fn defenv_mut(&mut self) -> &mut DefSet {
+        &mut self.frame.defenv
     }
 
     /// Insert a value, as-is, as a definition in the current stack frame.
-    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.frame.add_definition(name, def);
+    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>, local: bool) {
+        (if local { &mut self.frame.locals } else { &mut self.frame.defenv }).insert(name, def);
     }
 
     /// Add a definition to the current stack frame.
@@ -51,13 +48,13 @@ impl Interpreter {
         if meta {
             m.push(self.all_definitions());
         }
-        self.add_definition(name, def);
+        self.frame.locals.insert(name, def);
     }
 
     /// Remove a definition from the current stack frame, by name,
     /// and return its previous value if there was one.
     pub fn definition_remove(&mut self, name: impl AsRef<str>) -> Option<Val> {
-        self.frame.remove_local(name)
+        self.frame.locals.remove(name)
     }
 
     /// Get all local definitions (the ones defined in this stack frame,
@@ -159,7 +156,7 @@ impl Interpreter {
             FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
             FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
             FrameYield::AddDefinition { name, def } =>
-                self.frame.add_definition(name, def),
+                self.add_definition(name, def, true),
             FrameYield::Definitions { all, ret } =>
                 ret.set(Some(self.handle_definitions(all))),
             FrameYield::GetDefinition { name, resolver, ret } =>

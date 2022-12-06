@@ -72,7 +72,7 @@ pub async fn define(mut i: Handle) {
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_definition("definition-attributes", false);
+    i.add_definition("definition-attributes", false, true);
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {

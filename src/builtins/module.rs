@@ -12,7 +12,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
     let exports_inner = exports.clone();
 
     // define here so it's not in local_definitions
-    defs.insert("export".into(), Builtin::from(move |mut i: Handle| {
+    defs.insert("export", Builtin::from(move |mut i: Handle| {
         let exports = exports_inner.clone();
         async move {
             let mut exports = exports.clone();
@@ -47,7 +47,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
     }));
 
     let mut i = Interpreter::default();
-    i.add_definitions(&defs);
+    i.defenv_mut().append(&defs);
 
     i.eval_next(m);
     if let Some(ret) = i.run() {
@@ -62,7 +62,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
         exmap = all_defs;
     } else if let Ok(l) = exports.try_downcast::<List>() {
         for ex in l.into_inner() {
-            let name = ex.try_downcast::<Symbol>().ok().unwrap().into_inner().into();
+            let name = ex.try_downcast::<Symbol>().ok().unwrap().into_inner();
             if let Some(def) = all_defs.get(&name) {
                 exmap.insert(name, def.clone());
             } else {

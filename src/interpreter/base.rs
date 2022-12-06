@@ -100,9 +100,7 @@ impl ListFrame {
         defs.append(&self.locals);
         defs
     }
-    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.locals.insert(name.into(), def.into());
-    }
+
     pub fn eval_list(&self, body: List) -> ListFrame {
         ListFrame { body, defenv: self.all_defs(), ..ListFrame::default() }
     }
@@ -117,9 +115,6 @@ impl ListFrame {
             ToEvalOnce::Paused(p) =>
                 ChildFrame::PausedFrame(p),
         }
-    }
-    pub fn remove_local(&mut self, name: impl AsRef<str>) -> Option<Val> {
-        self.locals.remove(name)
     }
     /// Find a definition according to the given resolver.
     /// Ignores the [recursive_dynamic] as that must be handled by the

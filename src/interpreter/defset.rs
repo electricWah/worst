@@ -11,8 +11,8 @@ pub struct DefSet(Rc<HashMap<String, Val>>);
 impl Value for DefSet {}
 impl DefSet {
     /// Add a definition.
-    pub fn insert(&mut self, key: String, val: impl Into<Val>) {
-        Rc::make_mut(&mut self.0).insert(key, val.into());
+    pub fn insert(&mut self, key: impl Into<String>, val: impl Into<Val>) {
+        Rc::make_mut(&mut self.0).insert(key.into(), val.into());
     }
     /// Remove a definition by name.
     pub fn remove(&mut self, key: impl AsRef<str>) -> Option<Val> {
@@ -52,7 +52,7 @@ impl DefSet {
         }
         for (k, v) in thee.iter() {
             if overwrite || !self.contains(&k) {
-                self.insert(k.into(), v.clone());
+                self.insert(k, v.clone());
             }
         }
     }

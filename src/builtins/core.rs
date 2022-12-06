@@ -223,7 +223,7 @@ pub fn install(i: &mut Interpreter) {
         #[cfg(feature = "enable_process")] "process".to_symbol(),
         #[cfg(feature = "wasm")] "wasm".to_symbol(),
     ]);
-    i.define("enabled-features", move |mut i: Handle| {
+    i.define("features-enabled", move |mut i: Handle| {
         let enabled_features = enabled_features.clone();
         async move {
             i.stack_push(enabled_features.clone()).await;

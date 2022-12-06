@@ -131,7 +131,7 @@ define read-line [ stdin-port-read-line ]
 
 define feature-enabled? [
     upquote const name
-    #f enabled-features list-iter [ name equal if [ drop #t ] [ ] ]
+    #f features-enabled list-iter [ name equal if [ drop #t ] [ ] ]
 ]
 
 export #t
