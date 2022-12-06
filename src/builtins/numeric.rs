@@ -125,6 +125,8 @@ pub fn install(i: &mut Interpreter) {
 
     i.define("i64-equal", util::equality::<i64>);
     i.define("f64-equal", util::equality::<f64>);
+    i.define("i64-compare", util::comparison::<i64>);
+    i.define("f64-compare", util::comparison::<f64>);
 
     i.define("i64-add", add::<i64>);
     i.define("f64-add", add::<f64>);
@@ -145,15 +147,6 @@ pub fn install(i: &mut Interpreter) {
 
     i.define("i64-abs", abs_i64);
     i.define("f64-abs", abs_f64);
-
-    i.define("i64-lt", lt::<i64>);
-    i.define("f64-lt", lt::<f64>);
-    i.define("i64-le", le::<i64>);
-    i.define("f64-le", le::<f64>);
-    i.define("i64-gt", gt::<i64>);
-    i.define("f64-gt", gt::<f64>);
-    i.define("i64-ge", ge::<i64>);
-    i.define("f64-ge", ge::<f64>);
 
     i.define("i64->f64", i64_to_f64);
     i.define("f64->i64", f64_to_i64);

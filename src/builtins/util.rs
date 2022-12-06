@@ -25,6 +25,19 @@ pub async fn equality<T: Value + PartialEq>(mut i: Handle) {
     i.stack_push(a.as_ref() == b.as_ref()).await;
 }
 
+/// Comparison generator, e.g.
+/// ```ignore
+/// i.define("string-compare", comparison::<String>);
+/// ```
+/// a b comparison ->
+/// -1 when a < b, 0 when a == b, 1 when a > b,
+/// false when unavailable
+pub async fn comparison<T: Value + PartialOrd>(mut i: Handle) {
+    let b = i.stack_pop::<T>().await;
+    let a = i.stack_pop::<T>().await;
+    i.stack_push_option(a.as_ref().partial_cmp(b.as_ref()).map(|o| o as i64)).await;
+}
+
 /// Debug to-string generator, e.g.
 /// ```ignore
 /// i.define("i64->string", value_tostring_debug::<i64>);
