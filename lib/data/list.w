@@ -18,8 +18,32 @@ define list-map [
     upquote updo value-inherit-all-definitions
     const %body
     [] swap ; acc
-    list-iter [ %body eval list-push ]
+    list-iter [
+        swap const acc
+        %body eval
+        acc swap list-push
+    ]
     list-reverse
+]
+
+; list list-find-index [element -> bool] -> i64|false
+; (index of first element satisfying the function)
+define list-find-first-index [
+    upquote updo value-inherit-all-definitions const filter
+
+    const list
+    list list-length const len
+
+    0 while [
+        lt? len if [
+            const i
+            list i list-get
+            filter eval if [i #f] [i 1 add #t]
+        ] [
+            #f #f
+        ]
+    ] []
+    false? if [drop drop #f] []
 ]
 
 ; v [ v1 v2 v3 ... ] -> (whether any vN == v)

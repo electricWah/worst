@@ -8,6 +8,7 @@
 - Add embedded-file-port-read-range, embedded-file-port? and port->string
 - Add compare for i64/f64/string and redefine lt/le/gt/ge in terms of it
 - Add list-set-differsection for set difference and intersection
+- Add list-find-first-index to find a position in a list, given a predicate.
 
 # 0.4 (2022-11-19)
 
