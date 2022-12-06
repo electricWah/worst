@@ -46,6 +46,27 @@ define list-find-first-index [
     false? if [drop drop #f] []
 ]
 
+; [a b b c d e e e f b a] list-deduplicate-sequential -> [a b c d e f b a]
+; Uses equal to squash runs of equal values into one
+define list-deduplicate-sequential [
+    list-empty? if [[]] [
+        [] swap ; acc
+        clone 0 list-get const first ; marker
+        first swap
+        list-iter [
+            equal? if [drop] [
+                ; set marker to this, push to acc
+                swap drop list-push
+                clone 0 list-get
+            ]
+            ; could also list-get acc instead of keeping marker around
+        ]
+        drop ; marker
+        ; first marker was never pushed to list
+        list-reverse first list-push
+    ]
+]
+
 ; v [ v1 v2 v3 ... ] -> (whether any vN == v)
 define list-member [
     #f swap ; found
