@@ -16,7 +16,10 @@ case [
     #t {
         list-pop swap drop
         const path
-        path open-file/read
+        path
+        string->fs-path
+        file-open-options file-open-options-set-read
+        file-open
         false? if [
             ; TODO nicer error
             drop path pause
