@@ -12,29 +12,29 @@ impl Handle {
     /// See [pause](Self::pause), but the value is given [IsError] metadata
     /// so `error?` will return true.
     pub async fn error(&self, v: impl Into<Val>) {
-        self.co.yield_(FrameYield::Pause(IsError::add(v))).await;
+        self.yield_(FrameYield::Pause(IsError::add(v))).await;
     }
     /// Pause evaluation and return the given value through [Interpreter::run].
     pub async fn pause(&self, v: impl Into<Val>) {
-        self.co.yield_(FrameYield::Pause(v.into())).await;
+        self.yield_(FrameYield::Pause(v.into())).await;
     }
     /// Evaluate a list or function.
     pub async fn eval(&mut self, f: impl EvalOnce) {
-        self.co.yield_(FrameYield::Eval(f.into_eval_once())).await;
+        self.yield_(FrameYield::Eval(f.into_eval_once())).await;
     }
     /// Look up a definition and evaluate it.
     pub async fn call(&mut self, s: impl Into<Symbol>) {
-        self.co.yield_(FrameYield::Call(s.into())).await;
+        self.yield_(FrameYield::Call(s.into())).await;
     }
 
     // non-mutable so stack_top doesn't have to be mutable
     async fn inner_stack_push(&self, v: impl Into<Val>) {
-        self.co.yield_(FrameYield::StackPush(v.into())).await;
+        self.yield_(FrameYield::StackPush(v.into())).await;
     }
 
     async fn inner_try_stack_pop_val(&self) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
+        self.yield_(FrameYield::StackPop(Rc::clone(&r))).await;
         r.take()
     }
 
@@ -124,7 +124,7 @@ impl Handle {
     /// The current state of the stack, as a list (cloned).
     pub async fn stack_get(&self) -> List {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::StackGetAll(Rc::clone(&r))).await;
+        self.yield_(FrameYield::StackGetAll(Rc::clone(&r))).await;
         r.take().unwrap()
     }
 
@@ -141,7 +141,7 @@ impl Handle {
     pub async fn quote_val(&mut self) -> Val {
         let r = Rc::new(Cell::new(None));
         loop {
-            self.co.yield_(FrameYield::Quote(Rc::clone(&r))).await;
+            self.yield_(FrameYield::Quote(Rc::clone(&r))).await;
             if let Some(q) = r.take() { return q; }
         }
     }
@@ -149,20 +149,20 @@ impl Handle {
     /// The interpreter will pause, likely indefinitely,
     /// if there is no parent stack frame.
     pub async fn uplevel(&mut self, f: impl EvalOnce) {
-        self.co.yield_(FrameYield::Uplevel(f.into_eval_once())).await;
+        self.yield_(FrameYield::Uplevel(f.into_eval_once())).await;
     }
 
     /// Add a bare value as a definition in the current stack frame.
     /// Use [define] or [define_dynamic] to include a definition environment.
     pub async fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.co.yield_(FrameYield::AddDefinition { name: name.into(), def: def.into() }).await;
+        self.yield_(FrameYield::AddDefinition { name: name.into(), def: def.into() }).await;
     }
 
     /// Remove a local definition from the current stack frame.
     /// Returns the definition removed.
     pub async fn remove_definition(&mut self, name: impl Into<String>) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::RemoveDefinition {
+        self.yield_(FrameYield::RemoveDefinition {
             name: name.into(), ret: Rc::clone(&r),
         }).await;
         r.take()
@@ -213,7 +213,7 @@ impl Handle {
     /// if so, it is the name of the definition.
     pub async fn call_stack_names(&self) -> Vec<Option<String>> {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;
+        self.yield_(FrameYield::GetCallStack(Rc::clone(&r))).await;
         r.take().unwrap()
     }
 
@@ -230,7 +230,7 @@ impl Handle {
 
     async fn get_defs(&self, all: bool) -> DefSet {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::Definitions {
+        self.yield_(FrameYield::Definitions {
             all, ret: Rc::clone(&r),
         }).await;
         r.take().unwrap()
@@ -238,7 +238,7 @@ impl Handle {
 
     async fn get_def(&self, name: String, resolver: ResolveDefinition) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
-        self.co.yield_(FrameYield::GetDefinition {
+        self.yield_(FrameYield::GetDefinition {
             name, resolver, ret: Rc::clone(&r),
         }).await;
         r.take()

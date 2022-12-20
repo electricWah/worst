@@ -3,6 +3,7 @@
 
 use crate::base::*;
 
+mod async_gen;
 mod base;
 mod handle;
 mod defset;

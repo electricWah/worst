@@ -3,9 +3,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 use core::pin::Pin;
 use core::future::Future;
-use genawaiter::{ rc::Gen, rc::Co };
 
 use crate::base::*;
+use crate::interpreter::async_gen::*;
 use crate::interpreter::defset::*;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
@@ -144,7 +144,13 @@ impl ListFrame {
 }
 
 pub struct PausedFrame {
-    pub body: Box<dyn Iterator<Item=FrameYield>>,
+    pub body: Generator<FrameYield>,
+}
+
+impl PausedFrame {
+    pub fn next(&mut self) -> Option<FrameYield> {
+        self.body.next()
+    }
 }
 
 impl std::fmt::Debug for PausedFrame {
@@ -155,7 +161,16 @@ impl std::fmt::Debug for PausedFrame {
 
 /// A reference to the currently-running [Interpreter] given to builtin functions.
 pub struct Handle {
-    pub(super) co: Co<FrameYield>,
+    inner: Ctx<FrameYield>,
+}
+
+impl Handle {
+    fn new(inner: Ctx<FrameYield>) -> Self {
+        Handle { inner }
+    }
+    pub(super) async fn yield_(&self, v: FrameYield) {
+        self.inner.yield_(v).await
+    }
 }
 
 // TODO simplify all of this stuff
@@ -250,9 +265,9 @@ impl<T: Into<Builtin>> Eval for T {
 impl EvalOnce for Builtin {
     fn into_eval_once(self) -> ToEvalOnce {
         ToEvalOnce::Paused(PausedFrame {
-            body: Box::new(Gen::new(move |co| async move {
-                self.0(Handle { co }).await;
-            }).into_iter()),
+            body: Generator::new(|x| async move {
+                self.0(Handle::new(x)).await;
+            }),
         })
     }
 }
@@ -262,17 +277,10 @@ impl<F: 'static + Future<Output=()>,
      EvalOnce for T {
     fn into_eval_once(self) -> ToEvalOnce {
         ToEvalOnce::Paused(PausedFrame {
-            body: Box::new(Gen::new(move |co| async move {
-                self(Handle { co }).await;
-            }).into_iter()),
+            body: Generator::new(|x| async move {
+                self(Handle::new(x)).await;
+            }),
         })
-    }
-}
-
-// Code frame with a body being an in-progress Rust function
-impl PausedFrame {
-    pub fn next(&mut self) -> Option<FrameYield> {
-        self.body.next()
     }
 }
 
