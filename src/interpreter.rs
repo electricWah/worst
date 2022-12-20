@@ -105,8 +105,8 @@ impl Interpreter {
                 },
                 None => {
                     if let Some(next) = self.frame.body.pop() {
-                        if let Some(s) = next.downcast_ref::<Symbol>() {
-                            self.call(s.clone());
+                        if next.is::<Symbol>() {
+                            self.handle_eval_once(next.into_eval_once());
                         } else {
                             self.stack_push(next);
                         }
@@ -175,16 +175,6 @@ impl Interpreter {
         while self.enter_parent_frame() {}
         self.frame.childs = vec![];
         self.frame.body = List::default();
-    }
-
-    /// Immediately call `name` when the interpreter is next resumed
-    pub fn call(&mut self, name: impl Into<Symbol>) {
-        let s = name.into();
-        let child =
-            self.frame.eval_once((move |mut i: Handle| async move {
-                i.call(s).await;
-            }).into_eval_once());
-        self.frame.childs.push(child);
     }
 
     /// Evaluate the given code.

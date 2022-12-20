@@ -63,10 +63,10 @@ pub fn install(i: &mut Interpreter) {
         let interp = i.stack_top::<Interp>().await;
         interp.as_ref().0.borrow_mut().definition_remove(name.as_ref());
     });
-    i.define("interpreter-call", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await.into_inner();
+    i.define("interpreter-eval-next", |mut i: Handle| async move {
+        let v = i.stack_pop_val().await;
         let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().0.borrow_mut().call(name);
+        interp.as_ref().0.borrow_mut().eval_next(v);
     });
     i.define("interpreter-body-push",  |mut i: Handle| async move {
         let v = i.stack_pop_val().await;

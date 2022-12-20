@@ -98,7 +98,7 @@ mod test {
 
     #[test]
     fn empty() {
-        for x in Generator::new(|ctx: Ctx<usize>| async move { }) {
+        for _ in Generator::new(|_ctx: Ctx<usize>| async move { }) {
             panic!("not empty");
         }
     }
