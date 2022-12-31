@@ -1,6 +1,7 @@
 
 //! Dynamic definition attribute
 
+use async_recursion::async_recursion;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 
@@ -8,6 +9,19 @@ use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 #[derive(Clone)]
 struct Dynamic(Val);
 impl Value for Dynamic {}
+
+#[async_recursion(?Send)]
+async fn resolve_dynamic(mut i: Handle, name: String, default: Val) {
+    if let Some(def) = i.local_definition(name.clone()).await {
+        i.stack_push(def).await;
+    } else if i.is_toplevel().await {
+        i.stack_push(default).await;
+    } else {
+        i.uplevel(move |i: Handle| async move {
+            resolve_dynamic(i, name, default).await;
+        }).await;
+    }
+}
 
 /// `define (dynamic) name [ body ... ]`
 /// Define `name` to dynamically resolve by looking up the call stack
@@ -33,16 +47,11 @@ pub async fn dynamic(mut i: Handle) {
             let name = name.clone();
             let default = body.clone();
             async move {
-                match i.resolve_dynamic(name).await {
-                    Some(d) => {
-                        if let Some(Dynamic(real)) = d.meta_ref().first_ref::<Dynamic>() {
-                            i.eval(real.clone()).await;
-                        } else {
-                            i.eval(d).await;
-                        }
-                    },
-                    None => i.eval(default).await,
-                }
+                i.eval(move |i: Handle| async move {
+                    resolve_dynamic(i, name.to_string(), default).await;
+                }).await;
+                let r = i.stack_pop_val().await;
+                i.eval(r).await;
             }
         })).with_meta(|m| m.push(dynamic_meta))
     };
@@ -56,8 +65,9 @@ pub fn install(i: &mut Interpreter) {
     i.define("dynamic", dynamic);
     i.define("dynamic-resolve", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await.into_inner();
-        let res = i.resolve_dynamic(name).await;
-        i.stack_push_option(res).await;
+        i.eval(move |i: Handle| async move {
+            resolve_dynamic(i, name.to_string(), false.into()).await;
+        }).await;
     });
 }
 

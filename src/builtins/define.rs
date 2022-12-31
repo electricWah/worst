@@ -2,7 +2,7 @@
 //! `define` and other definition-related builtins
 
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle, DefineMeta, DefSet};
+use crate::interpreter::{Interpreter, Handle, DefineMeta, DefScope, DefSet};
 
 mod dispatch;
 mod dynamic;
@@ -72,7 +72,7 @@ pub async fn define(mut i: Handle) {
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_definition("definition-attributes", false, true);
+    i.add_definition("definition-attributes", false, DefScope::Local);
     i.define("define", define);
     i.define("default-attributes", default_attributes);
     i.define("definition-add", |mut i: Handle| async move {

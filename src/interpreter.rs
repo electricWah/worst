@@ -7,7 +7,7 @@ mod async_gen;
 mod base;
 mod handle;
 mod defset;
-pub use base::{Handle, DefineMeta, Builtin};
+pub use base::{Handle, DefineMeta, Builtin, DefScope};
 pub use defset::DefSet;
 use base::*;
 pub use handle::*;
@@ -34,8 +34,11 @@ impl Interpreter {
     }
 
     /// Insert a value, as-is, as a definition in the current stack frame.
-    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>, local: bool) {
-        (if local { &mut self.frame.locals } else { &mut self.frame.defenv }).insert(name, def);
+    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>, scope: DefScope) {
+        match scope {
+            DefScope::Local => self.frame.locals.insert(name, def),
+            DefScope::DefEnv => self.frame.defenv.insert(name, def),
+        }
     }
 
     /// Add a definition to the current stack frame.
@@ -123,27 +126,18 @@ impl Interpreter {
         self.frame.childs.push(child);
     }
 
-    fn handle_definitions(&self, all: bool) -> DefSet {
-        if all {
-            self.frame.all_defs()
-        } else {
-            self.frame.locals.clone()
+    fn handle_set_definitions(&mut self, scope: DefScope, defs: DefSet) {
+        match scope {
+            DefScope::Local => self.frame.locals = defs,
+            DefScope::DefEnv => self.frame.defenv = defs,
         }
     }
-    fn handle_get_definition(&self, name: &str, resolver: ResolveDefinition) -> Option<Val> {
-        if let Some(def) = self.frame.resolve_definition(name, &resolver).cloned() {
-            return Some(def);
+    fn handle_get_definitions(&self, scope: Option<DefScope>) -> DefSet {
+        match scope {
+            None => self.frame.all_defs(),
+            Some(DefScope::Local) => self.frame.locals.clone(),
+            Some(DefScope::DefEnv) => self.frame.defenv.clone(),
         }
-
-        if resolver.recursive_dynamic {
-            for f in self.parents.iter().rev() {
-                if let Some(def) = f.resolve_definition(name, &resolver).cloned() {
-                    return Some(def);
-                }
-            }
-        }
-
-        None
     }
 
     fn handle_yield(&mut self, y: FrameYield) -> Option<Val> {
@@ -156,12 +150,15 @@ impl Interpreter {
             FrameYield::StackGetAll(yr) => yr.set(Some(self.stack.clone())),
             FrameYield::Quote(yr) => if let r@Some(_) = self.handle_quote(yr) { return r; },
             FrameYield::Uplevel(v) => if let r@Some(_) = self.handle_uplevel(v) { return r; },
-            FrameYield::AddDefinition { name, def } =>
-                self.add_definition(name, def, true),
-            FrameYield::Definitions { all, ret } =>
-                ret.set(Some(self.handle_definitions(all))),
-            FrameYield::GetDefinition { name, resolver, ret } =>
-                ret.set(self.handle_get_definition(name.as_ref(), resolver)),
+            FrameYield::IsToplevel(yr) => yr.set(Some(self.is_toplevel())),
+            FrameYield::SetDefinitions { scope, defs } =>
+                self.handle_set_definitions(scope, defs),
+            FrameYield::AddDefinition { name, def, scope } =>
+                self.add_definition(name, def, scope),
+            FrameYield::GetDefinitions { scope, ret } =>
+                ret.set(Some(self.handle_get_definitions(scope))),
+            FrameYield::GetDefinition { name, scope, ret } =>
+                ret.set(self.frame.get_definition(name, scope).cloned()),
             FrameYield::RemoveDefinition { name, ret } =>
                 ret.set(self.frame.locals.remove(name)),
             FrameYield::GetCallStack(yr) => yr.set(Some(self.call_stack_names())),
@@ -201,7 +198,7 @@ impl Interpreter {
     }
 
     fn handle_call(&mut self, s: Symbol) -> Option<Val> {
-        if let Some(def) = self.frame.find_def(&s) {
+        if let Some(def) = self.frame.get_definition(&s, None) {
             let d = def.clone();
             let child = self.frame.eval_once(d.into_eval_once());
             self.frame.childs.push(child);

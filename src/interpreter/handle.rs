@@ -151,11 +151,21 @@ impl Handle {
     pub async fn uplevel(&mut self, f: impl EvalOnce) {
         self.yield_(FrameYield::Uplevel(f.into_eval_once())).await;
     }
+    /// Figure out whether this is the top of the call stack.
+    /// If true, [uplevel] will fail.
+    pub async fn is_toplevel(&self) -> bool {
+        let r = Rc::new(Cell::new(None));
+        self.yield_(FrameYield::IsToplevel(Rc::clone(&r))).await;
+        r.take().unwrap()
+    }
 
     /// Add a bare value as a definition in the current stack frame.
     /// Use [define] or [define_dynamic] to include a definition environment.
     pub async fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.yield_(FrameYield::AddDefinition { name: name.into(), def: def.into() }).await;
+        self.yield_(FrameYield::AddDefinition {
+            name: name.into(), def: def.into(),
+            scope: DefScope::Local,
+        }).await;
     }
 
     /// Remove a local definition from the current stack frame.
@@ -178,33 +188,20 @@ impl Handle {
 
     /// Get all definitions defined in the current stack frame.
     pub async fn local_definitions(&self) -> DefSet {
-        self.get_defs(false).await
+        self.get_defs(Some(DefScope::Local)).await
     }
     /// Get all available definitions.
     pub async fn all_definitions(&self) -> DefSet {
-        self.get_defs(true).await
+        self.get_defs(None).await
     }
     /// Look for a definition by the given name.
     pub async fn resolve_definition(&self, name: impl Into<String>) -> Option<Val> {
-        let resolver = ResolveDefinition::default().local().environment();
-        self.get_def(name.into(), resolver).await
+        self.get_def(name.into(), None).await
     }
 
-    /// Get the dynamic value of the given name
-    /// by searching first in the local definitions of the current stack frame
-    /// and then in parent stack frames if it cannot be found.
-    pub async fn resolve_dynamic(&self, name: impl Into<String>) -> Option<Val> {
-        let resolver = ResolveDefinition::default().local().dynamic();
-        self.get_def(name.into(), resolver).await
-    }
-
-    /// Get the dynamic value of the given name
-    /// by searching first in the local definitions of the current stack frame
-    /// and then in parent stack frames if it cannot be found.
-    pub async fn resolve_dynamic_where(&self, name: impl Into<String>,
-                                       f: impl Fn(&Val) -> bool + 'static) -> Option<Val> {
-        let resolver = ResolveDefinition::default().local().dynamic().filter(f);
-        self.get_def(name.into(), resolver).await
+    /// Look for a definition by the given name in the local scope.
+    pub async fn local_definition(&self, name: impl Into<String>) -> Option<Val> {
+        self.get_def(name.into(), Some(DefScope::Local)).await
     }
 
     /// Query the current call stack.
@@ -228,18 +225,16 @@ impl Handle {
         def
     }
 
-    async fn get_defs(&self, all: bool) -> DefSet {
+    async fn get_defs(&self, scope: Option<DefScope>) -> DefSet {
         let r = Rc::new(Cell::new(None));
-        self.yield_(FrameYield::Definitions {
-            all, ret: Rc::clone(&r),
-        }).await;
+        self.yield_(FrameYield::GetDefinitions { scope, ret: Rc::clone(&r) }).await;
         r.take().unwrap()
     }
 
-    async fn get_def(&self, name: String, resolver: ResolveDefinition) -> Option<Val> {
+    async fn get_def(&self, name: String, scope: Option<DefScope>) -> Option<Val> {
         let r = Rc::new(Cell::new(None));
         self.yield_(FrameYield::GetDefinition {
-            name, resolver, ret: Rc::clone(&r),
+            name, scope, ret: Rc::clone(&r),
         }).await;
         r.take()
     }

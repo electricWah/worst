@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::{Interpreter, Handle, DefScope};
 
 // TODO no wrapper, just use Interpreter directly and wrap in a place in worst
 #[derive(Clone, Default)]
@@ -56,7 +56,7 @@ pub fn install(i: &mut Interpreter) {
         let def = i.stack_pop_val().await;
         let name = i.stack_pop::<Symbol>().await.into_inner();
         let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().0.borrow_mut().add_definition(name, def, true);
+        interp.as_ref().0.borrow_mut().add_definition(name, def, DefScope::Local);
     });
     i.define("interpreter-definition-remove", |mut i: Handle| async move {
         let name = i.stack_pop::<Symbol>().await;

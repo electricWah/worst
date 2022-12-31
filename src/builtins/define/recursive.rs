@@ -1,6 +1,7 @@
 
 //! Recursive definition attribute
 
+use async_recursion::async_recursion;
 use crate::base::*;
 use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 
@@ -8,6 +9,22 @@ use crate::interpreter::{Interpreter, Handle, Builtin, DefSet};
 #[derive(Clone)]
 struct RecursiveCall;
 impl Value for RecursiveCall {}
+
+#[async_recursion(?Send)]
+async fn resolve_dynamic_recursive(mut i: Handle, name: String, default: Val) {
+    if let Some(def) = i.local_definition(name.clone()).await {
+        if !def.meta_ref().contains::<RecursiveCall>() {
+            return i.stack_push(def).await;
+        }
+    }
+    if i.is_toplevel().await {
+        i.stack_push(default).await;
+    } else {
+        i.uplevel(move |i: Handle| async move {
+            resolve_dynamic_recursive(i, name, default).await;
+        }).await;
+    }
+}
 
 /// `define (recursive) infinite-loop [ infinite-loop ]`
 // assuming no DefSet meta already, add one
@@ -23,13 +40,11 @@ pub async fn recursive(mut i: Handle) {
             let name = name_str.clone();
             let default = default.clone();
             async move {
-                match i.resolve_dynamic_where(name, |v| !v.meta_ref().contains::<RecursiveCall>()).await {
-                    Some(real) => i.eval(real).await,
-                    // eval this body by default
-                    // in case this definition is captured
-                    // and used elsewhere in a non-recursive context
-                    None => i.eval(default.clone()).await,
-                }
+                i.eval(move |i: Handle| async move {
+                    resolve_dynamic_recursive(i, name, default).await;
+                }).await;
+                let res = i.stack_pop_val().await;
+                i.eval(res).await;
             }
         })).with_meta(|m| m.push(RecursiveCall)));
     });
