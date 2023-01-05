@@ -16,6 +16,7 @@ pub fn install(i: &mut Interpreter) {
 
     i.define("bytevector?", type_predicate::<Vec<u8>>);
     i.define("bytevector-equal", equality::<Vec<u8>>);
+    // i.define("bytevector-hash", value_hash::<Vec<u8>>);
     i.define("bytevector-length", |mut i: Handle| async move {
         let v = i.stack_top::<Vec<u8>>().await;
         i.stack_push(v.as_ref().len() as i64).await;

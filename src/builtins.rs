@@ -10,6 +10,7 @@ pub mod core;
 pub mod define;
 pub mod doc;
 pub mod fs;
+// pub mod i64table;
 pub mod interpreter;
 pub mod list;
 pub mod module;
@@ -31,6 +32,7 @@ pub fn install(i: &mut Interpreter) {
     define::install(i);
     doc::install(i);
     fs::install(i);
+    // i64table::install(i);
     interpreter::install(i);
     list::install(i);
     module::install(i);

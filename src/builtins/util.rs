@@ -3,8 +3,15 @@
 
 use std::fmt::Debug;
 use std::io::{ Read, Write };
+use std::hash::Hash;
+use std::collections::hash_map::DefaultHasher;
 use crate::base::*;
 use crate::interpreter::Handle;
+
+/// Make a builtin that pushes default() to the stack
+pub async fn make_default<T: Value + Default>(mut i: Handle) {
+    i.stack_push(T::default()).await;
+}
 
 /// Type predicate wrapper, e.g.
 /// ```ignore
@@ -50,6 +57,15 @@ pub async fn value_tostring_debug<T: Value + Debug>(mut i: Handle) {
     let v = i.stack_pop::<T>().await;
     i.stack_push(format!("{:?}", v.as_ref())).await;
 }
+
+// /// Hash a value into an i64 using the default hasher.
+// pub async fn value_hash<T: Value + Hash>(mut i: Handle) {
+//     let v = i.stack_pop::<T>().await;
+//     let mut hasher = DefaultHasher::new();
+//     val.as_ref().hash(&mut hasher);
+//     let v = hasher.finish();
+//     i.stack_push(ValueHash::hash_value(&v)).await;
+// }
 
 /// Get an index within a 0..len range (optionally extend beyond len)
 pub fn index_range(len: usize, idx: i64, extend: bool) -> usize {

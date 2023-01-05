@@ -10,6 +10,7 @@ pub fn install(i: &mut Interpreter) {
     i.define("string?", util::type_predicate::<String>);
     i.define("string-equal", util::equality::<String>);
     i.define("string-compare", util::comparison::<String>);
+    // i.define("string-hash", util::value_hash::<String>);
     i.define("string-append", |mut i: Handle| async move {
         let b = i.stack_pop::<String>().await;
         let mut a = i.stack_pop::<String>().await;

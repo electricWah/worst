@@ -191,8 +191,10 @@ pub fn install(i: &mut Interpreter) {
 
     i.define("bool?", util::type_predicate::<bool>);
     i.define("bool-equal", util::equality::<bool>);
+    // i.define("bool-hash", util::value_hash::<bool>);
     i.define("symbol?", util::type_predicate::<Symbol>);
     i.define("symbol-equal", util::equality::<Symbol>);
+    // i.define("symbol-hash", util::value_hash::<Symbol>);
 
     i.define("builtin?", util::type_predicate::<Builtin>);
     i.define("builtin-name", |mut i: Handle| async move {

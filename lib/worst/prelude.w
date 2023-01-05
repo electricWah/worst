@@ -56,6 +56,7 @@ define ge? [ clone upquote updo eval ge ]
 ; a b bool-and => bool
 define bool-and [ if [ ] [ drop #f ] ]
 define bool-and? [ clone2 bool-and ] ; idk
+define bool-or [ if [ drop #t ] [ ] ]
 
 define list-iter [
     upquote const body
@@ -117,6 +118,25 @@ define list-empty? [clone list-length 0 equal]
 define abs [ lt? 0 if [negate] [] ]
 define max [ clone2 lt if [swap] [] drop ]
 define min [ clone2 lt if [] [swap] drop ]
+
+; define value-hash [ drop #f bool-hash ] ; the default hash is that of false
+; define (dispatch (bool?)) value-hash [ bool-hash ]
+; define (dispatch (symbol?)) value-hash [ symbol-hash ]
+; define (dispatch (string?)) value-hash [ string-hash ]
+; define (dispatch (i64?)) value-hash [ i64-hash ]
+
+; define hashtable-insert [
+;     swap clone value-hash dig
+;     hashtable-insert-hashed-value
+; ]
+
+; define hashtable->pairs [
+;     const ht
+;     []
+;     ht hashtable-hash-keys list-iter [
+;         ht swap hashtable-hash-bucket list-append
+;     ]
+; ]
 
 define (dispatch (embedded-file-port?))
 port->string [ embedded-file-port->string ]

@@ -1,7 +1,6 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use super::value::*;
 
 impl Value for bool {}
