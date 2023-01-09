@@ -77,7 +77,6 @@ pub struct ListFrame {
     pub meta: DefineMeta,
     pub defenv: DefSet,
     pub locals: DefSet,
-    // Also dynamic definitions here? I think?
 }
 
 impl ListFrame {

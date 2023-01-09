@@ -1,6 +1,6 @@
 
 use std::process::ExitCode;
-use worst::interpreter::*;
+use worst::interp2::*;
 use worst::builtins;
 use worst::base::*;
 
@@ -27,11 +27,9 @@ fn basic_printerr(v: &Val) {
 
 fn main() -> ExitCode {
     let init_module = std::env::var("WORST_INIT_MODULE").unwrap_or_else(|_| "worst/init".into());
-    let mut i = Interpreter::default();
+    let mut i = Interpreter::new(List::from_iter(vec!["import".to_symbol(), init_module.to_symbol()].into_iter()));
     builtins::install(&mut i);
-    let doit = vec!["import".into(), init_module].into_iter().map(Symbol::from);
-    i.eval_next(Val::from(List::from_iter(doit)));
-    if let Some(e) = i.run() {
+    if let Err(e) = i.run() {
         if IsError::is_error(&e) {
             eprint!("\nTop-level error: ");
             basic_printerr(&e);

@@ -107,7 +107,17 @@ impl Val {
 impl<T: Value> ValOf<T> {
     /// Get a mutable reference to the meta.
     pub fn meta_mut(&mut self) -> &mut List { Rc::make_mut(&mut self.meta) }
+    /// Get a reference to the meta.
+    pub fn meta_ref(&self) -> &List { &self.meta }
 }
+
+impl<T: Value> From<T> for ValOf<T> {
+    fn from(v: T) -> ValOf<T> {
+        // for now
+        Val::from(v).try_downcast::<T>().ok().unwrap()
+    }
+}
+
 
 impl<T: Value> From<ValOf<T>> for Val {
     fn from(v: ValOf<T>) -> Val {

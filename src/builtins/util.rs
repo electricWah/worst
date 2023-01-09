@@ -3,8 +3,8 @@
 
 use std::fmt::Debug;
 use std::io::{ Read, Write };
-use std::hash::Hash;
-use std::collections::hash_map::DefaultHasher;
+// use std::hash::Hash;
+// use std::collections::hash_map::DefaultHasher;
 use crate::base::*;
 use crate::interpreter::Handle;
 
