@@ -9,8 +9,6 @@ use crate::base::*;
 use super::util::*;
 use crate::interpreter::{Interpreter, Handle};
 
-impl Value for Vec<u8> {}
-
 /// Install some bytevector definitions.
 pub fn install(i: &mut Interpreter) {
 

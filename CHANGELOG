@@ -11,6 +11,8 @@
 - Add list-find-first-index to find a position in a list, given a predicate
 - Add list-deduplicate-sequential
 - Rename interpreter-call to interpreter-eval-next (mirroring eval now, see 0.3)
+- Redo the entire interpreter (lol) (it's simpler now)
+- Remove stack-matches? (replaced by and2? since 2 items was the common case)
 
 # 0.4 (2022-11-19)
 

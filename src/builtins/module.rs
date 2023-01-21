@@ -49,7 +49,7 @@ fn eval_module(m: List, mut defs: DefSet) -> Result<DefSet, (Val, Interpreter)> 
     let mut i = Interpreter::default();
     i.defenv_mut().append(&defs);
 
-    i.eval_next(m);
+    i.eval_list_next(m.into());
     if let Some(ret) = i.run() {
         return Err((ret, i));
     }

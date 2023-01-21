@@ -4,7 +4,7 @@
 use std::io;
 use crate::base::*;
 use crate::builtins::util::*;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interp2::*;
 
 #[derive(Clone)]
 struct Stdin;
@@ -45,31 +45,35 @@ impl io::Write for Stderr {
 /// Install all these functions if enabled.
 pub fn install(i: &mut Interpreter) {
 
-    i.define("stdin-port", |mut i: Handle| async move {
-        i.stack_push(Stdin).await;
+    i.add_builtin("stdin-port", |i: &mut Interpreter| {
+        i.stack_push(Stdin);
+        Ok(())
     });
-    i.define("stdout-port", |mut i: Handle| async move {
-        i.stack_push(Stdout).await;
+    i.add_builtin("stdout-port", |i: &mut Interpreter| {
+        i.stack_push(Stdout);
+        Ok(())
     });
-    i.define("stderr-port", |mut i: Handle| async move {
-        i.stack_push(Stderr).await;
+    i.add_builtin("stderr-port", |i: &mut Interpreter| {
+        i.stack_push(Stderr);
+        Ok(())
     });
 
-    i.define("stdin-port-read-range", port_read_range::<Stdin>);
+    i.add_builtin("stdin-port-read-range", port_read_range::<Stdin>);
 
-    i.define("stdout-port-write-string", port_write_string::<Stdout>);
-    i.define("stdout-port-write-range", port_write_range::<Stdout>);
-    i.define("stdout-port-flush", port_flush::<Stdout>);
-    i.define("stderr-port-write-string", port_write_string::<Stderr>);
-    i.define("stderr-port-write-range", port_write_range::<Stderr>);
-    i.define("stderr-port-flush", port_flush::<Stderr>);
+    i.add_builtin("stdout-port-write-string", port_write_string::<Stdout>);
+    i.add_builtin("stdout-port-write-range", port_write_range::<Stdout>);
+    i.add_builtin("stdout-port-flush", port_flush::<Stdout>);
+    i.add_builtin("stderr-port-write-string", port_write_string::<Stderr>);
+    i.add_builtin("stderr-port-write-range", port_write_range::<Stderr>);
+    i.add_builtin("stderr-port-flush", port_flush::<Stderr>);
 
-    i.define("stdin-port-read-line", |mut i: Handle| async move {
+    i.add_builtin("stdin-port-read-line", |i: &mut Interpreter| {
         let mut buf = String::new();
         match io::stdin().read_line(&mut buf) {
-            Ok(_count) => i.stack_push(buf).await,
-            Err(e) => i.stack_push(IsError::add(format!("{}", e))).await,
+            Ok(_count) => i.stack_push(buf),
+            Err(e) => i.stack_push(IsError::add(format!("{}", e))),
         }
+        Ok(())
     });
 }
 

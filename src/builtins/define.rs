@@ -1,123 +1,114 @@
 
-//! `define` and other definition-related builtins
+//! `add_builtin` and other definition-related builtins
 
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle, DefineMeta, DefScope, DefSet};
+use crate::interp2::*;
 
-mod dispatch;
-mod dynamic;
-mod recursive;
+// mod dispatch;
+// mod dynamic;
+// mod recursive;
 
-async fn default_attributes(mut _i: Handle) {
-    // TODO into_new_frame
-}
-
-/// define (attributes) name [ body ... ]
-pub async fn define(mut i: Handle) {
-
-    let (name, attrs) = {
-        let q = i.quote_val().await;
-        if let Some(name) = q.downcast_ref::<Symbol>() {
-            (name.clone(), List::default())
-        } else if let Some(attrs) = q.downcast_ref::<List>() {
-            let qname = i.quote_val().await;
-            if let Some(name) = qname.downcast_ref::<Symbol>() {
-                (name.clone(), attrs.clone())
-            } else {
-                return i.error(List::from(vec![
-                    "define: expected symbol".to_string().into(),
-                    qname,
-                ])).await;
-            }
-        } else {
-            return i.error("cannot define".to_string()).await;
-        }
-    };
-
-    let body =
-        if let Ok(l) = i.quote_val().await.try_downcast::<List>() {
-            l.into_inner()
-        } else {
-            return i.error(List::from(vec![
-                "define: expected list".to_string().into(),
-            ])).await;
-        };
-
-    i.stack_push(body).await;
-    i.stack_push(name.clone()).await;
-
-    let all_defs = i.all_definitions().await;
-
-    if !attrs.is_empty() {
-        let mut attr_val = Val::from(attrs);
-        DefSet::upsert_val(&mut attr_val, |ds| {
-            ds.append(&all_defs);
-            ds.insert("definition-attributes".to_string(), true);
-        });
-        i.eval(attr_val).await;
-    }
-    i.call("default-attributes").await;
-
-    let name = i.stack_pop::<Symbol>().await.into_inner();
-    let mut body = i.stack_pop_val().await;
-
-    if !body.meta_ref().contains::<DefineMeta>() {
-        body.meta_mut().push(DefineMeta { name: Some(name.clone().to_string()) });
-    }
-
-    DefSet::upsert_val(&mut body, |ds| ds.prepend(&all_defs));
-
-    i.add_definition(name, body).await;
-}
+struct NotDynamicResolvable;
+impl Value for NotDynamicResolvable {}
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_definition("definition-attributes", false, DefScope::Local);
-    i.define("define", define);
-    i.define("default-attributes", default_attributes);
-    i.define("definition-add", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await.into_inner();
-        let def = i.stack_pop_val().await;
-        i.define(name, def).await;
+    i.add_builtin("definition-add", |i: &mut Interpreter| {
+        let name = i.stack_pop::<Symbol>()?.into_inner();
+        let def = i.stack_pop_val()?;
+        i.add_definition(name, def);
+        Ok(())
     });
-    i.define("all-definitions", |mut i: Handle| async move {
-        let p = i.all_definitions().await;
-        i.stack_push(List::from_pairs(p.iter().map(|(k, v)| (k.to_symbol(), v.clone())))).await;
+    i.add_builtin("definition-resolve", |i: &mut Interpreter| {
+        let name = i.stack_pop::<Symbol>()?.into_inner();
+        let res = i.resolve_definition(name);
+        i.stack_push_option(res);
+        Ok(())
     });
-    i.define("local-definitions", |mut i: Handle| async move {
-        let p = i.local_definitions().await;
-        i.stack_push(List::from_pairs(p.iter().map(|(k, v)| (k.to_symbol(), v.clone())))).await;
-    });
-    i.define("definition-resolve", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await.into_inner();
-        let res = i.resolve_definition(name.clone()).await;
-        i.stack_push_option(res).await;
+
+    i.add_builtin("value-set-name", |i: &mut Interpreter| {
+        let name = i.stack_pop::<String>()?.into_inner();
+        let mut v = i.stack_pop_val()?;
+        v.meta_mut().push(DefineName::new(name));
+        i.stack_push(v);
+        Ok(())
     });
 
     // defset stuff
-    // add a definition to a value's env
-    i.define("value-definition-add", |mut i: Handle| async move {
-        let def = i.stack_pop_val().await;
-        let name = i.stack_pop::<Symbol>().await.into_inner();
-        let mut v = i.stack_pop_val().await;
-        DefSet::upsert_val(&mut v, |ds| ds.insert(name.to_string(), def));
-        i.stack_push(v).await;
+
+    // predicate definition-set?
+    i.add_builtin("definitions-local", |i: &mut Interpreter| {
+        let defs = i.local_definitions();
+        i.stack_push(defs.clone());
+        Ok(())
     });
-    i.define("value-inherit-all-definitions", |mut i: Handle| async move {
-        let mut v = i.stack_pop_val().await;
-        let defenv = i.all_definitions().await;
-        DefSet::upsert_val(&mut v, |ds| ds.append(&defenv));
-        i.stack_push(v).await;
+    i.add_builtin("definitions-all", |i: &mut Interpreter| {
+        let defs = i.all_definitions();
+        i.stack_push(defs);
+        Ok(())
     });
-    i.define("value-inherit-local-definitions", |mut i: Handle| async move {
-        let mut v = i.stack_pop_val().await;
-        let defenv = i.local_definitions().await;
-        DefSet::upsert_val(&mut v, |ds| ds.append(&defenv));
-        i.stack_push(v).await;
+    i.add_builtin("definitions->pairs", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefSet>()?;
+        let pairs = defs.as_ref().iter().map(|(k, v)| (k.to_symbol(), v.clone()));
+        i.stack_push(List::from_pairs(pairs));
+        Ok(())
     });
 
-    dispatch::install(i);
-    dynamic::install(i);
-    recursive::install(i);
+    i.add_builtin("value-has-definitions", |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        i.stack_push(v.meta_ref().contains::<DefSet>());
+        Ok(())
+    });
+    i.add_builtin("value-append-definitions", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefSet>()?.into_inner();
+        let mut v = i.stack_pop_val()?;
+        DefSet::upsert_val(&mut v, |ds| ds.append(&defs));
+        i.stack_push(v);
+        Ok(())
+    });
+
+    // add a definition to a value's env
+    i.add_builtin("value-definition-add", |i: &mut Interpreter| {
+        let def = i.stack_pop_val()?;
+        let name = i.stack_pop::<Symbol>()?.into_inner();
+        let mut v = i.stack_pop_val()?;
+        DefSet::upsert_val(&mut v, |ds| ds.insert(name.to_string(), def));
+        i.stack_push(v);
+        Ok(())
+    });
+
+    i.add_builtin("value-set-not-dynamic-resolvable", |i: &mut Interpreter| {
+        let mut v = i.stack_pop_val()?;
+        v.meta_mut().push(NotDynamicResolvable);
+        i.stack_push(v);
+        Ok(())
+    });
+
+    // try resolving def, then recursively uplevel until found
+    // dynamic-resolve would just look in locals I guess
+    i.add_builtin("dynamic-resolve-any", |i: &mut Interpreter| {
+        let name = i.stack_pop::<Symbol>()?;
+        loop {
+            // i.local_definitions().get(name.as_ref())
+            if let Some(def) = i.resolve_definition(name.as_ref()) {
+                if !def.meta_ref().contains::<NotDynamicResolvable>() {
+                    i.stack_push(def);
+                    break;
+                }
+            }
+            if i.enter_parent_frame().is_err() {
+                i.error(List::from(vec![
+                    "dynamic-resolve-any".to_symbol().into(),
+                    name.into(),
+                ]))?;
+                break;
+            }
+        }
+        Ok(())
+    });
+
+    // dispatch::install(i);
+    // dynamic::install(i);
+    // recursive::install(i);
 }
 

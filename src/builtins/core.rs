@@ -3,11 +3,11 @@
 
 use crate::base::*;
 use crate::interp2::*;
-// use super::util;
+use super::util;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
 pub fn quote(i: &mut Interpreter) -> BuiltinRet {
-    let v = i.body_next()?;
+    let v = i.body_next_val()?;
     i.stack_push(v);
     Ok(())
 }
@@ -81,15 +81,17 @@ pub fn error_(i: &mut Interpreter) -> BuiltinRet {
 /// `eval` - Evaluate the value on top of the stack.
 pub fn eval(i: &mut Interpreter) -> BuiltinRet {
     let e = i.stack_pop_val()?;
-    i.eval_next(e)?;
+    match e.try_downcast::<List>() {
+        Ok(l) => i.eval_list_next(l),
+        Err(v) => i.eval_next(v)?,
+    }
     Ok(())
 }
 
 /// `uplevel` - Call the value on top of the stack as if in the parent stack frame.
 pub fn uplevel(i: &mut Interpreter) -> BuiltinRet {
     i.enter_parent_frame()?;
-    let c = i.stack_pop_val()?;
-    i.eval_next(c)?;
+    eval(i)?;
     Ok(())
 }
 
@@ -108,7 +110,7 @@ pub fn value_to_constant(i: &mut Interpreter) -> BuiltinRet {
 /// `[ quote quote quote uplevel uplevel ] quote upquote definition-add`
 pub fn upquote(i: &mut Interpreter) -> BuiltinRet {
     i.enter_parent_frame()?;
-    let q = i.body_next()?;
+    let q = i.body_next_val()?;
     i.stack_push(q);
     Ok(())
 }
@@ -126,8 +128,8 @@ pub fn upquote(i: &mut Interpreter) -> BuiltinRet {
 /// ]
 /// ```
 pub fn while_(i: &mut Interpreter) -> BuiltinRet {
-    let cond = i.body_next()?;
-    let body = i.body_next()?;
+    let cond = i.body_next::<List>()?;
+    let body = i.body_next::<List>()?;
     i.stack_push(body);
     i.stack_push(cond);
     i.eval_next(Builtin::from(while_body))?;
@@ -135,8 +137,8 @@ pub fn while_(i: &mut Interpreter) -> BuiltinRet {
 }
 
 fn while_body(i: &mut Interpreter) -> BuiltinRet {
-    let cond = i.stack_pop_val()?;
-    let body = i.stack_pop_val()?;
+    let cond = i.stack_pop::<List>()?;
+    let body = i.stack_pop::<List>()?;
 
     let cond2 = cond.clone();
     i.eval_next_once(move |i: &mut Interpreter| {
@@ -148,11 +150,11 @@ fn while_body(i: &mut Interpreter) -> BuiltinRet {
                 i.eval_next(Builtin::from(while_body))?;
                 Ok(())
             });
-            i.eval_next(body2)?;
+            i.eval_list_next(body2);
         }
         Ok(())
     });
-    i.eval_next(cond2)?;
+    i.eval_list_next(cond2);
     Ok(())
 }
 
@@ -168,12 +170,12 @@ fn while_body(i: &mut Interpreter) -> BuiltinRet {
 /// ]
 /// ```
 pub fn if_(i: &mut Interpreter) -> BuiltinRet {
-    let ift = i.body_next()?;
-    let iff = i.body_next()?;
+    let ift = i.body_next::<List>()?;
+    let iff = i.body_next::<List>()?;
     if i.stack_pop::<bool>()?.into_inner() {
-        i.eval_next(ift)?;
+        i.eval_list_next(ift);
     } else {
-        i.eval_next(iff)?;
+        i.eval_list_next(iff);
     }
     Ok(())
 }
@@ -204,9 +206,16 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(v);
         Ok(())
     });
-    // i.add_builtin("stack-dump", |i: Handle| {
-    //     println!("{:?}", Val::from(i.stack_get()));
-    // });
+    i.add_builtin("stack-get", |i: &mut Interpreter| {
+        let stack = i.stack_ref();
+        i.stack_push(stack.clone());
+        Ok(())
+    });
+    i.add_builtin("stack-set", |i: &mut Interpreter| {
+        let stack = i.stack_pop::<List>()?;
+        *i.stack_mut() = stack.into_inner();
+        Ok(())
+    });
     // i.add_builtin("call-stack", |i: &mut Interpreter| {
     //     let cs = i.call_stack_names()
             
@@ -223,14 +232,14 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    // i.add_builtin("bool?", util::type_predicate::<bool>);
+    i.add_builtin("bool?", util::type_predicate::<bool>);
     // i.add_builtin("bool-equal", util::equality::<bool>);
     // i.add_builtin("bool-hash", util::value_hash::<bool>);
-    // i.add_builtin("symbol?", util::type_predicate::<Symbol>);
+    i.add_builtin("symbol?", util::type_predicate::<Symbol>);
     // i.add_builtin("symbol-equal", util::equality::<Symbol>);
     // i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
-    // i.add_builtin("builtin?", util::type_predicate::<Builtin>);
+    i.add_builtin("builtin?", util::type_predicate::<Builtin>);
     // i.add_builtin("builtin-name", |i: &mut Interpreter| {
     //     let b = i.stack_pop::<Builtin>();
     //     i.stack_push_option(Val::from(b).meta_ref().first_ref::<DefineMeta>()
@@ -262,7 +271,6 @@ pub fn install(i: &mut Interpreter) {
         #[cfg(feature = "wasm")] "wasm".to_symbol(),
     ]);
     i.add_builtin("features-enabled", move |i: &mut Interpreter| {
-        let enabled_features = enabled_features.clone();
         i.stack_push(enabled_features.clone());
         Ok(())
     });

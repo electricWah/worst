@@ -10,6 +10,27 @@ use crate::interpreter::defset::*;
 
 pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
 
+// pub enum ListYieldOp {
+//     Pop(YieldReturn<Val>),
+//     Get(YieldReturn<Val>),
+//     Push(Val),
+//     Set(List),
+// }
+
+// pub enum FrameYield {
+//     Pause(Val),
+//     Eval(ToEvalOnce),
+//     Uplevel(ToEvalOnce), // could be empty and Multi(Vec<FrameYield>)
+//     Call(Symbol), // could be Eval
+
+//     Stack(ListYieldOp),
+//     Body(ListYieldOp), // quote is Body(Pop)
+
+//     DefinitionsGet(Option<DefSetType>, YieldReturn<DefSet>),
+//     DefinitionsSet(DefSetType, DefSet),
+//     // GetCallStack(YieldReturn<Vec<Option<String>>>),
+// }
+
 /// A scope to specify where to get or add definitions.
 #[derive(PartialEq)]
 pub enum DefScope {

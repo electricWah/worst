@@ -3,12 +3,23 @@
 
 use std::rc::Rc;
 use crate::base::*;
-use crate::interpreter::{DefSet, DefScope};
+pub use crate::interpreter::{DefSet, DefScope};
+
+/// Metadata for a list definition stating its name.
+#[derive(Clone)]
+pub struct DefineName(String);
+impl Value for DefineName {}
+impl DefineName {
+    /// Create a thing
+    pub fn new(s: impl Into<String>) -> Self { DefineName(s.into()) }
+}
 
 #[derive(Default)]
 struct Frame {
     childs: Vec<ChildFrame>,
     body: List,
+    #[allow(dead_code)] // TODO call stack
+    name: Option<String>,
     defenv: DefSet,
     locals: DefSet,
 }
@@ -38,8 +49,9 @@ impl Frame {
     fn from_list(l: ValOf<List>) -> Self {
         // TODO name
         let defenv = l.meta_ref().first_ref::<DefSet>().cloned().unwrap_or_default();
+        let name = l.meta_ref().first_ref::<DefineName>().cloned().map(|d| d.0);
         let body = l.into_inner();
-        Frame { defenv, body, ..Frame::default() }
+        Frame { defenv, body, name, ..Frame::default() }
     }
 }
 
@@ -114,6 +126,7 @@ impl Interpreter {
 
     /// Evaluate this thing in the next [run] step.
     /// Multiple eval_next-ed things will be run in reverse order.
+    /// If it's is a list, it should already have a defenv attached.
     pub fn eval_next(&mut self, v: impl Into<Val>) -> BuiltinRet {
         let v = v.into();
         if let Some(s) = v.downcast_ref::<Symbol>() {
@@ -129,14 +142,25 @@ impl Interpreter {
         Ok(())
     }
 
+    /// Same as [eval_next], but attaching a defenv beforehand.
+    pub fn eval_list_next(&mut self, mut v: ValOf<List>) {
+        DefSet::upsert_meta(v.meta_mut(), |ds| ds.prepend(&self.all_definitions()));
+        self.frame.childs.push(ChildFrame::Frame(Frame::from_list(v)));
+    }
+
     /// Evaluate this FnOnce in the next [run] step. See [eval_next].
     pub fn eval_next_once<T: 'static + FnOnce(&mut Interpreter) -> BuiltinRet>
         (&mut self, f: T) {
         self.frame.childs.push(ChildFrame::Once(Box::new(f)));
     }
 
+    /// Find a definition in the current local and then closure environments.
+    pub fn resolve_definition(&self, name: impl AsRef<str>) -> Option<Val> {
+        self.frame.get_definition(name, None).cloned()
+    }
+
     fn eval_next_resolve(&mut self, v: &Symbol) -> BuiltinRet {
-        if let Some(def) = self.frame.get_definition(v, None).cloned() {
+        if let Some(def) = self.resolve_definition(v) {
             self.eval_next(def)?;
         } else {
             self.error(List::from(vec!["undefined".to_symbol().into(),
@@ -155,22 +179,29 @@ impl Interpreter {
     }
 
     /// Insert the given value into one of the definition scopes.
-    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>, scope: DefScope) {
+    pub fn insert_definition(&mut self, name: impl Into<String>, def: impl Into<Val>, scope: DefScope) {
         match scope {
             DefScope::Local => self.frame.locals.insert(name, def),
             DefScope::DefEnv => self.frame.defenv.insert(name, def),
         }
     }
+    /// Add the given value to local definitions.
+    pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
+        self.insert_definition(name, def.into(), DefScope::Local);
+    }
 
     /// Add the given builtin to the global env.
     pub fn add_builtin(&mut self, name: impl Into<String>, def: impl Into<Builtin>) {
-        self.add_definition(name, def.into(), DefScope::DefEnv);
+        self.insert_definition(name, def.into(), DefScope::DefEnv);
     }
 
     /// Get all available definitions.
     pub fn all_definitions(&self) -> DefSet {
         self.frame.all_defs()
     }
+
+    /// Get all local definitions.
+    pub fn local_definitions(&self) -> &DefSet { &self.frame.locals }
 
     // maybe all of these should be within List
     // and just have stack_ref and stack_mut
@@ -180,30 +211,54 @@ impl Interpreter {
     pub fn stack_mut(&mut self) -> &mut List { &mut self.stack }
     /// Put something on top of the stack
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
+    /// Put something on top of the stack, or false
+    pub fn stack_push_option<T: Into<Val>>(&mut self, v: Option<T>) {
+        if let Some(v) = v {
+            self.stack.push(v.into());
+        } else {
+            self.stack.push(false);
+        }
+    }
+    /// Put an Ok value, or Err with IsError set, on top of the stack.
+    pub fn stack_push_result<T: Into<Val>, E: Into<Val>>(&mut self, v: Result<T, E>) {
+        match v {
+            Ok(ok) => self.stack_push(ok),
+            Err(e) => self.stack_push(IsError::add(e)),
+        }
+    }
     /// Pop the top thing off the stack
     pub fn stack_pop_val(&mut self) -> BuiltinRet<Val> {
-        self.stack.pop().ok_or("stack-empty".to_symbol().into())
+        Self::or_err(self.stack.pop(), "stack-empty")
     }
     /// Get the top thing off the stack without popping it
     pub fn stack_top_val(&mut self) -> BuiltinRet<Val> {
-        self.stack.top().cloned().ok_or("stack-empty".to_symbol().into())
+        Self::or_err(self.stack.top().cloned(), "stack-empty")
     }
 
     /// Pop the top thing off the stack if it has the given type
     pub fn stack_pop<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
         let v = self.stack_pop_val()?;
-        v.try_downcast::<T>().map_err(|v| List::from(vec![
+        v.try_downcast::<T>().map_err(|v| IsError::add(List::from(vec![
             "wrong-type".to_symbol().into(),
             v, std::any::type_name::<T>().to_string().into(),
-        ]).into())
+        ])))
     }
 
     /// Get a mutable reference to the remaining code in the current stack frame.
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
 
-    /// Get the next item in the current stack body.
-    pub fn body_next(&mut self) -> BuiltinRet<Val> {
-        self.body_mut().pop().ok_or("quote-nothing".to_symbol().into())
+    /// Get the next item in the current stack frame body.
+    pub fn body_next_val(&mut self) -> BuiltinRet<Val> {
+        Self::or_err(self.body_mut().pop(), "quote-nothing")
+    }
+    /// Get the next `T` in the current stack frame body.
+    pub fn body_next<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
+        self.body_next_val()?.try_downcast::<T>().map_err(|v| {
+            IsError::add(List::from(vec![
+                "wrong-type".to_symbol().into(),
+                v, std::any::type_name::<T>().to_string().into(),
+            ]))
+        })
     }
 
     /// Pause evaluation. [run] will return with this value.
@@ -213,6 +268,13 @@ impl Interpreter {
     /// Pause evaluation with an error. [run] will return with this value.
     pub fn error(&self, v: impl Into<Val>) -> BuiltinRet {
         Err(IsError::add(v.into()))
+    }
+
+    fn or_err<T>(v: Option<T>, err: impl Into<Symbol>) -> BuiltinRet<T> {
+        match v {
+            Some(v) => Ok(v),
+            None => Err(IsError::add(err.into())),
+        }
     }
 
     /// Run the rest of this function in the parent stack frame.
@@ -293,7 +355,7 @@ mod test {
     }
 
     #[test]
-    fn test_uplevel() {
+    fn uplevel() {
         let mut i =
             Interpreter::new(vec![
                 "thing".to_symbol().into(),
@@ -312,7 +374,7 @@ mod test {
     }
 
     #[test]
-    fn test_uplevel_closure() {
+    fn uplevel_closure() {
         let mut i =
             Interpreter::new(vec![
                 "thing".to_symbol().into(),
@@ -330,7 +392,7 @@ mod test {
     }
 
     #[test]
-    fn test_uplevel2() {
+    fn uplevel2() {
         let mut i =
             Interpreter::new(vec![
                 "thing1".to_symbol().into(),
@@ -348,6 +410,20 @@ mod test {
         assert!(i.run().is_ok());
         assert_eq!(pop_cast::<Symbol>(&mut i), "egg".to_symbol());
         assert!(i.stack_ref().is_empty());
+    }
+
+    #[test]
+    fn stack_pop_empty() {
+        let mut i =
+            Interpreter::new(vec![ "drop".to_symbol().into(), ]);
+        i.add_builtin("drop", |i: &mut Interpreter| {
+            i.stack_pop_val()?;
+            Ok(())
+        });
+        let err = i.run().unwrap_err();
+        assert!(IsError::is_error(&err));
+        assert_eq!(err.downcast_ref::<Symbol>(),
+                   Some(&"stack-empty".to_symbol()));
     }
 
 }

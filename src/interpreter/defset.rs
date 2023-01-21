@@ -69,12 +69,11 @@ impl DefSet {
         self.merge_with(thee, false);
     }
 
-    /// Find (or create an empty) DefSet in meta for the value
+    /// Find (or create an empty) DefSet in `meta`,
+    /// which is the metadata for a value,
     /// and do a function on it.
-    /// Use this to e.g.
-    /// add a closure environment for [List] values that will be evaluated later.
-    pub fn upsert_val(v: &mut Val, f: impl FnOnce(&mut DefSet)) {
-        let meta = v.meta_mut();
+    /// See [upsert_val].
+    pub fn upsert_meta(meta: &mut List, f: impl FnOnce(&mut DefSet)) {
         let mut defs = DefSet::default();
         if !meta.contains::<DefSet>() {
             f(&mut defs);
@@ -88,6 +87,14 @@ impl DefSet {
                 }
             }
         }
+    }
+
+    /// Find (or create an empty) DefSet in meta for the value
+    /// and do a function on it.
+    /// Use this to e.g.
+    /// add a closure environment for [List] values that will be evaluated later.
+    pub fn upsert_val(v: &mut Val, f: impl FnOnce(&mut DefSet)) {
+        Self::upsert_meta(v.meta_mut(), f);
     }
 
 }

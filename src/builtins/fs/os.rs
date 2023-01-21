@@ -11,7 +11,6 @@ use crate::interpreter::{Interpreter, Handle};
 use crate::builtins::util::*;
 
 impl Value for fs::OpenOptions {}
-impl Value for PathBuf {}
 
 async fn with_open_options(i: &mut Handle, f: impl FnOnce(&mut fs::OpenOptions, bool) -> &mut fs::OpenOptions) {
     let mut c = i.stack_pop::<fs::OpenOptions>().await.into_inner();
@@ -46,23 +45,8 @@ impl io::Write for File {
     }
 }
 
-/// Install filesystem functions: path, open options, etc.
+/// Install filesystem functions: open options, etc.
 pub fn install(i: &mut Interpreter) {
-
-    i.define("fs-path?", type_predicate::<PathBuf>);
-    i.define("fs-path-equal", equality::<PathBuf>);
-    i.define("string->fs-path", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await;
-        i.stack_push(PathBuf::from(s.as_ref())).await;
-    });
-    i.define("try-fs-path->string", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push_option(p.as_ref().to_str().map(String::from)).await;
-    });
-    i.define("fs-path->string-lossy", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push(String::from(p.as_ref().to_string_lossy())).await;
-    });
 
     i.define("file-open-options?", type_predicate::<fs::OpenOptions>);
     i.define("file-open-options", |mut i: Handle| async move {
@@ -101,20 +85,6 @@ pub fn install(i: &mut Interpreter) {
     i.define("file-port-write-range", port_write_range::<File>);
     i.define("file-port-flush", port_flush::<File>);
 
-    i.define("fs-path-absolute", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push(p.as_ref().is_absolute()).await;
-    });
-    i.define("fs-path-parent", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push_option(p.as_ref().parent().map(PathBuf::from)).await;
-    });
-    i.define("fs-path-concat", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        let mut base = i.stack_pop::<PathBuf>().await;
-        base.as_mut().push(p.as_ref());
-        i.stack_push(base).await;
-    });
     i.define("fs-path-canonical", |mut i: Handle| async move {
         let p = i.stack_pop::<PathBuf>().await;
         if let Some(p) = or_io_error(&mut i, fs::canonicalize(p.as_ref())).await {

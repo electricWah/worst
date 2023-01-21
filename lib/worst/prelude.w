@@ -1,7 +1,16 @@
 
 ; Not really a standard library, more like a random bag of helpful stuff
 
-define default-attributes []
+[
+    upquote ; name
+    upquote ; body
+    quote definitions-all uplevel
+    value-append-definitions
+    swap
+    quote definition-add uplevel
+]
+definitions-all value-append-definitions
+quote define definition-add
 
 define ' [ upquote ]
 ; updo thing => quote thing uplevel
@@ -11,33 +20,145 @@ define do [ upquote updo eval ]
 ; value const name -> define name [value]
 define const [ value->constant upquote updo definition-add ]
 
+define define [
+    upquote list? if [ updo upquote ] [ [] swap ]
+    const name
+    const attrs
+
+    upquote
+    quote definitions-all uplevel value-append-definitions
+    const body
+    
+    ; eval attrs: body name -> body name
+    body name
+    [ #t const definition-attributes ] attrs list-append
+    updo eval
+    const name
+    const body
+
+    body name
+    quote definition-add uplevel
+]
+
+; define (dispatch (cond: -> bool)) name [ body ]
+; => define name [ cond if [ body ] [ previous definition for name ] ]
+define dispatch [
+    upquote const dispatch-case
+    const name
+    const body
+    name updo definition-resolve const prev
+    prev not not const any-prev
+
+    ; new-def checks dispatch-case and picks body or prev to eval at same level
+    define new-def [
+        dispatch-case eval if [ body ] [
+            any-prev if [ prev ] [
+                (no-matching-dispatch)
+                name list-push
+                list-reverse
+                error
+            ]
+        ]
+        quote eval uplevel
+    ]
+
+    quote new-def definition-resolve name
+]
+
+; define (recursive) infinite-loop [ infinite-loop ]
+; attribute: define self within body to enable recursive calls
+; works funny when there's an existing definition with the same name!
+define recursive [
+    const name
+    const body
+
+    define recursive-call [
+        name dynamic-resolve-any
+        quote eval uplevel
+    ]
+
+    body
+    name
+    quote recursive-call definition-resolve
+    value-set-not-dynamic-resolvable ; lol
+    value-definition-add
+
+    name
+]
+
+define list-iter [
+    upquote const body
+    const list
+    list list-length const len
+    0 while (clone len i64-compare -1 i64-equal) [ ; lt
+        const n
+        list n list-get
+        body quote eval quote uplevel uplevel
+        n 1 i64-add
+    ] drop
+]
+
+; define (with-dynamics (a b)) def (... a ... b ...)
+; in def, treat given definitions as dynamic
+; useful for e.g. mutually recursive defs
+define with-dynamics [
+    const name
+    const body
+
+    upquote const dynamics
+
+    body
+    dynamics list-iter [
+        const def
+        define dynamic-call [
+            def dynamic-resolve-any
+            quote eval uplevel
+        ]
+        def quote dynamic-call definition-resolve
+        value-set-not-dynamic-resolvable ; lol
+        value-definition-add
+    ]
+
+    name
+]
+
+; a b and2? (a -> a bool) (b -> b bool) -> a b bool
+; do both predicates return true on the top two values?
+define and2? [
+    upquote const predA
+    upquote const predB
+    const b
+    predA eval if [ b predB eval ] [ b #f ]
+]
+
 ; a b clone2 => a b a b
 define clone2 [ swap clone dig clone bury ]
 
 define equal [ drop drop #f ]
-define (dispatch ((i64? i64?) stack-matches?)) equal [ i64-equal ]
-define (dispatch ((f64? f64?) stack-matches?)) equal [ f64-equal ]
-define (dispatch ((string? string?) stack-matches?)) equal [ string-equal ]
-define (dispatch ((symbol? symbol?) stack-matches?)) equal [ symbol-equal ]
-define (dispatch ((bool? bool?) stack-matches?)) equal [ bool-equal ]
 
-define (dispatch ((i64? i64?) stack-matches?)) compare [ i64-compare ]
-define (dispatch ((f64? f64?) stack-matches?)) compare [ f64-compare ]
-define (dispatch ((string? string?) stack-matches?)) compare [ string-compare ]
+define (dispatch (and2? i64? i64?)) equal [ i64-equal ]
+define (dispatch (and2? f64? f64?)) equal [ f64-equal ]
+define (dispatch (and2? string? string?)) equal [ string-equal ]
+define (dispatch (and2? symbol? symbol?)) equal [ symbol-equal ]
+define (dispatch (and2? bool? bool?)) equal [ bool-equal ]
+
+define (dispatch (and2? i64? i64?)) compare [ i64-compare ]
+define (dispatch (and2? f64? f64?)) compare [ f64-compare ]
+define (dispatch (and2? string? string?)) compare [ string-compare ]
 
 define le [compare 1 equal not]
 define lt [compare -1 equal]
 define ge [compare -1 equal not]
 define gt [compare 1 equal]
 
-define (dispatch ((i64? i64?) stack-matches?)) add [ i64-add ]
-define (dispatch ((f64? f64?) stack-matches?)) add [ f64-add ]
-define (dispatch ((i64? i64?) stack-matches?)) sub [ i64-sub ]
-define (dispatch ((f64? f64?) stack-matches?)) sub [ f64-sub ]
-define (dispatch ((i64? i64?) stack-matches?)) mul [ i64-mul ]
-define (dispatch ((f64? f64?) stack-matches?)) mul [ f64-mul ]
-define (dispatch ((i64? i64?) stack-matches?)) div [ i64-div ]
-define (dispatch ((f64? f64?) stack-matches?)) div [ f64-div ]
+define (dispatch (and2? i64? i64?)) add [ i64-add ]
+define (dispatch (and2? f64? f64?)) add [ f64-add ]
+define (dispatch (and2? i64? i64?)) sub [ i64-sub ]
+define (dispatch (and2? f64? f64?)) sub [ f64-sub ]
+define (dispatch (and2? i64? i64?)) mul [ i64-mul ]
+define (dispatch (and2? f64? f64?)) mul [ f64-mul ]
+define (dispatch (and2? i64? i64?)) div [ i64-div ]
+define (dispatch (and2? f64? f64?)) div [ f64-div ]
 
 define (dispatch (i64?)) negate [ i64-negate ]
 define (dispatch (f64?)) negate [ f64-negate ]
@@ -58,20 +179,8 @@ define bool-and [ if [ ] [ drop #f ] ]
 define bool-and? [ clone2 bool-and ] ; idk
 define bool-or [ if [ drop #t ] [ ] ]
 
-define list-iter [
-    upquote const body
-    const list
-    list list-length const len
-    0 while (clone len lt) [
-        const n
-        list n list-get
-        body quote eval quote uplevel uplevel
-        n 1 i64-add
-    ] drop
-]
-
-define (dispatch ((list? list?) stack-matches?)) append [ list-append ]
-define (dispatch ((string? string?) stack-matches?)) append [ string-append ]
+define (dispatch (and2? list? list?)) append [ list-append ]
+define (dispatch (and2? string? string?)) append [ string-append ]
 
 define (dispatch (list?)) length [ list-length ]
 define (dispatch (bytevector?)) length [ bytevector-length ]
@@ -82,8 +191,8 @@ define (dispatch (bool?)) value->string [if ["#t"] ["#f"]]
 define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
-define (dispatch (file-port?)) value->string [drop "<file-port>"]
-define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
+; define (dispatch (file-port?)) value->string [drop "<file-port>"]
+; define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
 
 define (dispatch (builtin?)) value->string [
     builtin-name false? if [ drop "<builtin>" ] [
@@ -91,8 +200,10 @@ define (dispatch (builtin?)) value->string [
     ]
 ]
 
-define (recursive dispatch (list?)) value->string [
+define (with-dynamics (value->string) dispatch (list?)) value->string [
+    ; stdout-port swap stdout-port-write-string stdout-port-flush drop drop
     "(" "" dig list-iter [
+        ; quote value->string dynamic-resolve-any list-pop println
         value->string
         ; concat accumulator with either "" or previous trailing " "
         bury string-append swap
@@ -101,11 +212,12 @@ define (recursive dispatch (list?)) value->string [
     ; drop trailing " " or semi-sacrificial ""
     drop ")" string-append
 ]
-define (dispatch (bytevector?)) value->string [
-    length const len
-    "[" len value->string append " bytes]" append
-    swap drop
-]
+
+;define (dispatch (bytevector?)) value->string [
+;    length const len
+;    "[" len value->string append " bytes]" append
+;    swap drop
+;]
 
 define (dispatch (file-port?)) port->string [ file-port->string ]
 define (dispatch (embedded-file-port?)) port->string [ embedded-file-port->string ]
@@ -156,5 +268,38 @@ define feature-enabled? [
     #f features-enabled list-iter [ name equal if [ drop #t ] [ ] ]
 ]
 
-export #t
+(test ("test" (1 2 3))) println
+
+
+import {
+    worst/prelude
+    worst/doc
+    syntax/case
+}
+
+command-line-arguments list-pop drop ; $0
+case [
+    (list-empty?) {
+        drop
+        import ui
+        worst-repl
+    }
+    ; TODO check file exists or is a module
+    #t {
+        list-pop swap drop
+        const path
+        path
+        string->fs-path
+        file-open-options file-open-options-set-read
+        file-open
+        false? if [
+            ; TODO nicer error
+            drop path pause
+        ] [
+            ; TODO load module
+            read-port->list eval
+        ]
+    }
+]
+
 

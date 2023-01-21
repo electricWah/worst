@@ -49,9 +49,9 @@ impl From<&str> for Symbol {
 
 impl Value for Symbol {}
 
-impl hash::Hash for Symbol {
-    fn hash<T: hash::Hasher>(&self, h: &mut T) {
-        h.write_u64(self.hash);
-    }
-}
+// impl hash::Hash for Symbol {
+//     fn hash<T: hash::Hasher>(&self, h: &mut T) {
+//         h.write_u64(self.hash);
+//     }
+// }
 
