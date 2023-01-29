@@ -5,7 +5,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle, DefScope};
+use crate::interp2::*;
+use crate::builtins::util::*;
 
 // TODO no wrapper, just use Interpreter directly and wrap in a place in worst
 #[derive(Clone, Default)]
@@ -14,70 +15,94 @@ impl Value for Interp {}
 
 /// Install all the interpreter functions.
 pub fn install(i: &mut Interpreter) {
-    i.define("interpreter-empty", |mut i: Handle| async move {
-        i.stack_push(Interp::default()).await;
-    });
-    i.define("interpreter-run",  |mut i: Handle| async move {
-        let interp = i.stack_top::<Interp>().await;
+    i.add_builtin("interpreter?", type_predicate::<Interp>);
+    i.add_builtin("interpreter-empty", make_default::<Interp>);
+    i.add_builtin("interpreter-run",  |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
         let r = interp.as_ref().0.borrow_mut().run();
         match r {
-            None => i.stack_push(true).await,
-            Some(e) => {
-                i.stack_push(e).await;
-                i.stack_push(false).await;
-            },
+            Ok(()) => i.stack_push(true),
+            Err(e) => i.stack_push(e),
         }
+        Ok(())
     });
-    i.define("interpreter-reset",  |i: Handle| async move {
-        let interp = i.stack_top::<Interp>().await;
+    i.add_builtin("interpreter-complete?",  |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
+        i.stack_push(interp.as_ref().0.borrow().is_complete());
+        Ok(())
+    });
+    i.add_builtin("interpreter-reset",  |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
         interp.as_ref().0.borrow_mut().reset();
+        Ok(())
     });
-    i.define("interpreter-stack-length",  |mut i: Handle| async move {
-        let interp = i.stack_top::<Interp>().await;
+    i.add_builtin("interpreter-stack-length",  |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
         let len = interp.as_ref().0.borrow().stack_ref().len();
-        i.stack_push(len as i64).await;
+        i.stack_push(len as i64);
+        Ok(())
     });
-    i.define("interpreter-stack-push",  |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
-        let interp = i.stack_top::<Interp>().await;
+    i.add_builtin("interpreter-stack-push",  |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        let interp = i.stack_top::<Interp>()?;
         interp.as_ref().0.borrow_mut().stack_push(v);
+        Ok(())
     });
-    i.define("interpreter-stack-pop",  |mut i: Handle| async move {
-        let interp = i.stack_top::<Interp>().await;
-        let v = interp.as_ref().0.borrow_mut().stack_ref_mut().pop().unwrap_or_else(|| false.into());
-        i.stack_push(v).await;
+    i.add_builtin("interpreter-stack-pop",  |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
+        let v = interp.as_ref().0.borrow_mut().stack_pop_val();
+        i.stack_push_result(v);
+        Ok(())
     });
-    i.define("interpreter-stack-get",  |mut i: Handle| async move {
-        let interp = i.stack_top::<Interp>().await;
+    i.add_builtin("interpreter-stack-get",  |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
         let s = interp.as_ref().0.borrow_mut().stack_ref().clone();
-        i.stack_push(s).await;
+        i.stack_push(s);
+        Ok(())
     });
-    i.define("interpreter-definition-add", |mut i: Handle| async move {
-        let def = i.stack_pop_val().await;
-        let name = i.stack_pop::<Symbol>().await.into_inner();
-        let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().0.borrow_mut().add_definition(name, def, DefScope::Local);
+    i.add_builtin("interpreter-definition-add", |i: &mut Interpreter| {
+        let def = i.stack_pop_val()?;
+        let name = i.stack_pop::<Symbol>()?.into_inner();
+        let interp = i.stack_top::<Interp>()?;
+        interp.as_ref().0.borrow_mut().add_definition(name, def);
+        Ok(())
     });
-    i.define("interpreter-definition-remove", |mut i: Handle| async move {
-        let name = i.stack_pop::<Symbol>().await;
-        let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().0.borrow_mut().definition_remove(name.as_ref());
+    i.add_builtin("interpreter-prepend-definitions", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefSet>()?;
+        let interp = i.stack_top::<Interp>()?;
+        interp.as_ref().0.borrow_mut().defenv_mut().prepend(defs.as_ref());
+        Ok(())
     });
-    i.define("interpreter-eval-next", |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
-        let interp = i.stack_top::<Interp>().await;
-        interp.as_ref().0.borrow_mut().eval_next(v);
+    i.add_builtin("interpreter-local-definitions", |i: &mut Interpreter| {
+        let interp = i.stack_top::<Interp>()?;
+        let defs = interp.as_ref().0.borrow().local_definitions().clone();
+        i.stack_push(defs);
+        Ok(())
     });
-    i.define("interpreter-body-push",  |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
-        let interp = i.stack_top::<Interp>().await;
+    // i.add_builtin("interpreter-definition-remove", |i: &mut Interpreter| {
+    //     let name = i.stack_pop::<Symbol>()?;
+    //     let interp = i.stack_top::<Interp>()?;
+    //     interp.as_ref().0.borrow_mut().definition_remove(name.as_ref());
+    //     Ok(())
+    // });
+    i.add_builtin("interpreter-eval-list-next", |i: &mut Interpreter| {
+        let v = i.stack_pop::<List>()?;
+        let interp = i.stack_top::<Interp>()?;
+        interp.as_ref().0.borrow_mut().eval_list_next(v);
+        Ok(())
+    });
+    i.add_builtin("interpreter-body-push",  |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        let interp = i.stack_top::<Interp>()?;
         interp.as_ref().0.borrow_mut().body_mut().push(v);
+        Ok(())
     });
-    i.define("interpreter-body-prepend",  |mut i: Handle| async move {
-        let body = i.stack_pop::<List>().await.into_inner();
-        let interp = i.stack_pop::<Interp>().await;
+    i.add_builtin("interpreter-body-prepend",  |i: &mut Interpreter| {
+        let body = i.stack_pop::<List>()?.into_inner();
+        let interp = i.stack_pop::<Interp>()?;
         interp.as_ref().0.borrow_mut().body_mut().prepend(body);
-        i.stack_push(interp).await;
+        i.stack_push(interp);
+        Ok(())
     });
 }
 

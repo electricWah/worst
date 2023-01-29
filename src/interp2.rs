@@ -92,6 +92,14 @@ impl Interpreter {
         i
     }
 
+    /// Make the interpreter stop doing things,
+    /// but leave its toplevel definitions intact.
+    pub fn reset(&mut self) {
+        while self.enter_parent_frame().is_ok() {}
+        self.frame.childs = vec![];
+        self.frame.body = List::default();
+    }
+
     /// Check if there is anything else left to evaluate.
     pub fn is_complete(&self) -> bool {
         self.frame.is_empty() && self.parents.is_empty()
@@ -202,6 +210,14 @@ impl Interpreter {
 
     /// Get all local definitions.
     pub fn local_definitions(&self) -> &DefSet { &self.frame.locals }
+    /// Get a mutable reference to the local definition set.
+    pub fn locals_mut(&mut self) -> &mut DefSet { &mut self.frame.locals }
+
+    /// Get the environment definition set for the current stack frame.
+    pub fn defenv_ref(&self) -> &DefSet { &self.frame.defenv }
+    /// Get a mutable reference to the environment definition set
+    /// for the current stack frame.
+    pub fn defenv_mut(&mut self) -> &mut DefSet { &mut self.frame.defenv }
 
     // maybe all of these should be within List
     // and just have stack_ref and stack_mut
@@ -244,6 +260,13 @@ impl Interpreter {
         ])))
     }
 
+    /// Get the top thing off the stack without popping it,
+    /// if it has the given type
+    pub fn stack_top<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
+        let v = self.stack_pop::<T>()?;
+        self.stack_push(v.clone());
+        Ok(v)
+    }
     /// Get a mutable reference to the remaining code in the current stack frame.
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
 

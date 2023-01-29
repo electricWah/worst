@@ -6,19 +6,19 @@ use std::io::{ Read, Write };
 // use std::hash::Hash;
 // use std::collections::hash_map::DefaultHasher;
 use crate::base::*;
-use crate::interp2;
-use crate::interpreter::Handle;
+use crate::interp2::*;
 
 /// Make a builtin that pushes default() to the stack
-pub async fn make_default<T: Value + Default>(mut i: Handle) {
-    i.stack_push(T::default()).await;
+pub fn make_default<T: Value + Default>(i: &mut Interpreter) -> BuiltinRet {
+    i.stack_push(T::default());
+    Ok(())
 }
 
 /// Type predicate wrapper, e.g.
 /// ```ignore
 /// i.add_builtin("string?", type_predicate::<String>);
 /// ```
-pub fn type_predicate<T: Value>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn type_predicate<T: Value>(i: &mut Interpreter) -> BuiltinRet {
     let v = i.stack_top_val()?;
     i.stack_push(v.is::<T>());
     Ok(())
@@ -28,7 +28,7 @@ pub fn type_predicate<T: Value>(i: &mut interp2::Interpreter) -> interp2::Builti
 /// ```ignore
 /// i.define("string-equal", equality::<String>);
 /// ```
-pub fn equality<T: Value + PartialEq>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn equality<T: Value + PartialEq>(i: &mut Interpreter) -> BuiltinRet {
     let b = i.stack_pop::<T>()?;
     let a = i.stack_pop::<T>()?;
     i.stack_push(a.as_ref() == b.as_ref());
@@ -42,7 +42,7 @@ pub fn equality<T: Value + PartialEq>(i: &mut interp2::Interpreter) -> interp2::
 /// a b comparison ->
 /// -1 when a < b, 0 when a == b, 1 when a > b,
 /// false when unavailable
-pub fn comparison<T: Value + PartialOrd>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn comparison<T: Value + PartialOrd>(i: &mut Interpreter) -> BuiltinRet {
     let b = i.stack_pop::<T>()?;
     let a = i.stack_pop::<T>()?;
     i.stack_push_option(a.as_ref().partial_cmp(b.as_ref()).map(|o| o as i64));
@@ -57,7 +57,7 @@ pub fn comparison<T: Value + PartialOrd>(i: &mut interp2::Interpreter) -> interp
 /// ; i64 i64->string -> string
 /// 11 i64->string ; -> "11"
 /// ```
-pub fn value_tostring_debug<T: Value + Debug>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn value_tostring_debug<T: Value + Debug>(i: &mut Interpreter) -> BuiltinRet {
     let v = i.stack_pop::<T>()?;
     i.stack_push(format!("{:?}", v.as_ref()));
     Ok(())
@@ -104,7 +104,7 @@ pub fn bytes_range_mut(bytes: &mut [u8], start: i64, end: i64) -> &mut [u8] {
 
 /// Given an [io::Result], either return its `Ok` arm or put the error on the stack.
 /// You should push one value to the stack in the `Some` return case.
-pub fn or_io_error<T>(i: &mut interp2::Interpreter, e: std::io::Result<T>) -> Option<T> {
+pub fn or_io_error<T>(i: &mut Interpreter, e: std::io::Result<T>) -> Option<T> {
     match e {
         Ok(v) => Some(v),
         Err(e) => {
@@ -114,12 +114,17 @@ pub fn or_io_error<T>(i: &mut interp2::Interpreter, e: std::io::Result<T>) -> Op
     }
 }
 
+/// Use `map_err(io_error)` to turn a [std::io::Result] into a [BuiltinRet].
+pub fn io_error(e: std::io::Error) -> Val {
+    IsError::add(format!("{}", e))
+}
+
 /// Slurp entire port (i.e. until eof) into a string.
 /// Pops a `T` and pushes the result,
 /// either the string itself on success,
 /// or an `error?` value on failure
 /// (currently the string representation of the error).
-pub fn port_to_string<T: Value + Read + Clone>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn port_to_string<T: Value + Read + Clone>(i: &mut Interpreter) -> BuiltinRet {
     let mut read = i.stack_pop::<T>()?;
     let mut s = String::new();
     if let Some(_count) = or_io_error(i, read.as_mut().read_to_string(&mut s)) {
@@ -132,7 +137,7 @@ pub fn port_to_string<T: Value + Read + Clone>(i: &mut interp2::Interpreter) -> 
 /// Creates a builtin with the following signature:
 /// `port bytevector start end port-read-bytevector-range -> port bytevector read-count-or-error`
 /// See [bytes_range_mut] for da rulez.
-pub fn port_read_range<T: Value + Read + Clone>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn port_read_range<T: Value + Read + Clone>(i: &mut Interpreter) -> BuiltinRet {
     let end = i.stack_pop::<i64>()?.into_inner();
     let start = i.stack_pop::<i64>()?.into_inner();
     let mut bytevector = i.stack_pop::<Vec<u8>>()?;
@@ -154,7 +159,7 @@ pub fn port_read_range<T: Value + Read + Clone>(i: &mut interp2::Interpreter) ->
 /// Creates a builtin with the following signature:
 /// `port bytevector start end port-write-bytevector-range -> port bytevector write-count-or-error`
 /// See [bytes_range_mut] for da rulez.
-pub fn port_write_range<T: Value + Write + Clone>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn port_write_range<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
     let end = i.stack_pop::<i64>()?.into_inner();
     let start = i.stack_pop::<i64>()?.into_inner();
     let bytevector = i.stack_pop::<Vec<u8>>()?;
@@ -175,7 +180,7 @@ pub fn port_write_range<T: Value + Write + Clone>(i: &mut interp2::Interpreter) 
 /// Creates a builtin with the following signature:
 /// `port string port-write-string -> port`
 // TODO handle write failure
-pub fn port_write_string<T: Value + Write + Clone>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn port_write_string<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
     let str = i.stack_pop::<String>()?;
     let mut port = i.stack_pop::<T>()?;
     let _todo_handle = port.as_mut().write(str.as_ref().as_ref()).unwrap();
@@ -185,7 +190,7 @@ pub fn port_write_string<T: Value + Write + Clone>(i: &mut interp2::Interpreter)
 
 /// Flush an output port.
 /// `port port-flush -> port true-or-error`
-pub fn port_flush<T: Value + Write + Clone>(i: &mut interp2::Interpreter) -> interp2::BuiltinRet {
+pub fn port_flush<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
     let mut p = i.stack_pop::<T>()?;
     let r = p.as_mut().flush();
     i.stack_push(p);

@@ -3,6 +3,7 @@
 
 use crate::base::*;
 use crate::interp2::*;
+use crate::builtins::util;
 
 // mod dispatch;
 // mod dynamic;
@@ -36,7 +37,9 @@ pub fn install(i: &mut Interpreter) {
 
     // defset stuff
 
-    // predicate definition-set?
+    i.add_builtin("definitions?", util::type_predicate::<DefSet>);
+    i.add_builtin("definitions-empty", util::make_default::<DefSet>);
+
     i.add_builtin("definitions-local", |i: &mut Interpreter| {
         let defs = i.local_definitions();
         i.stack_push(defs.clone());
@@ -53,6 +56,31 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(List::from_pairs(pairs));
         Ok(())
     });
+    i.add_builtin("definitions-insert", |i: &mut Interpreter| {
+        let def = i.stack_pop_val()?;
+        let name = i.stack_pop::<Symbol>()?.into_inner();
+        let mut defs = i.stack_pop::<DefSet>()?;
+        defs.as_mut().insert(name.to_string(), def);
+        i.stack_push(defs);
+        Ok(())
+    });
+    i.add_builtin("definitions-append", |i: &mut Interpreter| {
+        let b = i.stack_pop::<DefSet>()?;
+        let mut a = i.stack_pop::<DefSet>()?;
+        a.as_mut().append(b.as_ref());
+        i.stack_push(a);
+        Ok(())
+    });
+    i.add_builtin("definitions-append-locals", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefSet>()?;
+        i.locals_mut().append(defs.as_ref());
+        Ok(())
+    });
+    i.add_builtin("definitions-append-defenv", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefSet>()?;
+        i.defenv_mut().append(defs.as_ref());
+        Ok(())
+    });
 
     i.add_builtin("value-has-definitions", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
@@ -62,7 +90,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("value-append-definitions", |i: &mut Interpreter| {
         let defs = i.stack_pop::<DefSet>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        DefSet::upsert_val(&mut v, |ds| ds.append(&defs));
+        DefSet::upsert_meta(v.meta_mut(), |ds| ds.append(&defs));
         i.stack_push(v);
         Ok(())
     });
@@ -72,7 +100,7 @@ pub fn install(i: &mut Interpreter) {
         let def = i.stack_pop_val()?;
         let name = i.stack_pop::<Symbol>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        DefSet::upsert_val(&mut v, |ds| ds.insert(name.to_string(), def));
+        DefSet::upsert_meta(v.meta_mut(), |ds| ds.insert(name.to_string(), def));
         i.stack_push(v);
         Ok(())
     });
@@ -101,6 +129,25 @@ pub fn install(i: &mut Interpreter) {
                     "dynamic-resolve-any".to_symbol().into(),
                     name.into(),
                 ]))?;
+                break;
+            }
+        }
+        Ok(())
+    });
+
+    // try resolving def in locals, then recursively uplevel until found
+    // or false + error
+    i.add_builtin("dynamic-resolve-local", |i: &mut Interpreter| {
+        let name = i.stack_pop::<Symbol>()?;
+        loop {
+            if let Some(def) = i.local_definitions().get(name.as_ref()) {
+                if !def.meta_ref().contains::<NotDynamicResolvable>() {
+                    i.stack_push(def.clone());
+                    break;
+                }
+            }
+            if i.enter_parent_frame().is_err() {
+                i.stack_push(IsError::add(false));
                 break;
             }
         }

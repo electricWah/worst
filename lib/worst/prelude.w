@@ -43,7 +43,10 @@ define define [
 ; define (dispatch (cond: -> bool)) name [ body ]
 ; => define name [ cond if [ body ] [ previous definition for name ] ]
 define dispatch [
-    upquote const dispatch-case
+    upquote
+    quote definitions-all uplevel value-append-definitions
+    const dispatch-case
+
     const name
     const body
     name updo definition-resolve const prev
@@ -191,6 +194,7 @@ define (dispatch (bool?)) value->string [if ["#t"] ["#f"]]
 define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
+define (dispatch (interpreter?)) value->string [drop "<interpreter>"]
 ; define (dispatch (file-port?)) value->string [drop "<file-port>"]
 ; define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
 
@@ -201,9 +205,7 @@ define (dispatch (builtin?)) value->string [
 ]
 
 define (with-dynamics (value->string) dispatch (list?)) value->string [
-    ; stdout-port swap stdout-port-write-string stdout-port-flush drop drop
     "(" "" dig list-iter [
-        ; quote value->string dynamic-resolve-any list-pop println
         value->string
         ; concat accumulator with either "" or previous trailing " "
         bury string-append swap
@@ -218,9 +220,6 @@ define (with-dynamics (value->string) dispatch (list?)) value->string [
 ;    "[" len value->string append " bytes]" append
 ;    swap drop
 ;]
-
-define (dispatch (file-port?)) port->string [ file-port->string ]
-define (dispatch (embedded-file-port?)) port->string [ embedded-file-port->string ]
 
 ; true only within the attributes clause of a define form
 define in-definition-attributes [ quote definition-attributes dynamic-resolve ]
@@ -250,32 +249,120 @@ define min [ clone2 lt if [] [swap] drop ]
 ;     ]
 ; ]
 
-define (dispatch (embedded-file-port?))
-port->string [ embedded-file-port->string ]
-define (dispatch (file-port?))
-port->string [ file-port->string ]
-
-define read-port->list [ port->string read-string->list ]
-
 define print [ stdout-port swap stdout-port-write-string stdout-port-flush drop drop ]
 define print-value [ value->string print ]
 define println [ value->string "\n" string-append print ]
+
+define port->string [ println #f error ]
+define (dispatch (file-port?)) port->string [ file-port->string ]
+define (dispatch (embedded-file-port?)) port->string [ embedded-file-port->string ]
+define read-port->list [ port->string read-string->list ]
 
 define read-line [ stdin-port-read-line ]
 
 define feature-enabled? [
     upquote const name
-    #f features-enabled list-iter [ name equal if [ drop #t ] [ ] ]
+    #f features-enabled list-iter [
+        name equal if [ drop #t ] [ ]
+    ]
 ]
 
-(test ("test" (1 2 3))) println
+feature-enabled? os
+if [ "WORST_LIBPATH" environment-variable ":" string-split ] [ () ]
+const WORST_LIBPATH
 
+define export [
+    upquote
+    list? if [] [ () swap list-push ]
+    const exports
+    quote module-exports dynamic-resolve-any
+    false? if [ "export: not in a module" error ] [
+        const module-exports
+        module-exports place-get
+        exports list-iter [
+            const x
+            x dynamic-resolve-local false? if [
+                "export: not defined: " x value->string string-append
+                clone println error
+            ] [ ]
+            const def
+            x def definitions-insert
+        ]
+        module-exports swap place-set
+    ]
+]
 
-import {
-    worst/prelude
-    worst/doc
-    syntax/case
-}
+; TODO just use dynamics
+; TODO also rename defenv -> ambient
+definitions-all const current-default-module-definitions
+define default-module-definitions [
+    quote current-default-module-definitions updo dynamic-resolve-local
+    false? if [ drop current-default-module-definitions ] [ eval ]
+]
+define import [
+    definitions-empty make-place const all-imports
+    upquote
+    list? if [] [ () swap list-push ]
+    list-iter [
+        symbol? if [
+            symbol->string const modname
+            #f
+            ; maybe check feature-enabled? os
+            WORST_LIBPATH list-iter [
+                const path
+                false? if [
+                    drop
+                    path string->fs-path
+                    modname ".w" string-append string->fs-path
+                    fs-path-concat
+                    file-open-options file-open-options-set-read
+                    ; try opening
+                    file-open error? if [ drop #f ] [ ]
+                ] []
+            ]
+            false? if [
+                ; still not found, try embedded
+                drop
+                modname ".w" string-append string->fs-path
+                embedded-file-open
+                error? if [ ] [ embedded-file-port->string ]
+            ] [
+                file-port->string
+            ]
+            false? if [ modname "not-found" error ] [
+            ]
+            read-string->list const modbody
+            definitions-empty make-place const module-exports
+            interpreter-empty
+            default-module-definitions
+            quote module-exports module-exports definitions-insert
+            interpreter-prepend-definitions
+            modbody interpreter-eval-list-next
+            interpreter-run
+            const ret
+            interpreter-complete? if [
+                ; TODO caching
+                drop
+                module-exports place-get
+                all-imports place-get
+                swap definitions-append
+                all-imports swap place-set
+            ] [
+                "Error in " print modname value->string print ": " print
+                ret value->string println
+                (module error) error
+            ]
+        ] [ "import non-symbol" TODO ]
+    ]
+    all-imports place-get
+    updo definitions-append-locals
+]
+definitions-all const current-default-module-definitions
+
+import worst/doc
+definitions-all const current-default-module-definitions
+
+import syntax/case
 
 command-line-arguments list-pop drop ; $0
 case [
@@ -301,5 +388,4 @@ case [
         ]
     }
 ]
-
 

@@ -60,8 +60,10 @@ define worst-repl [
             list-reverse
             interp swap interpreter-body-prepend
             while [
-                interpreter-run if [ drop #f ] [
-                    error? if [
+                interpreter-run
+                const paused
+                interpreter-complete? if [ #f ] [
+                    paused error? if [
                         equals? ' quote-nothing if [ drop ] [
                             ansi [ bright red fg value->string print reset ]
                             "\n" print

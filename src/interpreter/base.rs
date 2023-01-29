@@ -32,7 +32,7 @@ pub type YieldReturn<T> = Rc<Cell<Option<T>>>;
 // }
 
 /// A scope to specify where to get or add definitions.
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub enum DefScope {
     /// Local definitions start out empty.
     Local,

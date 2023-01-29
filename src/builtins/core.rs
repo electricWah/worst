@@ -233,10 +233,10 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.add_builtin("bool?", util::type_predicate::<bool>);
-    // i.add_builtin("bool-equal", util::equality::<bool>);
+    i.add_builtin("bool-equal", util::equality::<bool>);
     // i.add_builtin("bool-hash", util::value_hash::<bool>);
     i.add_builtin("symbol?", util::type_predicate::<Symbol>);
-    // i.add_builtin("symbol-equal", util::equality::<Symbol>);
+    i.add_builtin("symbol-equal", util::equality::<Symbol>);
     // i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
     i.add_builtin("builtin?", util::type_predicate::<Builtin>);
@@ -245,6 +245,12 @@ pub fn install(i: &mut Interpreter) {
     //     i.stack_push_option(Val::from(b).meta_ref().first_ref::<DefineMeta>()
     //                         .and_then(|m| m.name.as_ref()).map(|s| s.clone().to_symbol()));
     // });
+
+    i.add_builtin("value-meta", |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        i.stack_push(v.meta_ref().clone());
+        Ok(())
+    });
 
     i.add_builtin("value-set-error", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
