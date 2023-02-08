@@ -15,7 +15,8 @@ define list-iterate [
 
 ; [l...] list-map [ body : l -> l' ] -> [l' ...]
 define list-map [
-    upquote updo value-inherit-all-definitions
+    upquote
+    updo current-defenv value-set-defenv
     const %body
     [] swap ; acc
     list-iter [
@@ -25,11 +26,14 @@ define list-map [
     ]
     list-reverse
 ]
+export list-map
 
 ; list list-find-index [element -> bool] -> i64|false
 ; (index of first element satisfying the function)
 define list-find-first-index [
-    upquote updo value-inherit-all-definitions const filter
+    upquote
+    updo current-defenv value-set-defenv
+    const filter
 
     const list
     list list-length const len
@@ -45,6 +49,7 @@ define list-find-first-index [
     ] []
     false? if [drop drop #f] []
 ]
+export list-find-first-index
 
 ; [a b b c d e e e f b a] list-deduplicate-sequential -> [a b c d e f b a]
 ; Uses equal to squash runs of equal values into one
@@ -66,6 +71,7 @@ define list-deduplicate-sequential [
         list-reverse first list-push
     ]
 ]
+export list-deduplicate-sequential
 
 ; v [ v1 v2 v3 ... ] -> (whether any vN == v)
 define list-member [
@@ -221,7 +227,8 @@ define list-gtsort [
 
 ; [list...] list-merge-sort-lt [ a b -> a b lt ] -> [sorted ascending list...]
 define list-merge-sort-lt [
-    upquote updo value-inherit-all-definitions const compare
+    upquote updo current-defenv value-set-defenv const compare
+
     define (recursive) list-split-merge [
         clone list-length
         lt? 2 if [ drop ] [
@@ -322,6 +329,5 @@ define list-set-differsection [
     in-b list-b list-append
     in-both
 ]
-
-export #t
+export list-set-differsection
 

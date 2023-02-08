@@ -60,31 +60,14 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(s);
         Ok(())
     });
-    i.add_builtin("interpreter-definition-add", |i: &mut Interpreter| {
-        let def = i.stack_pop_val()?;
-        let name = i.stack_pop::<Symbol>()?.into_inner();
+
+    i.add_builtin("interpreter-defenv-set", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefEnv>()?;
         let interp = i.stack_top::<Interp>()?;
-        interp.as_ref().0.borrow_mut().add_definition(name, def);
+        *interp.as_ref().0.borrow_mut().defenv_mut() = defs.into_inner();
         Ok(())
     });
-    i.add_builtin("interpreter-prepend-definitions", |i: &mut Interpreter| {
-        let defs = i.stack_pop::<DefSet>()?;
-        let interp = i.stack_top::<Interp>()?;
-        interp.as_ref().0.borrow_mut().defenv_mut().prepend(defs.as_ref());
-        Ok(())
-    });
-    i.add_builtin("interpreter-local-definitions", |i: &mut Interpreter| {
-        let interp = i.stack_top::<Interp>()?;
-        let defs = interp.as_ref().0.borrow().local_definitions().clone();
-        i.stack_push(defs);
-        Ok(())
-    });
-    // i.add_builtin("interpreter-definition-remove", |i: &mut Interpreter| {
-    //     let name = i.stack_pop::<Symbol>()?;
-    //     let interp = i.stack_top::<Interp>()?;
-    //     interp.as_ref().0.borrow_mut().definition_remove(name.as_ref());
-    //     Ok(())
-    // });
+
     i.add_builtin("interpreter-eval-list-next", |i: &mut Interpreter| {
         let v = i.stack_pop::<List>()?;
         let interp = i.stack_top::<Interp>()?;

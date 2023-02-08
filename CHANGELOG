@@ -1,6 +1,8 @@
 
 # 0.5
 
+In which the innards are simplified even more.
+
 - Add features-enabled and feature-enabled? to query features from Cargo.toml
 - Add string-split
 - Add list-merge-sort-lt [lt-comparator]
@@ -11,8 +13,9 @@
 - Add list-find-first-index to find a position in a list, given a predicate
 - Add list-deduplicate-sequential
 - Rename interpreter-call to interpreter-eval-next (mirroring eval now, see 0.3)
-- Redo the entire interpreter (lol) (it's simpler now)
-- Remove stack-matches? (replaced by and2? since 2 items was the common case)
+- Redo the entire interpreter (lol) (no more generators)
+- Replace stack-matches? with and2? (2 items is the most common case)
+- Add with-dynamics for mutually recursive definitions or recursive + dispatch
 
 # 0.4 (2022-11-19)
 

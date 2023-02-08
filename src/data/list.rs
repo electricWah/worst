@@ -107,6 +107,12 @@ impl List {
     pub fn first_ref<T: Value>(&self) -> Option<&T> {
         self.iter().find_map(|v| v.downcast_ref::<T>())
     }
+    /// Find the first `T` as a [ValOf].
+    pub fn first_val<T: Value>(&self) -> Option<ValOf<T>> {
+        self.iter().find_map(|v| if v.is::<T>() {
+            ValOf::<T>::try_from(v.clone()).ok()
+        } else { None })
+    }
 
     /// Find and remove the first `T`.
     pub fn take_first<T: Value>(&mut self) -> Option<ValOf<T>> {
@@ -116,6 +122,29 @@ impl List {
             }
         }
         None
+    }
+
+    /// Insert or update a `T` in the list.
+    /// The first T in the list is passed to `f` and updated in-place.
+    /// If there was no `T`, `default` is used and added as the first entry.
+    /// Returns whether it inserted a new T
+    /// (i.e. true if default was used, false if there already was one).
+    pub fn upsert_with<T: Value + Clone>(&mut self, mut default: T,
+                                         f: impl FnOnce(&mut T)) -> bool {
+        if !self.contains::<T>() {
+            f(&mut default);
+            self.push(default);
+            true
+        } else {
+            'find: for v in self.iter_mut() {
+                if v.try_downcast_swap::<T>(&mut default) {
+                    f(&mut default);
+                    v.try_downcast_swap(&mut default);
+                    break 'find;
+                }
+            }
+            false
+        }
     }
 
 }

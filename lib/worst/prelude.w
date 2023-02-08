@@ -4,12 +4,15 @@
 [
     upquote ; name
     upquote ; body
-    quote definitions-all uplevel
-    value-append-definitions
+    quote current-defenv uplevel
+    defset-empty defenv-push-locals
+    value-set-defenv
     swap
     quote definition-add uplevel
 ]
-definitions-all value-append-definitions
+current-defenv
+defset-empty defenv-push-locals
+value-set-defenv
 quote define definition-add
 
 define ' [ upquote ]
@@ -26,7 +29,9 @@ define define [
     const attrs
 
     upquote
-    quote definitions-all uplevel value-append-definitions
+    quote current-defenv uplevel
+    defset-empty defenv-push-locals
+    value-set-defenv
     const body
     
     ; eval attrs: body name -> body name
@@ -44,7 +49,9 @@ define define [
 ; => define name [ cond if [ body ] [ previous definition for name ] ]
 define dispatch [
     upquote
-    quote definitions-all uplevel value-append-definitions
+    quote current-defenv uplevel
+    defset-empty defenv-push-locals
+    value-set-defenv
     const dispatch-case
 
     const name
@@ -71,14 +78,12 @@ define dispatch [
 ; define (recursive) infinite-loop [ infinite-loop ]
 ; attribute: define self within body to enable recursive calls
 ; works funny when there's an existing definition with the same name!
+; TODO probably doesn't work
 define recursive [
     const name
     const body
 
-    define recursive-call [
-        name dynamic-resolve-any
-        quote eval uplevel
-    ]
+    define recursive-call [ name updo dynamic-resolve-any updo eval ]
 
     body
     name
@@ -275,8 +280,8 @@ define export [
     upquote
     list? if [] [ () swap list-push ]
     const exports
-    quote module-exports dynamic-resolve-any
-    false? if [ "export: not in a module" error ] [
+    quote module-exports dynamic-resolve-local
+    false? if [ "export: not in a module" println error ] [
         const module-exports
         module-exports place-get
         exports list-iter [
@@ -286,21 +291,21 @@ define export [
                 clone println error
             ] [ ]
             const def
-            x def definitions-insert
+            x def defset-insert
         ]
-        module-exports swap place-set
+        module-exports swap place-set drop
     ]
 ]
 
-; TODO just use dynamics
-; TODO also rename defenv -> ambient
-definitions-all const current-default-module-definitions
+current-defenv make-place const global-default-module-definitions
 define default-module-definitions [
     quote current-default-module-definitions updo dynamic-resolve-local
-    false? if [ drop current-default-module-definitions ] [ eval ]
+    false? if [
+        drop global-default-module-definitions place-get
+    ] [ eval ]
 ]
 define import [
-    definitions-empty make-place const all-imports
+    defset-empty make-place const all-imports
     upquote
     list? if [] [ () swap list-push ]
     list-iter [
@@ -331,12 +336,17 @@ define import [
             ]
             false? if [ modname "not-found" error ] [
             ]
+            ; read module
             read-string->list const modbody
-            definitions-empty make-place const module-exports
+
+            defset-empty make-place const module-exports
             interpreter-empty
             default-module-definitions
-            quote module-exports module-exports definitions-insert
-            interpreter-prepend-definitions
+            defset-empty
+            quote module-exports module-exports defset-insert
+            defenv-push-locals
+            interpreter-defenv-set
+
             modbody interpreter-eval-list-next
             interpreter-run
             const ret
@@ -345,8 +355,8 @@ define import [
                 drop
                 module-exports place-get
                 all-imports place-get
-                swap definitions-append
-                all-imports swap place-set
+                swap defset-merge
+                all-imports swap place-set drop
             ] [
                 "Error in " print modname value->string print ": " print
                 ret value->string println
@@ -355,12 +365,14 @@ define import [
         ] [ "import non-symbol" TODO ]
     ]
     all-imports place-get
-    updo definitions-append-locals
+    updo current-defenv-pop-locals
+    defset-merge
+    updo current-defenv-push-locals
 ]
-definitions-all const current-default-module-definitions
+global-default-module-definitions current-defenv place-set drop
 
 import worst/doc
-definitions-all const current-default-module-definitions
+global-default-module-definitions current-defenv place-set drop
 
 import syntax/case
 

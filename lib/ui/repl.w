@@ -1,10 +1,8 @@
 
-import {
-    worst/interpreter
-    data/pairs
-}
+import ui/ansi
 
-define (dynamic) standard-worst-prompt [
+; maybe make this dynamic?
+define standard-worst-prompt [
     interpreter-stack-get const stack drop
     ansi [
         green fg
@@ -19,6 +17,7 @@ define (dynamic) standard-worst-prompt [
         reset
     ]
 ]
+export standard-worst-prompt
 
 define worst-repl [
 
@@ -27,7 +26,7 @@ define worst-repl [
     interpreter-empty
     do [
         import ui/help
-        interpreter-inherit-definitions
+        current-defenv interpreter-defenv-set
     ]
     ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp

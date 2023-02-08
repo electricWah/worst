@@ -3,7 +3,6 @@
 
 use crate::base::*;
 use crate::interp2::*;
-use crate::builtins::util;
 
 // mod dispatch;
 // mod dynamic;
@@ -22,8 +21,8 @@ pub fn install(i: &mut Interpreter) {
     });
     i.add_builtin("definition-resolve", |i: &mut Interpreter| {
         let name = i.stack_pop::<Symbol>()?.into_inner();
-        let res = i.resolve_definition(name);
-        i.stack_push_option(res);
+        let res = i.resolve_definition(name.as_ref());
+        i.stack_push_option(res.cloned());
         Ok(())
     });
 
@@ -35,75 +34,28 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    // defset stuff
-
-    i.add_builtin("definitions?", util::type_predicate::<DefSet>);
-    i.add_builtin("definitions-empty", util::make_default::<DefSet>);
-
-    i.add_builtin("definitions-local", |i: &mut Interpreter| {
-        let defs = i.local_definitions();
-        i.stack_push(defs.clone());
-        Ok(())
-    });
-    i.add_builtin("definitions-all", |i: &mut Interpreter| {
-        let defs = i.all_definitions();
-        i.stack_push(defs);
-        Ok(())
-    });
-    i.add_builtin("definitions->pairs", |i: &mut Interpreter| {
-        let defs = i.stack_pop::<DefSet>()?;
-        let pairs = defs.as_ref().iter().map(|(k, v)| (k.to_symbol(), v.clone()));
-        i.stack_push(List::from_pairs(pairs));
-        Ok(())
-    });
-    i.add_builtin("definitions-insert", |i: &mut Interpreter| {
-        let def = i.stack_pop_val()?;
-        let name = i.stack_pop::<Symbol>()?.into_inner();
-        let mut defs = i.stack_pop::<DefSet>()?;
-        defs.as_mut().insert(name.to_string(), def);
-        i.stack_push(defs);
-        Ok(())
-    });
-    i.add_builtin("definitions-append", |i: &mut Interpreter| {
-        let b = i.stack_pop::<DefSet>()?;
-        let mut a = i.stack_pop::<DefSet>()?;
-        a.as_mut().append(b.as_ref());
-        i.stack_push(a);
-        Ok(())
-    });
-    i.add_builtin("definitions-append-locals", |i: &mut Interpreter| {
-        let defs = i.stack_pop::<DefSet>()?;
-        i.locals_mut().append(defs.as_ref());
-        Ok(())
-    });
-    i.add_builtin("definitions-append-defenv", |i: &mut Interpreter| {
-        let defs = i.stack_pop::<DefSet>()?;
-        i.defenv_mut().append(defs.as_ref());
-        Ok(())
-    });
-
-    i.add_builtin("value-has-definitions", |i: &mut Interpreter| {
+    i.add_builtin("value-get-defset", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
-        i.stack_push(v.meta_ref().contains::<DefSet>());
+        i.stack_push_option(v.meta_ref().first_val::<DefSet>());
         Ok(())
     });
-    i.add_builtin("value-append-definitions", |i: &mut Interpreter| {
+    i.add_builtin("value-set-defset", |i: &mut Interpreter| {
         let defs = i.stack_pop::<DefSet>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        DefSet::upsert_meta(v.meta_mut(), |ds| ds.append(&defs));
+        v.meta_mut().push(defs);
         i.stack_push(v);
         Ok(())
     });
 
-    // add a definition to a value's env
-    i.add_builtin("value-definition-add", |i: &mut Interpreter| {
-        let def = i.stack_pop_val()?;
-        let name = i.stack_pop::<Symbol>()?.into_inner();
-        let mut v = i.stack_pop_val()?;
-        DefSet::upsert_meta(v.meta_mut(), |ds| ds.insert(name.to_string(), def));
-        i.stack_push(v);
-        Ok(())
-    });
+    // // add a definition to a value's env
+    // i.add_builtin("value-definition-add", |i: &mut Interpreter| {
+    //     let def = i.stack_pop_val()?;
+    //     let name = i.stack_pop::<Symbol>()?.into_inner();
+    //     let mut v = i.stack_pop_val()?;
+    //     DefSet::upsert_meta(v.meta_mut(), |ds| ds.insert(name.to_string(), def));
+    //     i.stack_push(v);
+    //     Ok(())
+    // });
 
     i.add_builtin("value-set-not-dynamic-resolvable", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
@@ -112,15 +64,16 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
+    // TODO instead redo recursive-dispatch so it doesn't depend on this
     // try resolving def, then recursively uplevel until found
     // dynamic-resolve would just look in locals I guess
     i.add_builtin("dynamic-resolve-any", |i: &mut Interpreter| {
         let name = i.stack_pop::<Symbol>()?;
         loop {
             // i.local_definitions().get(name.as_ref())
-            if let Some(def) = i.resolve_definition(name.as_ref()) {
+            if let Some(def) = i.resolve_definition(name.as_ref().as_ref()) {
                 if !def.meta_ref().contains::<NotDynamicResolvable>() {
-                    i.stack_push(def);
+                    i.stack_push(def.clone());
                     break;
                 }
             }
@@ -140,7 +93,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("dynamic-resolve-local", |i: &mut Interpreter| {
         let name = i.stack_pop::<Symbol>()?;
         loop {
-            if let Some(def) = i.local_definitions().get(name.as_ref()) {
+            if let Some(def) = i.locals_ref().get(name.as_ref().as_ref()) {
                 if !def.meta_ref().contains::<NotDynamicResolvable>() {
                     i.stack_push(def.clone());
                     break;

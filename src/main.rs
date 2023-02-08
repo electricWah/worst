@@ -46,11 +46,14 @@ fn main() -> ExitCode {
             eprint!("\nTop-level error: ");
         }
         basic_printerr(&e);
-        eprintln!();
         eprint!("\nStack: ");
         for v in i.stack_ref().iter() {
             basic_printerr(v);
             eprint!(" ");
+        }
+        eprintln!("\nCall stack:");
+        for name in i.call_stack_names() {
+            eprintln!("  {}", name.unwrap_or("???".to_string()));
         }
         return ExitCode::FAILURE;
     }

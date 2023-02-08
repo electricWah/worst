@@ -8,6 +8,7 @@ pub mod util;
 // pub mod bytevector;
 pub mod core;
 pub mod define;
+pub mod defenv;
 pub mod doc;
 pub mod fs;
 // pub mod i64table;
@@ -31,6 +32,7 @@ pub fn install(i: &mut Interpreter) {
     // bytevector::install(i);
     core::install(i);
     define::install(i);
+    defenv::install(i);
     doc::install(i);
     fs::install(i);
     // // i64table::install(i);

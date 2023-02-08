@@ -1,6 +1,4 @@
 
-import data/pairs
-
 define ansi [
 
     0 const black
@@ -44,9 +42,10 @@ define ansi [
         print
     ]
 
-    upquote
-    updo value-inherit-all-definitions
-    value-inherit-local-definitions
+    updo current-defenv
+    current-locals
+    defenv-push-locals
+    upquote swap value-set-defenv
     updo eval
 ]
 export ansi

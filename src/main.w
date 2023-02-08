@@ -5,6 +5,8 @@ string->fs-path
 embedded-file-open
 embedded-file-port->string
 read-string->list
-definitions-all value-append-definitions
+current-defenv
+defset-empty defenv-push-locals
+value-set-defenv
 eval
 
