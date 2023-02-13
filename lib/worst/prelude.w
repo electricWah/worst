@@ -5,13 +5,13 @@
     upquote ; name
     upquote ; body
     quote current-defenv uplevel
-    defset-empty defenv-push-locals
+    defenv-new-locals
     value-set-defenv
     swap
     quote definition-add uplevel
 ]
 current-defenv
-defset-empty defenv-push-locals
+defenv-new-locals
 value-set-defenv
 quote define definition-add
 
@@ -30,7 +30,7 @@ define define [
 
     upquote
     quote current-defenv uplevel
-    defset-empty defenv-push-locals
+    defenv-new-locals
     value-set-defenv
     const body
     
@@ -50,7 +50,7 @@ define define [
 define dispatch [
     upquote
     quote current-defenv uplevel
-    defset-empty defenv-push-locals
+    defenv-new-locals
     value-set-defenv
     const dispatch-case
 
@@ -344,7 +344,7 @@ define import [
             default-module-definitions
             defset-empty
             quote module-exports module-exports defset-insert
-            defenv-push-locals
+            defenv-merge-locals
             interpreter-defenv-set
 
             modbody interpreter-eval-list-next
@@ -365,9 +365,7 @@ define import [
         ] [ "import non-symbol" TODO ]
     ]
     all-imports place-get
-    updo current-defenv-pop-locals
-    defset-merge
-    updo current-defenv-push-locals
+    updo current-defenv-merge-locals
 ]
 global-default-module-definitions current-defenv place-set drop
 

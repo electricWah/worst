@@ -93,7 +93,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("dynamic-resolve-local", |i: &mut Interpreter| {
         let name = i.stack_pop::<Symbol>()?;
         loop {
-            if let Some(def) = i.locals_ref().get(name.as_ref().as_ref()) {
+            if let Some(def) = i.defenv_ref().get_local(name.as_ref().as_ref()) {
                 if !def.meta_ref().contains::<NotDynamicResolvable>() {
                     i.stack_push(def.clone());
                     break;

@@ -2,97 +2,137 @@
 //! Simpler interpreter
 
 use std::rc::Rc;
-use std::collections::HashMap;
+use im::{HashMap, HashSet};
 use crate::base::*;
 
 /// A collection of definitions, as made famous by local variables.
 #[derive(Default, Clone)]
-pub struct DefSet(Rc<HashMap<String, Val>>);
+pub struct DefSet {
+    inner: HashMap<String, Val>,
+}
 impl Value for DefSet {}
 
 impl DefSet {
     /// Add a definition.
     pub fn insert(&mut self, key: String, val: Val) {
-        self.inner_mut().insert(key, val);
+        self.inner.insert(key, val);
     }
     /// Remove a definition.
     pub fn remove(&mut self, key: &str) -> Option<Val> {
-        self.inner_mut().remove(key)
+        self.inner.remove(key)
     }
 
     /// Look for a definition by name.
     pub fn get(&self, key: &str) -> Option<&Val> {
-        self.0.get(key)
+        self.inner.get(key)
     }
 
     /// Check whether the definition exists.
     pub fn contains(&self, key: &str) -> bool {
-        self.0.contains_key(key)
+        self.inner.contains_key(key)
     }
 
     /// Take all definitions from [thee] and put them in [self],
     /// overwriting duplicate keys in [self] with the values from [thee].
     pub fn extend(&mut self, thee: &DefSet) {
-        let new = thee.inner_ref().iter().map(|(k, v)| (k.clone(), v.clone()));
-        self.inner_mut().extend(new);
+        let new = thee.inner.iter().map(|(k, v)| (k.clone(), v.clone()));
+        self.inner.extend(new);
     }
 
     /// How many entries there are.
-    pub fn len(&self) -> usize { self.0.len() }
+    pub fn len(&self) -> usize { self.inner.len() }
 
     /// Whether there are no entries.
-    pub fn is_empty(&self) -> bool { self.0.is_empty() }
-
-    fn identical(&self, thee: &DefSet) -> bool {
-        Rc::ptr_eq(&self.0, &thee.0)
-    }
-
-    fn inner_ref(&self) -> &HashMap<String, Val> { self.0.as_ref() }
-    fn inner_mut(&mut self) -> &mut HashMap<String, Val> {
-        Rc::make_mut(&mut self.0)
-    }
+    pub fn is_empty(&self) -> bool { self.inner.is_empty() }
 }
 
-/// Kinda-clone-on-write definition environment for definitions.
+#[derive(Default, Clone)]
+struct DefEnvEntry {
+    local: Option<Val>,
+    ambient: Option<Val>,
+}
+
+/// An environment of definitions for a stack frame.
 #[derive(Default, Clone)]
 pub struct DefEnv {
-    locals: DefSet,
-    ambients: Vec<DefSet>,
+    names: HashSet<String>,
+    entries: HashMap<String, DefEnvEntry>,
 }
 impl Value for DefEnv {}
 
 impl DefEnv {
 
-    /// Get a reference to the current local variables.
-    pub fn locals_ref(&self) -> &DefSet { &self.locals }
-    /// Get a mutable reference to the current local variables.
-    pub fn locals_mut(&mut self) -> &mut DefSet { &mut self.locals }
+//     /// Get a reference to the current local variables.
+//     pub fn locals_ref(&self) -> &DefSet { &self.locals }
+//     /// Get a mutable reference to the current local variables.
+//     pub fn locals_mut(&mut self) -> &mut DefSet { &mut self.locals }
 
+    /// Look up a definition.
     fn lookup(&self, key: &str) -> Option<&Val> {
-        if let r@Some(_) = self.locals.get(key) { return r; }
-        self.ambients.iter().rev().find_map(|ds| ds.get(key))
+        self.entries.get(key).and_then(|s| s.local.as_ref().or(s.ambient.as_ref()))
     }
 
-    /// Insert a new collection of local variables.
-    /// This makes the previous locals part of the ambient definitions.
-    pub fn push_locals(&mut self, mut new: DefSet) {
-        std::mem::swap(&mut self.locals, &mut new);
-        if new.is_empty() { return; }
-        if let Some(last) = self.ambients.last() {
-            if new.identical(last) { return; }
+    /// Look up a definition in locals only.
+    pub fn get_local(&self, key: &str) -> Option<&Val> {
+        self.entries.get(key).and_then(|s| s.local.as_ref())
+    }
+
+    /// Start a new set of locals.
+    /// The current locals set becomes an ambient definition.
+    pub fn new_locals(&mut self) {
+        self.names.clear();
+    }
+
+    /// Insert a new local value.
+    pub fn insert(&mut self, key: String, val: Val) {
+        if self.names.insert(key.clone()).is_some() {
+            // new local: previous local (if any) should be ambient
+            let entry = self.entries.entry(key).or_insert_with(DefEnvEntry::default);
+            entry.ambient = entry.local.take();
+            entry.local = Some(val);
+        } else {
+            // overwriting existing local
+            let entry = self.entries.entry(key).or_insert_with(DefEnvEntry::default);
+            entry.local = Some(val);
         }
-        self.ambients.push(new);
     }
 
-    /// Take the current locals collection
-    /// (the inverse operation to [push_locals].
-    /// [None] if there are no ambients.
-    pub fn pop_locals(&mut self) -> Option<DefSet> {
-        if let Some(mut locals) = self.ambients.pop() {
-            std::mem::swap(&mut self.locals, &mut locals);
-            Some(locals)
-        } else { None }
+    /// TODO remove this and DefSet entirely
+    pub fn extend_locals(&mut self, locals: DefSet) {
+        for (k, v) in locals.inner.iter() {
+            self.insert(k.clone(), v.clone());
+        }
     }
+
+    /// Get a DefSet of the current locals
+    pub fn locals(&self) -> DefSet {
+        let mut defs = DefSet::default();
+        for k in self.names.iter() {
+            defs.insert(k.clone(), self.get_local(k).unwrap().clone());
+        }
+        defs
+    }
+
+//     /// Insert a new collection of local variables.
+//     /// This makes the previous locals part of the ambient definitions.
+//     pub fn push_locals(&mut self, mut new: DefSet) {
+//         std::mem::swap(&mut self.locals, &mut new);
+//         if new.is_empty() { return; }
+//         if let Some(last) = self.ambients.last() {
+//             if new.identical(last) { return; }
+//         }
+//         self.ambients.push(new);
+//     }
+
+//     /// Take the current locals collection
+//     /// (the inverse operation to [push_locals].
+//     /// [None] if there are no ambients.
+//     pub fn pop_locals(&mut self) -> Option<DefSet> {
+//         if let Some(mut locals) = self.ambients.pop() {
+//             std::mem::swap(&mut self.locals, &mut locals);
+//             Some(locals)
+//         } else { None }
+//     }
 }
 
 /// Metadata for a list definition stating its name.
@@ -111,8 +151,6 @@ struct Frame {
     #[allow(dead_code)]
     name: Option<String>,
     defs: DefEnv,
-    // ambients: DefSet,
-    // locals: DefSet,
 }
 
 impl Frame {
@@ -247,7 +285,7 @@ impl Interpreter {
                 real.clone()
             } else {
                 let mut defs = self.defenv_ref().clone();
-                defs.push_locals(Default::default());
+                defs.new_locals();
                 defs
             }
         };
@@ -283,25 +321,25 @@ impl Interpreter {
         let m = def.meta_mut();
         m.push(DefineName(name.clone()));
         m.push(self.defenv_ref().clone());
-        self.frame.defs.locals_mut().insert(name, def);
+        self.frame.defs.insert(name, def);
     }
 
     /// Add the given value to local definitions.
     pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.frame.defs.locals_mut().insert(name.into(), def.into());
+        self.frame.defs.insert(name.into(), def.into());
     }
 
     /// Add the given builtin to the ambient definition set.
     pub fn add_builtin(&mut self, name: impl Into<String>, def: impl Into<Builtin>) {
-        self.frame.defs.locals_mut().insert(name.into(), Val::from(def.into()));
+        self.frame.defs.insert(name.into(), Val::from(def.into()));
     }
 
-    /// Get all local definitions.
-    /// These are usually the definitions added by code in the current stack frame
-    /// and will be lost once completely executed.
-    pub fn locals_ref(&self) -> &DefSet { self.frame.defs.locals_ref() }
-    /// Get a mutable reference to the local definitions for the current stack frame.
-    pub fn locals_mut(&mut self) -> &mut DefSet { self.frame.defs.locals_mut() }
+    // /// Get all local definitions.
+    // /// These are usually the definitions added by code in the current stack frame
+    // /// and will be lost once completely executed.
+    // pub fn locals_ref(&self) -> &DefSet { self.frame.defs.locals_ref() }
+    // /// Get a mutable reference to the local definitions for the current stack frame.
+    // pub fn locals_mut(&mut self) -> &mut DefSet { self.frame.defs.locals_mut() }
 
     /// Get a reference to the current [DefEnv].
     pub fn defenv_ref(&self) -> &DefEnv { &self.frame.defs }
