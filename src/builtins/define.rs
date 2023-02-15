@@ -29,20 +29,20 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("value-set-name", |i: &mut Interpreter| {
         let name = i.stack_pop::<String>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().push(DefineName::new(name));
+        v.meta_mut().insert(DefineName::new(name));
         i.stack_push(v);
         Ok(())
     });
 
     i.add_builtin("value-get-defset", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
-        i.stack_push_option(v.meta_ref().first_val::<DefSet>());
+        i.stack_push_option(v.meta_ref().get_ref::<DefSet>().cloned());
         Ok(())
     });
     i.add_builtin("value-set-defset", |i: &mut Interpreter| {
         let defs = i.stack_pop::<DefSet>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().push(defs);
+        v.meta_mut().insert(defs);
         i.stack_push(v);
         Ok(())
     });
@@ -59,7 +59,7 @@ pub fn install(i: &mut Interpreter) {
 
     i.add_builtin("value-set-not-dynamic-resolvable", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().push(NotDynamicResolvable);
+        v.meta_mut().insert(NotDynamicResolvable);
         i.stack_push(v);
         Ok(())
     });

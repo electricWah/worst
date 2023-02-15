@@ -246,11 +246,11 @@ pub fn install(i: &mut Interpreter) {
     //                         .and_then(|m| m.name.as_ref()).map(|s| s.clone().to_symbol()));
     // });
 
-    i.add_builtin("value-meta", |i: &mut Interpreter| {
-        let v = i.stack_pop_val()?;
-        i.stack_push(v.meta_ref().clone());
-        Ok(())
-    });
+    // i.add_builtin("value-meta", |i: &mut Interpreter| {
+    //     let v = i.stack_pop_val()?;
+    //     i.stack_push(v.meta_ref().clone());
+    //     Ok(())
+    // });
 
     i.add_builtin("value-set-error", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
@@ -262,7 +262,7 @@ pub fn install(i: &mut Interpreter) {
         let mut v = i.stack_pop_val()?;
         let m = v.meta_mut();
         // reall errors
-        while m.take_first::<IsError>().is_some() {}
+        m.remove::<IsError>();
         i.stack_push(v);
         Ok(())
     });

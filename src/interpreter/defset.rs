@@ -108,14 +108,5 @@ impl DefSet {
         std::mem::swap(self, &mut tmp);
         *self = Self::merge(thee.clone(), tmp);
     }
-
-    /// Find (or create an empty) DefSet in `meta`,
-    /// which is the metadata for a Val or ValOf,
-    /// and do a function on it.
-    /// Use this to e.g.
-    /// add a closure environment for [List] values that will be evaluated later.
-    pub fn upsert_meta(meta: &mut List, f: impl FnOnce(&mut DefSet)) {
-        meta.upsert_with(DefSet::default(), f);
-    }
 }
 

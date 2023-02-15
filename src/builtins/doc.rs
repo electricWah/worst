@@ -12,7 +12,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("value-doc-set", |i: &mut Interpreter| {
         let doc = i.stack_pop_val()?;
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().push(Doc(doc));
+        v.meta_mut().insert(Doc(doc));
         i.stack_push(v);
         Ok(())
     });
@@ -20,7 +20,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("value-doc", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         let doc =
-            if let Some(Doc(doc)) = v.meta_ref().first_ref::<Doc>() {
+            if let Some(Doc(doc)) = v.meta_ref().get_ref::<Doc>() {
                 doc.clone()
             } else {
                 false.into()

@@ -2,7 +2,7 @@
 //! Simpler interpreter
 
 use std::rc::Rc;
-use im::{HashMap, HashSet};
+use im_rc::{HashMap, HashSet};
 use crate::base::*;
 
 /// A collection of definitions, as made famous by local variables.
@@ -158,15 +158,14 @@ impl Frame {
         self.childs.is_empty() && self.body.is_empty()
     }
     // TODO clean up
-    fn from_list_env(l: ValOf<List>, defs: DefEnv) -> Self {
+    fn from_list_env(body: List, defs: DefEnv) -> Self {
         // TODO name
-        let name = l.meta_ref().first_ref::<DefineName>().cloned().map(|d| d.0);
-        let body = l.into_inner();
+        let name = None; // l.meta_ref().get_ref::<DefineName>().cloned().map(|d| d.0);
         Frame { defs, body, name, ..Frame::default() }
     }
-    fn from_list(l: ValOf<List>) -> Self {
-        let ds = l.meta_ref().first_ref::<DefEnv>().cloned().unwrap_or_default();
-        Self::from_list_env(l, ds)
+    fn from_list(mut l: ValOf<List>) -> Self {
+        let ds = l.meta_mut().take::<DefEnv>().unwrap_or_default();
+        Self::from_list_env(l.into_inner(), ds)
     }
 }
 
@@ -279,17 +278,17 @@ impl Interpreter {
 
     /// Same as [eval_next], but attaching a defenv beforehand.
     // TODO always use list's defenv then current defenv
-    pub fn eval_list_next(&mut self, v: ValOf<List>) {
+    pub fn eval_list_next(&mut self, mut v: ValOf<List>) {
         let defs = {
-            if let Some(real) = v.meta_ref().first_ref::<DefEnv>() {
-                real.clone()
+            if let Some(real) = v.meta_mut().take::<DefEnv>() {
+                real
             } else {
                 let mut defs = self.defenv_ref().clone();
                 defs.new_locals();
                 defs
             }
         };
-        self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(v, defs)));
+        self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(v.into_inner(), defs)));
     }
 
     /// Evaluate this FnOnce in the next [run] step. See [eval_next].
@@ -319,8 +318,8 @@ impl Interpreter {
         let name = name.into();
         let mut def = def.into();
         let m = def.meta_mut();
-        m.push(DefineName(name.clone()));
-        m.push(self.defenv_ref().clone());
+        m.insert(DefineName(name.clone()));
+        m.insert(self.defenv_ref().clone());
         self.frame.defs.insert(name, def);
     }
 

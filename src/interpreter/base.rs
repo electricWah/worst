@@ -208,8 +208,8 @@ impl EvalOnce for Val {
         if self.is::<Builtin>() {
             self.try_downcast::<Builtin>().ok().unwrap().into_inner().into_eval_once()
         } else if self.is::<List>() {
-            if let Some(defs) = self.meta_ref().first_ref::<DefSet>().cloned() {
-                let meta = self.meta_ref().first_ref::<DefineMeta>().cloned().unwrap_or_default();
+            if let Some(defs) = self.meta_ref().get_ref::<DefSet>().cloned() {
+                let meta = self.meta_ref().get_ref::<DefineMeta>().cloned().unwrap_or_default();
                 ToEvalOnce::Def(self.try_downcast::<List>().ok().unwrap().into_inner(), meta, defs)
             } else {
                 ToEvalOnce::Body(self.try_downcast::<List>().ok().unwrap().into_inner())

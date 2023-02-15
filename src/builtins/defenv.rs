@@ -87,16 +87,13 @@ pub fn install(i: &mut Interpreter) {
 
     i.add_builtin("value-defenv", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
-        i.stack_push_option(v.meta_ref().first_val::<DefEnv>());
+        i.stack_push_option(v.meta_ref().get_ref::<DefEnv>().cloned());
         Ok(())
     });
     i.add_builtin("value-set-defenv", |i: &mut Interpreter| {
         let defs = i.stack_pop::<DefEnv>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        if v.meta_ref().contains::<DefEnv>() {
-            dbg!("oh");
-        }
-        v.meta_mut().upsert_with(Default::default(), |d| *d = defs);
+        v.meta_mut().insert(defs);
         i.stack_push(v);
         Ok(())
     });
@@ -122,10 +119,10 @@ pub fn install(i: &mut Interpreter) {
         let def = i.stack_pop_val()?;
         let name = i.stack_pop::<Symbol>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().upsert_with(DefEnv::default(), |d| {
-            d.insert(name.to_string(), def);
-            d.new_locals();
-        });
+        let mut defs = v.meta_mut().take::<DefEnv>().unwrap_or_default();
+        defs.insert(name.to_string(), def);
+        defs.new_locals();
+        v.meta_mut().insert(defs);
         i.stack_push(v);
         Ok(())
     });

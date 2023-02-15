@@ -48,9 +48,9 @@ impl Interpreter {
         let meta = def.eval_meta();
         let mut def = def.into_val();
         let m = def.meta_mut();
-        m.push(DefineMeta { name: Some(name.clone()) });
+        m.insert(DefineMeta { name: Some(name.clone()) });
         if meta {
-            m.push(self.all_definitions());
+            m.insert(self.all_definitions());
         }
         self.frame.locals.insert(name, def);
     }

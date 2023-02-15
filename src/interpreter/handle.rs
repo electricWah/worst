@@ -219,8 +219,8 @@ impl Handle {
         let mut def = def.into_val();
         if meta {
             let m = def.meta_mut();
-            m.push(DefineMeta { name: Some(name) });
-            m.push(self.all_definitions().await);
+            m.insert(DefineMeta { name: Some(name) });
+            m.insert(self.all_definitions().await);
         }
         def
     }

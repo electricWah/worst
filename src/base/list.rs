@@ -3,6 +3,15 @@
 
 use crate::base::*;
 
+/// A list of [Val] values. It is itself a [Value].
+/// This is the primary container type in Worst.
+/// It's a little like a Lisp list.
+#[derive(Clone, Default)]
+pub struct List {
+    // Rc<> this if cloning takes a long time
+    data: Vec<Val>,
+}
+
 impl Value for List {}
 
 impl From<Vec<Val>> for List {
@@ -34,13 +43,6 @@ impl List {
     }
     /// Is this list devoid of contents?
     pub fn is_empty(&self) -> bool { self.data.is_empty() }
-
-    /// Remove and return the value at index
-    fn remove(&mut self, i: usize) -> Option<Val> {
-        if i < self.data.len() {
-            Some(self.data.remove(self.data.len() - 1 - i))
-        } else { None }
-    }
 
     /// Iterate this list from front to back :)
     pub fn iter(&self) -> impl Iterator<Item=&Val> { self.data.iter().rev() }
@@ -92,60 +94,5 @@ impl List {
             List { data: self.data.split_off(self.len() - count) }
         }
     }
-
-    /// Check if this contains a `T`.
-    pub fn contains<T: Value>(&self) -> bool {
-        self.iter().any(|v| v.is::<T>())
-    }
-
-    // /// Find the first `T` and get a reference to its value.
-    // pub fn first_ref_val<T: Value>(&self) -> Option<&Val> {
-    //     self.iter().find(|v| v.is::<T>())
-    // }
-
-    /// Find the first `T`.
-    pub fn first_ref<T: Value>(&self) -> Option<&T> {
-        self.iter().find_map(|v| v.downcast_ref::<T>())
-    }
-    /// Find the first `T` as a [ValOf].
-    pub fn first_val<T: Value>(&self) -> Option<ValOf<T>> {
-        self.iter().find_map(|v| if v.is::<T>() {
-            ValOf::<T>::try_from(v.clone()).ok()
-        } else { None })
-    }
-
-    /// Find and remove the first `T`.
-    pub fn take_first<T: Value>(&mut self) -> Option<ValOf<T>> {
-        for i in 0 .. self.len() {
-            if self.get(i).unwrap().is::<T>() {
-                return self.remove(i).unwrap().try_downcast::<T>().ok();
-            }
-        }
-        None
-    }
-
-    /// Insert or update a `T` in the list.
-    /// The first T in the list is passed to `f` and updated in-place.
-    /// If there was no `T`, `default` is used and added as the first entry.
-    /// Returns whether it inserted a new T
-    /// (i.e. true if default was used, false if there already was one).
-    pub fn upsert_with<T: Value + Clone>(&mut self, mut default: T,
-                                         f: impl FnOnce(&mut T)) -> bool {
-        if !self.contains::<T>() {
-            f(&mut default);
-            self.push(default);
-            true
-        } else {
-            'find: for v in self.iter_mut() {
-                if v.try_downcast_swap::<T>(&mut default) {
-                    f(&mut default);
-                    v.try_downcast_swap(&mut default);
-                    break 'find;
-                }
-            }
-            false
-        }
-    }
-
 }
 

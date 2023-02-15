@@ -3,9 +3,11 @@
 
 mod value;
 mod symbol;
+mod list;
 mod types;
 
 pub use value::*;
 pub use symbol::*;
+pub use list::*;
 pub use types::*;
 
