@@ -31,7 +31,7 @@ define worst-repl [
     ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp
 
-    reader-empty const reader
+    reader-empty make-place const reader
 
     ansi [
         "Welcome to the Worst interactive environment. Type " print
@@ -52,11 +52,9 @@ define worst-repl [
         interp standard-worst-prompt
         read-line
         equals? "" if [ drop exit-message #f ] [
-            reader swap reader-write-string drop
-            []
-            while [reader reader-next dig drop] [ list-push ]
-            false? if [drop] [ "read error" stack-dump error ]
-            list-reverse
+            reader place-get swap reader-read-string
+            dig reader swap place-set drop
+            error? if [ "read error" stack-dump error ] [ drop ]
             interp swap interpreter-body-prepend
             while [
                 interpreter-run

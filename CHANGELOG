@@ -16,6 +16,7 @@ In which the innards are simplified even more.
 - Redo the entire interpreter (lol) (no more generators)
 - Replace stack-matches? with and2? (2 items is the most common case)
 - Add with-dynamics for mutually recursive definitions or recursive + dispatch
+- Rewrite reader: reader-read-string, reader-complete
 
 # 0.4 (2022-11-19)
 

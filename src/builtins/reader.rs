@@ -4,54 +4,39 @@
 use crate::base::*;
 use crate::reader::*;
 use crate::interp2::*;
+use crate::builtins::util;
 
 /// Install a bunch of reader functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_builtin("reader-empty", |i: &mut Interpreter| {
-        i.stack_push(Reader::new());
+    i.add_builtin("reader-empty", util::make_default::<Reader>);
+    i.add_builtin("reader?", util::type_predicate::<Reader>);
+
+    i.add_builtin("reader-complete", |i: &mut Interpreter| {
+        let r = i.stack_pop::<Reader>()?.into_inner();
+        match r.complete() {
+            Ok(r) => i.stack_push_option(r),
+            Err(e) => i.stack_push(IsError::add(format!("{:?}", e))),
+        }
         Ok(())
     });
-    i.add_builtin("reader-set-eof", |i: &mut Interpreter| {
-        let mut r = i.stack_pop::<Reader>()?;
-        r.as_mut().set_eof();
-        i.stack_push(r);
-        Ok(())
-    });
-    i.add_builtin("reader-write-string", |i: &mut Interpreter| {
+    i.add_builtin("reader-read-string", |i: &mut Interpreter| {
         let mut s = i.stack_pop::<String>()?;
         let mut r = i.stack_pop::<Reader>()?;
-        r.as_mut().write(&mut s.as_mut().chars());
+        let mut acc = vec![];
+        let res = r.as_mut().read_into(&mut s.as_mut().chars(), &mut acc)
+            .map(|()| true)
+            .map_err(|e| format!("{:?}", e));
         i.stack_push(r);
-        Ok(())
-    });
-    // -> val #t | err #f | #f #f (eof)
-    i.add_builtin("reader-next", |i: &mut Interpreter| {
-        let mut r = i.stack_pop::<Reader>()?;
-        let res = r.as_mut().read_next();
-        i.stack_push(r);
-        match res {
-            Ok(Some(v)) => {
-                i.stack_push(v);
-                i.stack_push(true);
-            },
-            Ok(None) => {
-                i.stack_push(false);
-                i.stack_push(false);
-            },
-            Err(e) => {
-                i.stack_push(e);
-                i.stack_push(false);
-            },
-        }
+        i.stack_push(List::from(acc));
+        i.stack_push_result(res);
         Ok(())
     });
 
     i.add_builtin("read-string->list", |i: &mut Interpreter| {
         let mut s = i.stack_pop::<String>()?;
-        match read_all(&mut s.as_mut().chars()) {
-            Ok(v) => i.stack_push(List::from(v)),
-            Err(e) => i.stack_push(IsError::add(format!("{:?}", e))),
-        }
+        i.stack_push_result(read_all(&mut s.as_mut().chars())
+                            .map(List::from)
+                            .map_err(|e| format!("{:?}", e)));
         Ok(())
     });
 }
