@@ -3,26 +3,36 @@
 
 use std::fmt::Debug;
 use std::io::{ Read, Write };
+// use std::hash::Hash;
+// use std::collections::hash_map::DefaultHasher;
 use crate::base::*;
-use crate::interpreter::Handle;
+use crate::interpreter::*;
+
+/// Make a builtin that pushes default() to the stack
+pub fn make_default<T: Value + Default>(i: &mut Interpreter) -> BuiltinRet {
+    i.stack_push(T::default());
+    Ok(())
+}
 
 /// Type predicate wrapper, e.g.
 /// ```ignore
-/// i.define("string?", type_predicate::<String>);
+/// i.add_builtin("string?", type_predicate::<String>);
 /// ```
-pub async fn type_predicate<T: Value>(mut i: Handle) {
-    let v = i.stack_top_val().await;
-    i.stack_push(v.is::<T>()).await;
+pub fn type_predicate<T: Value>(i: &mut Interpreter) -> BuiltinRet {
+    let v = i.stack_top_val()?;
+    i.stack_push(v.is::<T>());
+    Ok(())
 }
 
 /// Equality generator, e.g.
 /// ```ignore
 /// i.define("string-equal", equality::<String>);
 /// ```
-pub async fn equality<T: Value + PartialEq>(mut i: Handle) {
-    let b = i.stack_pop::<T>().await;
-    let a = i.stack_pop::<T>().await;
-    i.stack_push(a.as_ref() == b.as_ref()).await;
+pub fn equality<T: Value + PartialEq>(i: &mut Interpreter) -> BuiltinRet {
+    let b = i.stack_pop::<T>()?;
+    let a = i.stack_pop::<T>()?;
+    i.stack_push(a.as_ref() == b.as_ref());
+    Ok(())
 }
 
 /// Comparison generator, e.g.
@@ -32,10 +42,11 @@ pub async fn equality<T: Value + PartialEq>(mut i: Handle) {
 /// a b comparison ->
 /// -1 when a < b, 0 when a == b, 1 when a > b,
 /// false when unavailable
-pub async fn comparison<T: Value + PartialOrd>(mut i: Handle) {
-    let b = i.stack_pop::<T>().await;
-    let a = i.stack_pop::<T>().await;
-    i.stack_push_option(a.as_ref().partial_cmp(b.as_ref()).map(|o| o as i64)).await;
+pub fn comparison<T: Value + PartialOrd>(i: &mut Interpreter) -> BuiltinRet {
+    let b = i.stack_pop::<T>()?;
+    let a = i.stack_pop::<T>()?;
+    i.stack_push_option(a.as_ref().partial_cmp(b.as_ref()).map(|o| o as i64));
+    Ok(())
 }
 
 /// Debug to-string generator, e.g.
@@ -46,10 +57,20 @@ pub async fn comparison<T: Value + PartialOrd>(mut i: Handle) {
 /// ; i64 i64->string -> string
 /// 11 i64->string ; -> "11"
 /// ```
-pub async fn value_tostring_debug<T: Value + Debug>(mut i: Handle) {
-    let v = i.stack_pop::<T>().await;
-    i.stack_push(format!("{:?}", v.as_ref())).await;
+pub fn value_tostring_debug<T: Value + Debug>(i: &mut Interpreter) -> BuiltinRet {
+    let v = i.stack_pop::<T>()?;
+    i.stack_push(format!("{:?}", v.as_ref()));
+    Ok(())
 }
+
+// /// Hash a value into an i64 using the default hasher.
+// pub async fn value_hash<T: Value + Hash>(mut i: Handle) {
+//     let v = i.stack_pop::<T>().await;
+//     let mut hasher = DefaultHasher::new();
+//     val.as_ref().hash(&mut hasher);
+//     let v = hasher.finish();
+//     i.stack_push(ValueHash::hash_value(&v)).await;
+// }
 
 /// Get an index within a 0..len range (optionally extend beyond len)
 pub fn index_range(len: usize, idx: i64, extend: bool) -> usize {
@@ -83,14 +104,19 @@ pub fn bytes_range_mut(bytes: &mut [u8], start: i64, end: i64) -> &mut [u8] {
 
 /// Given an [io::Result], either return its `Ok` arm or put the error on the stack.
 /// You should push one value to the stack in the `Some` return case.
-pub async fn or_io_error<T>(i: &mut Handle, e: std::io::Result<T>) -> Option<T> {
+pub fn or_io_error<T>(i: &mut Interpreter, e: std::io::Result<T>) -> Option<T> {
     match e {
         Ok(v) => Some(v),
         Err(e) => {
-            i.stack_push(IsError::add(format!("{}", e))).await;
+            i.stack_push(IsError::add(format!("{}", e)));
             None
         }
     }
+}
+
+/// Use `map_err(io_error)` to turn a [std::io::Result] into a [BuiltinRet].
+pub fn io_error(e: std::io::Error) -> Val {
+    IsError::add(format!("{}", e))
 }
 
 /// Slurp entire port (i.e. until eof) into a string.
@@ -98,23 +124,24 @@ pub async fn or_io_error<T>(i: &mut Handle, e: std::io::Result<T>) -> Option<T> 
 /// either the string itself on success,
 /// or an `error?` value on failure
 /// (currently the string representation of the error).
-pub async fn port_to_string<T: Value + Read + Clone>(mut i: Handle) {
-    let mut read = i.stack_pop::<T>().await;
+pub fn port_to_string<T: Value + Read + Clone>(i: &mut Interpreter) -> BuiltinRet {
+    let mut read = i.stack_pop::<T>()?;
     let mut s = String::new();
-    if let Some(_count) = or_io_error(&mut i, read.as_mut().read_to_string(&mut s)).await {
-        i.stack_push(s).await;
+    if let Some(_count) = or_io_error(i, read.as_mut().read_to_string(&mut s)) {
+        i.stack_push(s);
     }
+    Ok(())
 }
 
 /// Read a specified range from a port into a bytevector.
 /// Creates a builtin with the following signature:
 /// `port bytevector start end port-read-bytevector-range -> port bytevector read-count-or-error`
 /// See [bytes_range_mut] for da rulez.
-pub async fn port_read_range<T: Value + Read + Clone>(mut i: Handle) {
-    let end = i.stack_pop::<i64>().await.into_inner();
-    let start = i.stack_pop::<i64>().await.into_inner();
-    let mut bytevector = i.stack_pop::<Vec<u8>>().await;
-    let mut port = i.stack_pop::<T>().await;
+pub fn port_read_range<T: Value + Read + Clone>(i: &mut Interpreter) -> BuiltinRet {
+    let end = i.stack_pop::<i64>()?.into_inner();
+    let start = i.stack_pop::<i64>()?.into_inner();
+    let mut bytevector = i.stack_pop::<Vec<u8>>()?;
+    let mut port = i.stack_pop::<T>()?;
     let bv = bytevector.as_mut();
     let range = bytes_range_mut(bv, start, end);
     let res = 
@@ -122,51 +149,55 @@ pub async fn port_read_range<T: Value + Read + Clone>(mut i: Handle) {
             Ok(count) => Val::from(count as i64),
             Err(e) => IsError::add(format!("{}", e)),
         };
-    i.stack_push(port).await;
-    i.stack_push(bytevector).await;
-    i.stack_push(res).await;
+    i.stack_push(port);
+    i.stack_push(bytevector);
+    i.stack_push(res);
+    Ok(())
 }
 
 /// Write a specified range from a bytevector into a port.
 /// Creates a builtin with the following signature:
 /// `port bytevector start end port-write-bytevector-range -> port bytevector write-count-or-error`
 /// See [bytes_range_mut] for da rulez.
-pub async fn port_write_range<T: Value + Write + Clone>(mut i: Handle) {
-    let end = i.stack_pop::<i64>().await.into_inner();
-    let start = i.stack_pop::<i64>().await.into_inner();
-    let bytevector = i.stack_pop::<Vec<u8>>().await;
-    let mut port = i.stack_pop::<T>().await;
+pub fn port_write_range<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
+    let end = i.stack_pop::<i64>()?.into_inner();
+    let start = i.stack_pop::<i64>()?.into_inner();
+    let bytevector = i.stack_pop::<Vec<u8>>()?;
+    let mut port = i.stack_pop::<T>()?;
     let range = bytes_range(bytevector.as_ref(), start, end);
     let res =
         match port.as_mut().write(range) {
             Ok(count) => Val::from(count as i64),
             Err(e) => IsError::add(format!("{}", e)),
         };
-    i.stack_push(port).await;
-    i.stack_push(bytevector).await;
-    i.stack_push(res).await;
+    i.stack_push(port);
+    i.stack_push(bytevector);
+    i.stack_push(res);
+    Ok(())
 }
 
 /// Write a string to a port.
 /// Creates a builtin with the following signature:
 /// `port string port-write-string -> port`
 // TODO handle write failure
-pub async fn port_write_string<T: Value + Write + Clone>(mut i: Handle) {
-    let str = i.stack_pop::<String>().await;
-    let mut port = i.stack_pop::<T>().await;
+pub fn port_write_string<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
+    let str = i.stack_pop::<String>()?;
+    let mut port = i.stack_pop::<T>()?;
     let _todo_handle = port.as_mut().write(str.as_ref().as_ref()).unwrap();
-    i.stack_push(port).await;
+    i.stack_push(port);
+    Ok(())
 }
 
 /// Flush an output port.
 /// `port port-flush -> port true-or-error`
-pub async fn port_flush<T: Value + Write + Clone>(mut i: Handle) {
-    let mut p = i.stack_pop::<T>().await;
+pub fn port_flush<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
+    let mut p = i.stack_pop::<T>()?;
     let r = p.as_mut().flush();
-    i.stack_push(p).await;
+    i.stack_push(p);
     match r {
-        Ok(()) => i.stack_push(true).await,
-        Err(e) => i.stack_push(IsError::add(format!("{}", e))).await,
+        Ok(()) => i.stack_push(true),
+        Err(e) => i.stack_push(IsError::add(format!("{}", e))),
     }
+    Ok(())
 }
 

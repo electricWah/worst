@@ -3,81 +3,88 @@
 
 use crate::base::*;
 use crate::builtins::util;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::*;
 
 /// list `list-length` -> i64 : the length of the list.
-pub async fn list_length(mut i: Handle) {
-    let l = i.stack_pop::<List>().await;
-    i.stack_push(l.as_ref().len() as i64).await;
+pub fn list_length(i: &mut Interpreter) -> BuiltinRet {
+    let l = i.stack_pop::<List>()?;
+    i.stack_push(l.as_ref().len() as i64);
+    Ok(())
 }
 
 /// list val `list-push` -> list : put the value at the front of the list.
-pub async fn list_push(mut i: Handle) {
-    let v = i.stack_pop_val().await;
-    let mut l = i.stack_pop::<List>().await;
+pub fn list_push(i: &mut Interpreter) -> BuiltinRet {
+    let v = i.stack_pop_val()?;
+    let mut l = i.stack_pop::<List>()?;
     l.as_mut().push(v);
-    i.stack_push(l).await;
+    i.stack_push(l);
+    Ok(())
 }
 
 /// list `list-pop` +-> val : take the front value off the list (or false).
-pub async fn list_pop(mut i: Handle) {
-    let mut l = i.stack_pop::<List>().await;
+pub fn list_pop(i: &mut Interpreter) -> BuiltinRet {
+    let mut l = i.stack_pop::<List>()?;
     let v = l.as_mut().pop().unwrap_or_else(|| false.into());
-    i.stack_push(l).await;
-    i.stack_push(v).await;
+    i.stack_push(l);
+    i.stack_push(v);
+    Ok(())
 }
 
 /// list `list-reverse` -> list : reverse the list.
-pub async fn list_reverse(mut i: Handle) {
-    let mut l = i.stack_pop::<List>().await;
+pub fn list_reverse(i: &mut Interpreter) -> BuiltinRet {
+    let mut l = i.stack_pop::<List>()?;
     l.as_mut().reverse();
-    i.stack_push(l).await;
+    i.stack_push(l);
+    Ok(())
 }
 
 /// list list `list-append` -> list : append two lists.
-pub async fn list_append(mut i: Handle) {
-    let mut b = i.stack_pop::<List>().await;
-    let a = i.stack_pop::<List>().await;
+pub fn list_append(i: &mut Interpreter) -> BuiltinRet {
+    let mut b = i.stack_pop::<List>()?;
+    let a = i.stack_pop::<List>()?;
     b.as_mut().prepend(a.into_inner());
-    i.stack_push(b).await;
+    i.stack_push(b);
+    Ok(())
 }
 
 /// list n `list-get` -> value : get the value at index n of list.
 /// 0-indexed, negative numbers are from the other end of the list,
 /// and out of range gives false with error? as true.
-pub async fn list_get(mut i: Handle) {
-    let n = i.stack_pop::<i64>().await;
-    let l = i.stack_pop::<List>().await;
+pub fn list_get(i: &mut Interpreter) -> BuiltinRet {
+    let n = i.stack_pop::<i64>()?;
+    let l = i.stack_pop::<List>()?;
     let n = n.into_inner();
     let l = l.as_ref();
     let n = if n < 0 { l.len() as i64 + n } else { n };
-    i.stack_push_result(l.get(n as usize).cloned().ok_or(false)).await;
+    i.stack_push_result(l.get(n as usize).cloned().ok_or(false));
+    Ok(())
 }
 
 /// list n `list-split-at` -> list-tail list-head : split a list into two at index n.
 /// 0-indexed, negative numbers are from the other end of the list,
 /// and out of range indexes are saturated so that one of the lists is empty.
-pub async fn list_split_at(mut i: Handle) {
-    let n = i.stack_pop::<i64>().await.into_inner();
-    let mut l = i.stack_pop::<List>().await;
+pub fn list_split_at(i: &mut Interpreter) -> BuiltinRet {
+    let n = i.stack_pop::<i64>()?.into_inner();
+    let mut l = i.stack_pop::<List>()?;
     let len = l.as_ref().len() as i64;
     let n = if n < 0 { len + n } else { n };
     let n = if n < 0 { 0 } else if n > len { len } else { n };
     let head = l.as_mut().pop_n(n as usize);
-    i.stack_push(l).await;
-    i.stack_push(head).await;
+    i.stack_push(l);
+    i.stack_push(head);
+    Ok(())
 }
 
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.define("list?", util::type_predicate::<List>);
-    i.define("list-length", list_length);
-    i.define("list-reverse", list_reverse);
-    i.define("list-push", list_push);
-    i.define("list-pop", list_pop);
-    i.define("list-append", list_append);
-    i.define("list-get", list_get);
-    i.define("list-split-at", list_split_at);
+    i.add_builtin("list?", util::type_predicate::<List>);
+    i.add_builtin("list-length", list_length);
+    i.add_builtin("list-reverse", list_reverse);
+    i.add_builtin("list-push", list_push);
+    i.add_builtin("list-pop", list_pop);
+    i.add_builtin("list-append", list_append);
+    i.add_builtin("list-get", list_get);
+    i.add_builtin("list-split-at", list_split_at);
 }
 

@@ -1,13 +1,13 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-
 use super::value::*;
 
 impl Value for bool {}
 impl Value for String {}
 impl Value for i64 {}
 impl Value for f64 {}
+impl Value for Vec<u8> {} // bytevector
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]
@@ -43,7 +43,7 @@ impl IsError {
     /// Add IsError metadata to the value.
     pub fn add(v: impl Into<Val>) -> Val {
         let mut v: Val = v.into();
-        v.meta_mut().push(IsError);
+        v.meta_mut().insert(IsError);
         v
     }
     /// Check whether the value or its type is an error.

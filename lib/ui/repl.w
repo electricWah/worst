@@ -1,10 +1,8 @@
 
-import {
-    worst/interpreter
-    data/pairs
-}
+import ui/ansi
 
-define (dynamic) standard-worst-prompt [
+; maybe make this dynamic?
+define standard-worst-prompt [
     interpreter-stack-get const stack drop
     ansi [
         green fg
@@ -19,6 +17,7 @@ define (dynamic) standard-worst-prompt [
         reset
     ]
 ]
+export standard-worst-prompt
 
 define worst-repl [
 
@@ -27,12 +26,12 @@ define worst-repl [
     interpreter-empty
     do [
         import ui/help
-        interpreter-inherit-definitions
+        current-defenv interpreter-defenv-set
     ]
     ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp
 
-    reader-empty const reader
+    reader-empty make-place const reader
 
     ansi [
         "Welcome to the Worst interactive environment. Type " print
@@ -53,15 +52,15 @@ define worst-repl [
         interp standard-worst-prompt
         read-line
         equals? "" if [ drop exit-message #f ] [
-            reader swap reader-write-string drop
-            []
-            while [reader reader-next dig drop] [ list-push ]
-            false? if [drop] [ "read error" stack-dump error ]
-            list-reverse
+            reader place-get swap reader-read-string
+            dig reader swap place-set drop
+            error? if [ "read error" stack-dump error ] [ drop ]
             interp swap interpreter-body-prepend
             while [
-                interpreter-run if [ drop #f ] [
-                    error? if [
+                interpreter-run
+                const paused
+                interpreter-complete? if [ #f ] [
+                    paused error? if [
                         equals? ' quote-nothing if [ drop ] [
                             ansi [ bright red fg value->string print reset ]
                             "\n" print

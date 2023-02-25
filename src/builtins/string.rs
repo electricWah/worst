@@ -3,37 +3,44 @@
 
 use crate::base::*;
 use super::util;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::*;
 
 /// Install some string functions.
 pub fn install(i: &mut Interpreter) {
-    i.define("string?", util::type_predicate::<String>);
-    i.define("string-equal", util::equality::<String>);
-    i.define("string-compare", util::comparison::<String>);
-    i.define("string-append", |mut i: Handle| async move {
-        let b = i.stack_pop::<String>().await;
-        let mut a = i.stack_pop::<String>().await;
+    i.add_builtin("string?", util::type_predicate::<String>);
+    i.add_builtin("string-equal", util::equality::<String>);
+    i.add_builtin("string-compare", util::comparison::<String>);
+    // i.add_builtin("string-hash", util::value_hash::<String>);
+    i.add_builtin("string-append", |i: &mut Interpreter| {
+        let b = i.stack_pop::<String>()?;
+        let mut a = i.stack_pop::<String>()?;
         a.as_mut().push_str(b.as_ref());
-        i.stack_push(a).await;
+        i.stack_push(a);
+        Ok(())
     });
-    i.define("string-split", |mut i: Handle| async move {
-        let p = i.stack_pop::<String>().await;
-        let s = i.stack_pop::<String>().await;
+    i.add_builtin("string-split", |i: &mut Interpreter| {
+        let p = i.stack_pop::<String>()?;
+        let s = i.stack_pop::<String>()?;
         let split = s.as_ref().split(p.as_ref()).map(String::from);
-        i.stack_push(List::from_iter(split)).await;
+        i.stack_push(List::from_iter(split));
+        Ok(())
     });
-    i.define("whitespace?", |mut i:Handle| async move {
-        let s = i.stack_top::<String>().await;
+    i.add_builtin("whitespace?", |i: &mut Interpreter| {
+        let s = i.stack_pop::<String>()?;
         let ws = s.as_ref().chars().all(char::is_whitespace);
-        i.stack_push(ws).await;
+        i.stack_push(ws);
+        i.stack_push(s);
+        Ok(())
     });
-    i.define("string->symbol", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await;
-        i.stack_push(s.into_inner().to_symbol()).await;
+    i.add_builtin("string->symbol", |i: &mut Interpreter| {
+        let s = i.stack_pop::<String>()?;
+        i.stack_push(s.into_inner().to_symbol());
+        Ok(())
     });
-    i.define("symbol->string", |mut i: Handle| async move {
-        let s = i.stack_pop::<Symbol>().await;
-        i.stack_push(s.into_inner().to_string()).await;
+    i.add_builtin("symbol->string", |i: &mut Interpreter| {
+        let s = i.stack_pop::<Symbol>()?;
+        i.stack_push(s.into_inner().to_string());
+        Ok(())
     });
 }
 

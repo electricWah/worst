@@ -7,23 +7,23 @@
 
 use crate::base::*;
 use super::util::*;
-use crate::interpreter::{Interpreter, Handle};
-
-impl Value for Vec<u8> {}
+use crate::interpreter::*;
 
 /// Install some bytevector definitions.
 pub fn install(i: &mut Interpreter) {
 
-    i.define("bytevector?", type_predicate::<Vec<u8>>);
-    i.define("bytevector-equal", equality::<Vec<u8>>);
-    i.define("bytevector-length", |mut i: Handle| async move {
-        let v = i.stack_top::<Vec<u8>>().await;
-        i.stack_push(v.as_ref().len() as i64).await;
+    i.add_builtin("bytevector?", type_predicate::<Vec<u8>>);
+    i.add_builtin("bytevector-equal", equality::<Vec<u8>>);
+    // i.add_builtin("bytevector-hash", value_hash::<Vec<u8>>);
+    i.add_builtin("bytevector-length", |i: &mut Interpreter| {
+        let v = i.stack_top::<Vec<u8>>()?;
+        i.stack_push(v.as_ref().len() as i64);
+        Ok(())
     });
     // ??? bytevector/string/i8/u8/i32/f32/...
-    // i.define("bytevector-get", |mut i: Handle| async move {
+    // i.add_builtin("bytevector-get", |i: &mut Interpreter| {
     // });
-    // i.define("bytevector-set", |mut i: Handle| async move {
+    // i.add_builtin("bytevector-set", |i: &mut Interpreter| {
     // });
 
     // bv start len bytevector-range -> bv
@@ -31,10 +31,10 @@ pub fn install(i: &mut Interpreter) {
     // if start < 0, take from end
     // if start > 0, remove < start bytes
     // if len goes beyond end, pad with zeroes
-    i.define("bytevector-range", |mut i: Handle| async move {
-        let end = i.stack_pop::<i64>().await.into_inner();
-        let start = i.stack_pop::<i64>().await.into_inner();
-        let mut v = i.stack_pop::<Vec<u8>>().await;
+    i.add_builtin("bytevector-range", |i: &mut Interpreter| {
+        let end = i.stack_pop::<i64>()?.into_inner();
+        let start = i.stack_pop::<i64>()?.into_inner();
+        let mut v = i.stack_pop::<Vec<u8>>()?;
         let (start, end) = get_range(v.as_ref(), start, end, true);
         if start == end {
             (*v.as_mut()) = vec![];
@@ -44,28 +44,32 @@ pub fn install(i: &mut Interpreter) {
             std::mem::swap(vmut, &mut newv);
         }
         v.as_mut().resize(end - start, 0);
-        i.stack_push(v).await;
+        i.stack_push(v);
+        Ok(())
     });
 
-    i.define("bytevector-split", |mut i: Handle| async move {
-        let idx = i.stack_pop::<i64>().await.into_inner();
-        let mut a = i.stack_pop::<Vec<u8>>().await;
+    i.add_builtin("bytevector-split", |i: &mut Interpreter| {
+        let idx = i.stack_pop::<i64>()?.into_inner();
+        let mut a = i.stack_pop::<Vec<u8>>()?;
         let idx = index_range(a.as_ref().len(), idx, false);
         let b = a.as_mut().split_off(idx);
-        i.stack_push(b).await;
-        i.stack_push(a).await;
+        i.stack_push(b);
+        i.stack_push(a);
+        Ok(())
     });
 
-    i.define("string-utf8->bytevector", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await.into_inner();
-        i.stack_push(Vec::<u8>::from(s.as_str())).await;
+    i.add_builtin("string-utf8->bytevector", |i: &mut Interpreter| {
+        let s = i.stack_pop::<String>()?.into_inner();
+        i.stack_push(Vec::<u8>::from(s.as_str()));
+        Ok(())
     });
-    i.define("bytevector->string-utf8", |mut i: Handle| async move {
-        let bv = i.stack_pop::<Vec<u8>>().await.into_inner();
+    i.add_builtin("bytevector->string-utf8", |i: &mut Interpreter| {
+        let bv = i.stack_pop::<Vec<u8>>()?.into_inner();
         match String::from_utf8(bv) {
-            Ok(s) => i.stack_push(s).await,
-            Err(e) => i.stack_push(IsError::add(format!("{}", e))).await,
+            Ok(s) => i.stack_push(s),
+            Err(e) => i.stack_push(IsError::add(format!("{}", e))),
         }
+        Ok(())
     });
 }
 

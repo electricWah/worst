@@ -1,24 +1,27 @@
 
 //! Places are mutable things that can each store a value
 
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::*;
 use crate::base::*;
 
 /// Install `make-place`, `place-get` and `place-set` functions.
 pub fn install(i: &mut Interpreter) {
-    i.define("make-place", |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
-        i.stack_push(Place::wrap(v)).await;
+    i.add_builtin("make-place", |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        i.stack_push(Place::wrap(v));
+        Ok(())
     });
-    i.define("place-get", |mut i: Handle| async move {
-        let v = i.stack_pop::<Place>().await.as_ref().get();
-        i.stack_push(v).await;
+    i.add_builtin("place-get", |i: &mut Interpreter| {
+        let v = i.stack_pop::<Place>()?.as_ref().get();
+        i.stack_push(v);
+        Ok(())
     });
-    i.define("place-set", |mut i: Handle| async move {
-        let v = i.stack_pop_val().await;
-        let mut p = i.stack_pop::<Place>().await;
+    i.add_builtin("place-set", |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        let mut p = i.stack_pop::<Place>()?;
         p.as_mut().set(v);
-        i.stack_push(p).await;
+        i.stack_push(p);
+        Ok(())
     });
 }
 

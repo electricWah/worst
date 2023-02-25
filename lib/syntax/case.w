@@ -25,7 +25,5 @@ define case [
     }
     drop
 ]
-export #t
-
-; vi: ft=scheme
+export case
 

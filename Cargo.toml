@@ -7,7 +7,7 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 [dependencies]
-async-recursion = "1"
+im-rc = "15"
 
 include_dir = { version = "^0.7", optional = true }
 

@@ -7,16 +7,16 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::base::*;
-use crate::interpreter::{Interpreter, Handle};
+use crate::interpreter::*;
 use crate::builtins::util::*;
 
 impl Value for fs::OpenOptions {}
-impl Value for PathBuf {}
 
-async fn with_open_options(i: &mut Handle, f: impl FnOnce(&mut fs::OpenOptions, bool) -> &mut fs::OpenOptions) {
-    let mut c = i.stack_pop::<fs::OpenOptions>().await.into_inner();
+fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, bool) -> &mut fs::OpenOptions) -> BuiltinRet {
+    let mut c = i.stack_pop::<fs::OpenOptions>()?.into_inner();
     f(&mut c, true);
-    i.stack_push(c).await;
+    i.stack_push(c);
+    Ok(())
 }
 
 /// A reference-counted [fs::File] [Val].
@@ -25,6 +25,12 @@ pub struct File {
     handle: Rc<RefCell<fs::File>>,
 }
 impl Value for File {}
+
+impl File {
+    fn new(f: fs::File) -> Self {
+        File { handle: Rc::new(RefCell::new(f)) }
+    }
+}
 
 /// Try to open the file.
 pub fn open_read(path: impl AsRef<std::path::Path>) -> io::Result<File> {
@@ -46,155 +52,125 @@ impl io::Write for File {
     }
 }
 
-/// Install filesystem functions: path, open options, etc.
+/// Install filesystem functions: open options, etc.
 pub fn install(i: &mut Interpreter) {
 
-    i.define("fs-path?", type_predicate::<PathBuf>);
-    i.define("fs-path-equal", equality::<PathBuf>);
-    i.define("string->fs-path", |mut i: Handle| async move {
-        let s = i.stack_pop::<String>().await;
-        i.stack_push(PathBuf::from(s.as_ref())).await;
+    i.add_builtin("file-open-options?", type_predicate::<fs::OpenOptions>);
+    i.add_builtin("file-open-options", |i: &mut Interpreter| {
+        i.stack_push(fs::OpenOptions::new());
+        Ok(())
     });
-    i.define("try-fs-path->string", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push_option(p.as_ref().to_str().map(String::from)).await;
+    i.add_builtin("file-open-options-set-append", |i: &mut Interpreter| {
+        with_open_options(i, fs::OpenOptions::append)
     });
-    i.define("fs-path->string-lossy", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push(String::from(p.as_ref().to_string_lossy())).await;
+    i.add_builtin("file-open-options-set-create", |i: &mut Interpreter| {
+        with_open_options(i, fs::OpenOptions::create)
     });
-
-    i.define("file-open-options?", type_predicate::<fs::OpenOptions>);
-    i.define("file-open-options", |mut i: Handle| async move {
-        i.stack_push(fs::OpenOptions::new()).await;
+    i.add_builtin("file-open-options-set-create-new", |i: &mut Interpreter| {
+        with_open_options(i, fs::OpenOptions::create_new)
     });
-    i.define("file-open-options-set-append", |mut i: Handle| async move {
-        with_open_options(&mut i, fs::OpenOptions::append).await;
+    i.add_builtin("file-open-options-set-read", |i: &mut Interpreter| {
+        with_open_options(i, fs::OpenOptions::read)
     });
-    i.define("file-open-options-set-create", |mut i: Handle| async move {
-        with_open_options(&mut i, fs::OpenOptions::create).await;
+    i.add_builtin("file-open-options-set-truncate", |i: &mut Interpreter| {
+        with_open_options(i, fs::OpenOptions::truncate)
     });
-    i.define("file-open-options-set-create-new", |mut i: Handle| async move {
-        with_open_options(&mut i, fs::OpenOptions::create_new).await;
-    });
-    i.define("file-open-options-set-read", |mut i: Handle| async move {
-        with_open_options(&mut i, fs::OpenOptions::read).await;
-    });
-    i.define("file-open-options-set-truncate", |mut i: Handle| async move {
-        with_open_options(&mut i, fs::OpenOptions::truncate).await;
-    });
-    i.define("file-open-options-set-write", |mut i: Handle| async move {
-        with_open_options(&mut i, fs::OpenOptions::write).await;
+    i.add_builtin("file-open-options-set-write", |i: &mut Interpreter| {
+        with_open_options(i, fs::OpenOptions::write)
     });
 
-    i.define("file-open", |mut i: Handle| async move {
-        let opts = i.stack_pop::<fs::OpenOptions>().await;
-        let path = i.stack_pop::<PathBuf>().await;
-        if let Some(handle) = or_io_error(&mut i, opts.as_ref().open(path.as_ref())).await {
-            i.stack_push(File { handle: Rc::new(RefCell::new(handle)) }).await;
-        }
+    i.add_builtin("file-open", |i: &mut Interpreter| {
+        let opts = i.stack_pop::<fs::OpenOptions>()?;
+        let path = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(opts.as_ref().open(path.as_ref())
+                            .map(File::new).map_err(io_error));
+        Ok(())
     });
 
-    i.define("file-port?", type_predicate::<File>);
-    i.define("file-port->string", port_to_string::<File>);
-    i.define("file-port-read-range", port_read_range::<File>);
-    i.define("file-port-write-range", port_write_range::<File>);
-    i.define("file-port-flush", port_flush::<File>);
+    i.add_builtin("file-port?", type_predicate::<File>);
+    i.add_builtin("file-port->string", port_to_string::<File>);
+    i.add_builtin("file-port-read-range", port_read_range::<File>);
+    i.add_builtin("file-port-write-range", port_write_range::<File>);
+    i.add_builtin("file-port-flush", port_flush::<File>);
 
-    i.define("fs-path-absolute", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push(p.as_ref().is_absolute()).await;
-    });
-    i.define("fs-path-parent", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        i.stack_push_option(p.as_ref().parent().map(PathBuf::from)).await;
-    });
-    i.define("fs-path-concat", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        let mut base = i.stack_pop::<PathBuf>().await;
-        base.as_mut().push(p.as_ref());
-        i.stack_push(base).await;
-    });
-    i.define("fs-path-canonical", |mut i: Handle| async move {
-        let p = i.stack_pop::<PathBuf>().await;
-        if let Some(p) = or_io_error(&mut i, fs::canonicalize(p.as_ref())).await {
-            i.stack_push(p).await;
-        }
+    i.add_builtin("fs-path-canonical", |i: &mut Interpreter| {
+        let p = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::canonicalize(p.as_ref()).map_err(io_error));
+        Ok(())
     });
 
-    i.define("fs-copy", |mut i: Handle| async move {
-        let dest = i.stack_pop::<PathBuf>().await;
-        let src = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::copy(src.as_ref(), dest.as_ref())).await {
-            i.stack_push(dest).await;
-        }
+    i.add_builtin("fs-copy", |i: &mut Interpreter| {
+        let dest = i.stack_pop::<PathBuf>()?;
+        let src = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::copy(src.as_ref(), dest.as_ref())
+                            .map(|_len| dest).map_err(io_error));
+        Ok(())
     });
-    i.define("fs-move", |mut i: Handle| async move {
-        let dest = i.stack_pop::<PathBuf>().await;
-        let src = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::rename(src.as_ref(), dest.as_ref())).await {
-            i.stack_push(dest).await;
-        }
-    });
-
-    i.define("fs-file-delete", |mut i: Handle| async move {
-        let path = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::remove_file(path.as_ref())).await {
-            i.stack_push(true).await;
-        }
-    });
-    i.define("fs-dir-delete-empty", |mut i: Handle| async move {
-        let path = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::remove_dir(path.as_ref())).await {
-            i.stack_push(true).await;
-        }
-    });
-    i.define("fs-dir-delete", |mut i: Handle| async move {
-        let path = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::remove_dir_all(path.as_ref())).await {
-            i.stack_push(true).await;
-        }
+    i.add_builtin("fs-move", |i: &mut Interpreter| {
+        let dest = i.stack_pop::<PathBuf>()?;
+        let src = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::rename(src.as_ref(), dest.as_ref())
+                            .map(|_len| dest).map_err(io_error));
+        Ok(())
     });
 
-    i.define("fs-dir-create", |mut i: Handle| async move {
-        let name = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::create_dir(name.as_ref())).await {
-            i.stack_push(true).await;
-        }
+    i.add_builtin("fs-file-delete", |i: &mut Interpreter| {
+        let path = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::remove_file(path.as_ref()).map(|()| true).map_err(io_error));
+        Ok(())
     });
-    i.define("fs-dir-create-path", |mut i: Handle| async move {
-        let name = i.stack_pop::<PathBuf>().await;
-        if let Some(_len) = or_io_error(&mut i, fs::create_dir_all(name.as_ref())).await {
-            i.stack_push(true).await;
-        }
+    i.add_builtin("fs-dir-delete-empty", |i: &mut Interpreter| {
+        let path = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::remove_dir(path.as_ref()).map(|()| true).map_err(io_error));
+        Ok(())
+    });
+    i.add_builtin("fs-dir-delete", |i: &mut Interpreter| {
+        let path = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::remove_dir_all(path.as_ref()).map(|()| true).map_err(io_error));
+        Ok(())
     });
 
-    i.define("fs-dir-entries", |mut i: Handle| async move {
-        let name = i.stack_pop::<PathBuf>().await;
-        if let Some(rd) = or_io_error(&mut i, fs::read_dir(name.as_ref())).await {
-            let mut l = vec![];
-            for f in rd {
-                if let Some(f) = or_io_error(&mut i, f).await {
-                    l.push(Val::from(f.path()));
-                } else {
-                    return;
+    i.add_builtin("fs-dir-create", |i: &mut Interpreter| {
+        let name = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::create_dir(name.as_ref()).map(|()| true).map_err(io_error));
+        Ok(())
+    });
+    i.add_builtin("fs-dir-create-path", |i: &mut Interpreter| {
+        let name = i.stack_pop::<PathBuf>()?;
+        i.stack_push_result(fs::create_dir_all(name.as_ref()).map(|()| true).map_err(io_error));
+        Ok(())
+    });
+
+    i.add_builtin("fs-dir-entries", |i: &mut Interpreter| {
+        let name = i.stack_pop::<PathBuf>()?;
+        match fs::read_dir(name.as_ref()) {
+            Ok(rd) => {
+                let mut l = vec![];
+                for f in rd {
+                    if let Some(f) = or_io_error(i, f) {
+                        l.push(Val::from(f.path()));
+                    } else {
+                        todo!("error");
+                        // return;
+                    }
                 }
-            }
-            i.stack_push(List::from(l)).await;
+                i.stack_push(List::from(l));
+            },
+            Err(e) => i.stack_push(io_error(e)),
         }
-
+        Ok(())
     });
 
-    // i.define("fs-metadata");
-    // i.define("fs-link-target");
-    // i.define("fs-link-metadata");
+    // i.add_builtin("fs-metadata");
+    // i.add_builtin("fs-link-target");
+    // i.add_builtin("fs-link-metadata");
 
-    // i.define("file-read-bytevector");
-    // i.define("file-read-string");
+    // i.add_builtin("file-read-bytevector");
+    // i.add_builtin("file-read-string");
     // // on unix enable numeric? or allow readonly bit only
-    // i.define("fs-set-permissions");
-    // i.define("file-write-bytevector");
-    // i.define("file-write-string");
+    // i.add_builtin("fs-set-permissions");
+    // i.add_builtin("file-write-bytevector");
+    // i.add_builtin("file-write-string");
 
 }
 

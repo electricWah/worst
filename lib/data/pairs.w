@@ -14,11 +14,13 @@ define pairs-iter [
         n 2 i64-add
     ] drop
 ]
+export pairs-iter
 
 ; [ k1 v1 k2 v2 ... ] pairs-keys -> + [ k1 k2 ... ]
 define pairs-keys [
     [] swap pairs-iter [ drop list-push ] list-reverse
 ]
+export pairs-keys
 
 ; [ k1 v1 ... ] k pairs-get -> <vN where kN == k> | #f
 define pairs-get [
@@ -34,6 +36,5 @@ define pairs-get [
     ]
     drop
 ]
-
-export #t
+export pairs-get
 

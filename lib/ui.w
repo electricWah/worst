@@ -10,6 +10,3 @@ import ui/help
 ; import doc/builtins
 export (info help)
 
-; vi: ft=scheme
-
-

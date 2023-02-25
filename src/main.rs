@@ -3,12 +3,15 @@ use std::process::ExitCode;
 use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;
+use worst::reader;
 
 fn basic_printerr(v: &Val) {
     if let Some(v) = v.downcast_ref::<Symbol>() {
         eprint!("{v}");
+    } else if let Some(v) = v.downcast_ref::<bool>() {
+        eprint!("{}", if *v { "#t" } else { "#f" });
     } else if let Some(v) = v.downcast_ref::<String>() {
-        eprint!("{v}");
+        eprint!("{v:?}");
     } else if let Some(v) = v.downcast_ref::<i64>() {
         eprint!("{v}");
     } else if let Some(v) = v.downcast_ref::<f64>() {
@@ -25,23 +28,34 @@ fn basic_printerr(v: &Val) {
     }
 }
 
+static WORST_INIT: &str = include_str!("main.w");
+
 fn main() -> ExitCode {
-    let init_module = std::env::var("WORST_INIT_MODULE").unwrap_or_else(|_| "worst/init".into());
-    let mut i = Interpreter::default();
+    let wmain =
+        match reader::read_all(&mut WORST_INIT.chars()) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("{e:?}");
+                return ExitCode::FAILURE;
+            },
+        };
+    let mut i = Interpreter::new(wmain);
     builtins::install(&mut i);
-    let doit = vec!["import".into(), init_module].into_iter().map(Symbol::from);
-    i.eval_next(Val::from(List::from_iter(doit)));
-    if let Some(e) = i.run() {
+    if let Err(e) = i.run() {
         if IsError::is_error(&e) {
             eprint!("\nTop-level error: ");
-            basic_printerr(&e);
-            eprintln!();
-            eprint!("\nStack: ");
-            for v in i.stack_ref().iter() {
-                basic_printerr(v);
-            }
-            return ExitCode::FAILURE;
         }
+        basic_printerr(&e);
+        eprint!("\nStack: ");
+        for v in i.stack_ref().iter() {
+            basic_printerr(v);
+            eprint!(" ");
+        }
+        eprintln!("\nCall stack:");
+        for name in i.call_stack_names() {
+            eprintln!("  {}", name.unwrap_or("???".to_string()));
+        }
+        return ExitCode::FAILURE;
     }
 
     ExitCode::SUCCESS
