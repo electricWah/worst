@@ -272,8 +272,10 @@ define feature-enabled? [
     ]
 ]
 
-feature-enabled? os
-if [ "WORST_LIBPATH" environment-variable ":" string-split ] [ () ]
+feature-enabled? os if [
+    "WORST_LIBPATH" environment-variable
+    false? if [ drop () ] [ ":" string-split ]
+] [ () ]
 const WORST_LIBPATH
 
 define export [
