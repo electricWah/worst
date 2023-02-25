@@ -56,24 +56,16 @@ define worst-repl [
             dig reader swap place-set drop
             error? if [ "read error" stack-dump error ] [ drop ]
             interp swap interpreter-body-prepend
-            while [
-                interpreter-run
-                const paused
-                interpreter-complete? if [ #f ] [
-                    paused error? if [
-                        equals? ' quote-nothing if [ drop ] [
-                            ansi [ bright red fg value->string print reset ]
-                            "\n" print
-                            interpreter-reset drop
-                        ]
-                        #f
-                    ] [
-                        stack-dump
-                        pause
-                        #t
-                    ]
-                ]
-            ] []
+            interpreter-run
+            error? if [
+                ; TODO broken until quotes are worst-only (if, while etc)
+                ; also check if toplevel
+                ; equals? ' quote-nothing if [ drop ] [
+                    ansi [ bright red fg value->string print reset ]
+                    "\n" print
+                    interpreter-reset drop
+                ; ]
+            ] [ drop ]
             #t
         ]
     ] []
