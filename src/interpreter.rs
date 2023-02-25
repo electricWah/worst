@@ -112,27 +112,6 @@ impl DefEnv {
         }
         defs
     }
-
-//     /// Insert a new collection of local variables.
-//     /// This makes the previous locals part of the ambient definitions.
-//     pub fn push_locals(&mut self, mut new: DefSet) {
-//         std::mem::swap(&mut self.locals, &mut new);
-//         if new.is_empty() { return; }
-//         if let Some(last) = self.ambients.last() {
-//             if new.identical(last) { return; }
-//         }
-//         self.ambients.push(new);
-//     }
-
-//     /// Take the current locals collection
-//     /// (the inverse operation to [push_locals].
-//     /// [None] if there are no ambients.
-//     pub fn pop_locals(&mut self) -> Option<DefSet> {
-//         if let Some(mut locals) = self.ambients.pop() {
-//             std::mem::swap(&mut self.locals, &mut locals);
-//             Some(locals)
-//         } else { None }
-//     }
 }
 
 /// Metadata for a list definition stating its name.
@@ -159,12 +138,13 @@ impl Frame {
     }
     // TODO clean up
     fn from_list_env(body: List, defs: DefEnv) -> Self {
+        let childs = vec![];
         // TODO name
         let name = None; // l.meta_ref().get_ref::<DefineName>().cloned().map(|d| d.0);
-        Frame { defs, body, name, ..Frame::default() }
+        Frame { childs, body, name, defs, }
     }
-    fn from_list(mut l: ValOf<List>) -> Self {
-        let ds = l.meta_mut().take::<DefEnv>().unwrap_or_default();
+    fn from_list(l: ValOf<List>) -> Self {
+        let ds = l.meta_ref().get_ref::<DefEnv>().cloned().unwrap_or_default();
         Self::from_list_env(l.into_inner(), ds)
     }
 }
@@ -278,9 +258,9 @@ impl Interpreter {
 
     /// Same as [eval_next], but attaching a defenv beforehand.
     // TODO always use list's defenv then current defenv
-    pub fn eval_list_next(&mut self, mut v: ValOf<List>) {
+    pub fn eval_list_next(&mut self, v: ValOf<List>) {
         let defs = {
-            if let Some(real) = v.meta_mut().take::<DefEnv>() {
+            if let Some(real) = v.meta_ref().get_ref::<DefEnv>().cloned() {
                 real
             } else {
                 let mut defs = self.defenv_ref().clone();
