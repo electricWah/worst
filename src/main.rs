@@ -1,6 +1,6 @@
 
 use std::process::ExitCode;
-use worst::interp2::*;
+use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;
 use worst::reader;

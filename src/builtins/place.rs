@@ -1,7 +1,7 @@
 
 //! Places are mutable things that can each store a value
 
-use crate::interp2::*;
+use crate::interpreter::*;
 use crate::base::*;
 
 /// Install `make-place`, `place-get` and `place-set` functions.

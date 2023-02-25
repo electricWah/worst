@@ -5,7 +5,6 @@
 
 pub mod base;
 pub mod interpreter;
-pub mod interp2;
 pub mod reader;
 pub mod builtins;
 

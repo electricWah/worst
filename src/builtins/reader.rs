@@ -3,7 +3,7 @@
 
 use crate::base::*;
 use crate::reader::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 use crate::builtins::util;
 
 /// Install a bunch of reader functions.

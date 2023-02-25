@@ -2,7 +2,7 @@
 //! Basic stack-shuffling and control flow builtins
 
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 use super::util;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.

@@ -2,11 +2,7 @@
 //! `add_builtin` and other definition-related builtins
 
 use crate::base::*;
-use crate::interp2::*;
-
-// mod dispatch;
-// mod dynamic;
-// mod recursive;
+use crate::interpreter::*;
 
 struct NotDynamicResolvable;
 impl Value for NotDynamicResolvable {}
@@ -46,16 +42,6 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(v);
         Ok(())
     });
-
-    // // add a definition to a value's env
-    // i.add_builtin("value-definition-add", |i: &mut Interpreter| {
-    //     let def = i.stack_pop_val()?;
-    //     let name = i.stack_pop::<Symbol>()?.into_inner();
-    //     let mut v = i.stack_pop_val()?;
-    //     DefSet::upsert_meta(v.meta_mut(), |ds| ds.insert(name.to_string(), def));
-    //     i.stack_push(v);
-    //     Ok(())
-    // });
 
     i.add_builtin("value-set-not-dynamic-resolvable", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
@@ -106,9 +92,5 @@ pub fn install(i: &mut Interpreter) {
         }
         Ok(())
     });
-
-    // dispatch::install(i);
-    // dynamic::install(i);
-    // recursive::install(i);
 }
 

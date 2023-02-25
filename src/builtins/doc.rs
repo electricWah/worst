@@ -2,7 +2,7 @@
 //! Basic documentation attribute and metadata
 
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 struct Doc(Val);
 impl Value for Doc {}

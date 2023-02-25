@@ -2,7 +2,7 @@
 //! [DefSet] manipulation
 
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 use crate::builtins::util;
 
 /// Install all these functions.

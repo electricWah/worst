@@ -6,7 +6,7 @@
 
 use super::util;
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 // TODO pop two at once with stack_pop::<(T, T)>
 

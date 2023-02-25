@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 use crate::builtins::util::*;
 
 // TODO no wrapper, just use Interpreter directly and wrap in a place in worst

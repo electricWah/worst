@@ -1,7 +1,7 @@
 
 //! Access to filesystem(s).
 
-use crate::interp2::Interpreter;
+use crate::interpreter::*;
 
 pub mod path;
 

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use std::cell::Cell;
 use crate::base::*;
 use super::util;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 #[derive(PartialEq, Eq)]
 struct Unique(u64);

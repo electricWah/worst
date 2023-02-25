@@ -5,7 +5,7 @@
 use std::io;
 use std::path::PathBuf;
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 use crate::builtins::util::*;
 use include_dir::{include_dir, Dir};
 

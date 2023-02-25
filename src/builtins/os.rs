@@ -2,7 +2,7 @@
 //! Querying and interacting with the ambient operating system
 
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 /// `command-line-arguments` -> list :
 /// the command-line arguments from program invocation.

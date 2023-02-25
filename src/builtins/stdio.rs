@@ -4,7 +4,7 @@
 use std::io;
 use crate::base::*;
 use crate::builtins::util::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 #[derive(Clone)]
 struct Stdin;

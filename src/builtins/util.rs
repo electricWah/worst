@@ -6,7 +6,7 @@ use std::io::{ Read, Write };
 // use std::hash::Hash;
 // use std::collections::hash_map::DefaultHasher;
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 /// Make a builtin that pushes default() to the stack
 pub fn make_default<T: Value + Default>(i: &mut Interpreter) -> BuiltinRet {

@@ -3,7 +3,7 @@
 
 use crate::base::*;
 use super::util;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 /// Install some string functions.
 pub fn install(i: &mut Interpreter) {

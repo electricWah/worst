@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 use crate::base::*;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 impl Value for PathBuf {}
 

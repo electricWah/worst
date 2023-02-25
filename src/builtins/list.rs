@@ -3,7 +3,7 @@
 
 use crate::base::*;
 use crate::builtins::util;
-use crate::interp2::*;
+use crate::interpreter::*;
 
 /// list `list-length` -> i64 : the length of the list.
 pub fn list_length(i: &mut Interpreter) -> BuiltinRet {
