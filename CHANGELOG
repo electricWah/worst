@@ -17,6 +17,7 @@ In which the innards are simplified even more.
 - Replace stack-matches? with and2? (2 items is the most common case)
 - Add with-dynamics for mutually recursive definitions or recursive + dispatch
 - Rewrite reader: reader-read-string, reader-complete
+- Add type-id?, type-id-equal and value-type-id for types of things in worst
 
 # 0.4 (2022-11-19)
 

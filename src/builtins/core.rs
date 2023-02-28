@@ -4,6 +4,7 @@
 use crate::base::*;
 use crate::interpreter::*;
 use super::util;
+use std::any::TypeId;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
 pub fn quote(i: &mut Interpreter) -> BuiltinRet {
@@ -246,11 +247,13 @@ pub fn install(i: &mut Interpreter) {
     //                         .and_then(|m| m.name.as_ref()).map(|s| s.clone().to_symbol()));
     // });
 
-    // i.add_builtin("value-meta", |i: &mut Interpreter| {
-    //     let v = i.stack_pop_val()?;
-    //     i.stack_push(v.meta_ref().clone());
-    //     Ok(())
-    // });
+    i.add_builtin("type-id?", util::type_predicate::<TypeId>);
+    i.add_builtin("type-id-equal", util::equality::<TypeId>);
+    i.add_builtin("value-type-id", |i: &mut Interpreter| {
+        let v = i.stack_pop_val()?;
+        i.stack_push(v.val_type_id());
+        Ok(())
+    });
 
     i.add_builtin("value-set-error", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;

@@ -68,6 +68,11 @@ impl Val {
         self.v.is::<T>()
     }
 
+    /// Get the TypeId of the contained value.
+    pub fn val_type_id(&self) -> TypeId {
+        self.v.type_id()
+    }
+
     /// Get a reference to the inner value, if it is of the given type.
     pub fn downcast_ref<T: Value>(&self) -> Option<&T> {
         self.v.downcast_ref::<T>()

@@ -4,6 +4,7 @@
 use std::rc::Rc;
 use im_rc::{HashMap, HashSet};
 use crate::base::*;
+use std::any::TypeId;
 
 /// A collection of definitions, as made famous by local variables.
 #[derive(Default, Clone)]
@@ -360,10 +361,13 @@ impl Interpreter {
     /// Pop the top thing off the stack if it has the given type
     pub fn stack_pop<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
         let v = self.stack_pop_val()?;
-        v.try_downcast::<T>().map_err(|v| IsError::add(List::from(vec![
-            "wrong-type".to_symbol().into(),
-            v, std::any::type_name::<T>().to_string().into(),
-        ])))
+        v.try_downcast::<T>().map_err(|v| {
+            let vty = v.val_type_id();
+            IsError::add(List::from(vec![
+                "wrong-type".to_symbol().into(),
+                v, vty.into(), TypeId::of::<T>().into(),
+            ]))
+        })
     }
 
     /// Get the top thing off the stack without popping it,
@@ -383,9 +387,10 @@ impl Interpreter {
     /// Get the next `T` in the current stack frame body.
     pub fn body_next<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
         self.body_next_val()?.try_downcast::<T>().map_err(|v| {
+            let vty = v.val_type_id();
             IsError::add(List::from(vec![
                 "wrong-type".to_symbol().into(),
-                v, std::any::type_name::<T>().to_string().into(),
+                v, vty.into(), TypeId::of::<T>().into(),
             ]))
         })
     }
