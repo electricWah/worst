@@ -7,10 +7,11 @@ pub mod util;
 
 pub mod bytevector;
 pub mod core;
-pub mod define;
 pub mod defenv;
+pub mod define;
 pub mod doc;
 pub mod fs;
+pub mod i64map;
 pub mod interpreter;
 pub mod list;
 pub mod numeric;
@@ -29,10 +30,11 @@ pub mod unique;
 pub fn install(i: &mut Interpreter) {
     bytevector::install(i);
     core::install(i);
-    define::install(i);
     defenv::install(i);
+    define::install(i);
     doc::install(i);
     fs::install(i);
+    i64map::install(i);
     interpreter::install(i);
     list::install(i);
     numeric::install(i);

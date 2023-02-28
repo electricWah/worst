@@ -200,6 +200,7 @@ define (dispatch (symbol?)) value->string [symbol->string]
 define (dispatch (i64?)) value->string [i64->string]
 define (dispatch (f64?)) value->string [f64->string]
 define (dispatch (interpreter?)) value->string [drop "<interpreter>"]
+define (dispatch (i64map?)) value->string [drop "<i64map>"]
 ; define (dispatch (file-port?)) value->string [drop "<file-port>"]
 ; define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
 

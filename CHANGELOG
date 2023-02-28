@@ -18,6 +18,7 @@ In which the innards are simplified even more.
 - Add with-dynamics for mutually recursive definitions or recursive + dispatch
 - Rewrite reader: reader-read-string, reader-complete
 - Add type-id?, type-id-equal and value-type-id for types of things in worst
+- Add i64map: an ordered lookup with i64 keys
 
 # 0.4 (2022-11-19)
 
