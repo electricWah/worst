@@ -19,6 +19,7 @@ In which the innards are simplified even more.
 - Rewrite reader: reader-read-string, reader-complete
 - Add type-id?, type-id-equal and value-type-id for types of things in worst
 - Add i64map: an ordered lookup with i64 keys
+- Add a bunch of <type>-hash builtins for hashing things into i64
 
 # 0.4 (2022-11-19)
 

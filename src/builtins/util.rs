@@ -3,8 +3,8 @@
 
 use std::fmt::Debug;
 use std::io::{ Read, Write };
-// use std::hash::Hash;
-// use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+use std::collections::hash_map::DefaultHasher;
 use crate::base::*;
 use crate::interpreter::*;
 
@@ -63,14 +63,16 @@ pub fn value_tostring_debug<T: Value + Debug>(i: &mut Interpreter) -> BuiltinRet
     Ok(())
 }
 
-// /// Hash a value into an i64 using the default hasher.
-// pub async fn value_hash<T: Value + Hash>(mut i: Handle) {
-//     let v = i.stack_pop::<T>().await;
-//     let mut hasher = DefaultHasher::new();
-//     val.as_ref().hash(&mut hasher);
-//     let v = hasher.finish();
-//     i.stack_push(ValueHash::hash_value(&v)).await;
-// }
+/// Hash a value into an i64 using the default hasher.
+pub fn value_hash<T: Value + Hash>(i: &mut Interpreter) -> BuiltinRet {
+    let v = i.stack_pop::<T>()?;
+    let mut hasher = DefaultHasher::new();
+    v.as_ref().hash(&mut hasher);
+    // just the bytes please
+    let u = unsafe { std::mem::transmute::<u64, i64>(hasher.finish()) };
+    i.stack_push(u);
+    Ok(())
+}
 
 /// Get an index within a 0..len range (optionally extend beyond len)
 pub fn index_range(len: usize, idx: i64, extend: bool) -> usize {

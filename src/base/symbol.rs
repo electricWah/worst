@@ -1,17 +1,15 @@
 
 use std::fmt::{ Debug, Display };
-use std::hash;
-use std::collections::hash_map::DefaultHasher;
 
 use super::value::*;
 
 /// Symbol type: an unquoted word used to look up definitions.
-/// Symbols are pre-hashed.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Symbol {
     v: String,
-    hash: u64,
 }
+impl Value for Symbol {}
+
 impl Display for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.v)
@@ -20,6 +18,7 @@ impl Display for Symbol {
 impl AsRef<str> for Symbol {
     fn as_ref(&self) -> &str { self.v.as_ref() }
 }
+
 /// Conversion into a symbol.
 ///
 /// May be removed in favour of [Symbol::from].
@@ -36,22 +35,9 @@ impl From<Symbol> for String {
 }
 
 impl From<String> for Symbol {
-    fn from(v: String) -> Symbol {
-        let mut h = DefaultHasher::new();
-        hash::Hash::hash(&v, &mut h);
-        let hash = hash::Hasher::finish(&h);
-        Symbol { v, hash }
-    }
+    fn from(v: String) -> Symbol { Symbol { v } }
 }
 impl From<&str> for Symbol {
     fn from(s: &str) -> Symbol { Symbol::from(s.to_string()) }
 }
-
-impl Value for Symbol {}
-
-// impl hash::Hash for Symbol {
-//     fn hash<T: hash::Hasher>(&self, h: &mut T) {
-//         h.write_u64(self.hash);
-//     }
-// }
 

@@ -14,7 +14,7 @@ pub fn install(i: &mut Interpreter) {
 
     i.add_builtin("bytevector?", type_predicate::<Vec<u8>>);
     i.add_builtin("bytevector-equal", equality::<Vec<u8>>);
-    // i.add_builtin("bytevector-hash", value_hash::<Vec<u8>>);
+    i.add_builtin("bytevector-hash", value_hash::<Vec<u8>>);
     i.add_builtin("bytevector-length", |i: &mut Interpreter| {
         let v = i.stack_top::<Vec<u8>>()?;
         i.stack_push(v.as_ref().len() as i64);

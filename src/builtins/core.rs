@@ -235,10 +235,10 @@ pub fn install(i: &mut Interpreter) {
 
     i.add_builtin("bool?", util::type_predicate::<bool>);
     i.add_builtin("bool-equal", util::equality::<bool>);
-    // i.add_builtin("bool-hash", util::value_hash::<bool>);
+    i.add_builtin("bool-hash", util::value_hash::<bool>);
     i.add_builtin("symbol?", util::type_predicate::<Symbol>);
     i.add_builtin("symbol-equal", util::equality::<Symbol>);
-    // i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
+    i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
     i.add_builtin("builtin?", util::type_predicate::<Builtin>);
     // i.add_builtin("builtin-name", |i: &mut Interpreter| {
@@ -249,6 +249,7 @@ pub fn install(i: &mut Interpreter) {
 
     i.add_builtin("type-id?", util::type_predicate::<TypeId>);
     i.add_builtin("type-id-equal", util::equality::<TypeId>);
+    i.add_builtin("type-id-hash", util::value_hash::<TypeId>);
     i.add_builtin("value-type-id", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         i.stack_push(v.val_type_id());

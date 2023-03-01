@@ -10,7 +10,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("string?", util::type_predicate::<String>);
     i.add_builtin("string-equal", util::equality::<String>);
     i.add_builtin("string-compare", util::comparison::<String>);
-    // i.add_builtin("string-hash", util::value_hash::<String>);
+    i.add_builtin("string-hash", util::value_hash::<String>);
     i.add_builtin("string-append", |i: &mut Interpreter| {
         let b = i.stack_pop::<String>()?;
         let mut a = i.stack_pop::<String>()?;
