@@ -1,5 +1,3 @@
-
-; TODO no assuming embedded fs
 "worst/prelude.w"
 string->fs-path
 embedded-file-open
@@ -9,4 +7,3 @@ current-defenv
 defenv-new-locals
 value-set-defenv
 eval
-

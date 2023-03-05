@@ -47,19 +47,22 @@ define info [
             ]
         ]
         (list?) [
-            pairs-iter [ ansi [
-                cyan fg
-                value->string print
-                reset
-                "\t" print
-                string? if [] [ value->string ] print
-                "\n" print
+            ; toggle: #t = key, #f = value
+            #t swap
+            list-iter [ ansi [
+                swap if [
+                    cyan fg print-value
+                    reset "\t" print
+                    #f
+                ] [
+                    println-value
+                    #t
+                ]
             ] ]
+            drop
         ]
     ]
 ]
 
 export (help info)
-
-; vi: ft=scheme
 
