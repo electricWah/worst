@@ -6,7 +6,7 @@ use std::cell::RefCell;
 
 use crate::base::*;
 use crate::interpreter::*;
-use crate::builtins::util::*;
+use crate::builtins::util;
 
 // TODO no wrapper, just use Interpreter directly and wrap in a place in worst
 #[derive(Clone, Default)]
@@ -15,8 +15,8 @@ impl Value for Interp {}
 
 /// Install all the interpreter functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_builtin("interpreter?", type_predicate::<Interp>);
-    i.add_builtin("interpreter-empty", make_default::<Interp>);
+    util::add_type_predicate_builtin::<Interp>(i, "interpreter?");
+    i.add_builtin("interpreter-empty", util::make_default::<Interp>);
     i.add_builtin("interpreter-run",  |i: &mut Interpreter| {
         let interp = i.stack_top::<Interp>()?;
         let r = interp.as_ref().0.borrow_mut().run();

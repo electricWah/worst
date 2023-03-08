@@ -57,11 +57,6 @@ impl Val {
     /// Modifying the metadata won't affect other copies.
     pub fn meta_mut(&mut self) -> &mut Meta { &mut self.meta }
 
-    /// Builder-style wrapper for [meta_mut]
-    pub fn with_meta(mut self, f: impl FnOnce(&mut Meta)) -> Self {
-        f(self.meta_mut()); self
-    }
-
     /// Is the internal value of the given type?
     /// If so, the various downcasting functions should return correctly.
     pub fn is<T: Value>(&self) -> bool {
@@ -70,7 +65,7 @@ impl Val {
 
     /// Get the TypeId of the contained value.
     pub fn val_type_id(&self) -> TypeId {
-        self.v.type_id()
+        (*self.v).type_id()
     }
 
     /// Get a reference to the inner value, if it is of the given type.
@@ -98,12 +93,29 @@ impl Meta {
     pub fn contains<T: 'static>(&self) -> bool {
         self.data.contains_key(&TypeId::of::<T>())
     }
+
+    /// Get the number of Meta entries.
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
     /// Get a reference to [T] in the metadata, if one exists.
     pub fn get_ref<T: 'static>(&self) -> Option<&T> {
         self.data.get(&TypeId::of::<T>())
             .map(Rc::as_ref)
             .and_then(|r| r.downcast_ref::<T>())
     }
+    /// Get a Val of the given type id, if it exists. A bit like [get_ref].
+    /// Note that Meta entries are not Val, so meta infomation is not retained.
+    pub fn get_val(&self, ty: &TypeId) -> Option<Val> {
+        self.data.get(&ty).map(|v| Val { v: v.clone(), meta: Meta::default() })
+    }
+    /// Insert a Val, discarding its metadata,
+    /// and overwrite any previous value with the same type.
+    pub fn insert_val(&mut self, v: Val) {
+        self.data.insert(v.val_type_id(), v.v);
+    }
+
     /// Remove [T] from the metadata and return it if it existed.
     pub fn take<T: 'static + Clone>(&mut self) -> Option<T> {
         self.data.remove(&TypeId::of::<T>())

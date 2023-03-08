@@ -4,6 +4,8 @@
 use crate::base::*;
 use crate::interpreter::*;
 
+// TODO use normal meta-entry stuff and a list (possibly unique) for this
+
 struct Doc(Val);
 impl Value for Doc {}
 
@@ -30,5 +32,4 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 }
-
 

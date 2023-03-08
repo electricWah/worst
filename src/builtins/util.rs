@@ -5,6 +5,7 @@ use std::fmt::Debug;
 use std::io::{ Read, Write };
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
+use std::any::TypeId;
 use crate::base::*;
 use crate::interpreter::*;
 
@@ -14,14 +15,21 @@ pub fn make_default<T: Value + Default>(i: &mut Interpreter) -> BuiltinRet {
     Ok(())
 }
 
-/// Type predicate wrapper, e.g.
-/// ```ignore
-/// i.add_builtin("string?", type_predicate::<String>);
-/// ```
-pub fn type_predicate<T: Value>(i: &mut Interpreter) -> BuiltinRet {
+fn type_predicate<T: Value>(i: &mut Interpreter) -> BuiltinRet {
     let v = i.stack_top_val()?;
     i.stack_push(v.is::<T>());
     Ok(())
+}
+
+/// Add a type predicate builtin.
+/// The builtin will also have the corresponding [TypeId] meta.
+/// ```ignore
+/// add_type_predicate_builtin::<String>(&mut i, "string?");
+/// ```
+pub fn add_type_predicate_builtin<T: Value>(i: &mut Interpreter, name: impl Into<String>) {
+    let mut pred = Val::from(Builtin::from(type_predicate::<T>));
+    pred.meta_mut().insert::<TypeId>(TypeId::of::<T>());
+    i.add_definition(name, pred);
 }
 
 /// Equality generator, e.g.

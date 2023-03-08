@@ -8,7 +8,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 use crate::base::*;
 use crate::interpreter::*;
-use crate::builtins::util::*;
+use crate::builtins::util;
 
 impl Value for fs::OpenOptions {}
 
@@ -55,7 +55,7 @@ impl io::Write for File {
 /// Install filesystem functions: open options, etc.
 pub fn install(i: &mut Interpreter) {
 
-    i.add_builtin("file-open-options?", type_predicate::<fs::OpenOptions>);
+    util::add_type_predicate_builtin::<fs::OpenOptions>(i, "file-open-options?");
     i.add_builtin("file-open-options", |i: &mut Interpreter| {
         i.stack_push(fs::OpenOptions::new());
         Ok(())
@@ -83,19 +83,19 @@ pub fn install(i: &mut Interpreter) {
         let opts = i.stack_pop::<fs::OpenOptions>()?;
         let path = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(opts.as_ref().open(path.as_ref())
-                            .map(File::new).map_err(io_error));
+                            .map(File::new).map_err(util::io_error));
         Ok(())
     });
 
-    i.add_builtin("file-port?", type_predicate::<File>);
-    i.add_builtin("file-port->string", port_to_string::<File>);
-    i.add_builtin("file-port-read-range", port_read_range::<File>);
-    i.add_builtin("file-port-write-range", port_write_range::<File>);
-    i.add_builtin("file-port-flush", port_flush::<File>);
+    util::add_type_predicate_builtin::<File>(i, "file-port?");
+    i.add_builtin("file-port->string", util::port_to_string::<File>);
+    i.add_builtin("file-port-read-range", util::port_read_range::<File>);
+    i.add_builtin("file-port-write-range", util::port_write_range::<File>);
+    i.add_builtin("file-port-flush", util::port_flush::<File>);
 
     i.add_builtin("fs-path-canonical", |i: &mut Interpreter| {
         let p = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::canonicalize(p.as_ref()).map_err(io_error));
+        i.stack_push_result(fs::canonicalize(p.as_ref()).map_err(util::io_error));
         Ok(())
     });
 
@@ -103,41 +103,41 @@ pub fn install(i: &mut Interpreter) {
         let dest = i.stack_pop::<PathBuf>()?;
         let src = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(fs::copy(src.as_ref(), dest.as_ref())
-                            .map(|_len| dest).map_err(io_error));
+                            .map(|_len| dest).map_err(util::io_error));
         Ok(())
     });
     i.add_builtin("fs-move", |i: &mut Interpreter| {
         let dest = i.stack_pop::<PathBuf>()?;
         let src = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(fs::rename(src.as_ref(), dest.as_ref())
-                            .map(|_len| dest).map_err(io_error));
+                            .map(|_len| dest).map_err(util::io_error));
         Ok(())
     });
 
     i.add_builtin("fs-file-delete", |i: &mut Interpreter| {
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::remove_file(path.as_ref()).map(|()| true).map_err(io_error));
+        i.stack_push_result(fs::remove_file(path.as_ref()).map(|()| true).map_err(util::io_error));
         Ok(())
     });
     i.add_builtin("fs-dir-delete-empty", |i: &mut Interpreter| {
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::remove_dir(path.as_ref()).map(|()| true).map_err(io_error));
+        i.stack_push_result(fs::remove_dir(path.as_ref()).map(|()| true).map_err(util::io_error));
         Ok(())
     });
     i.add_builtin("fs-dir-delete", |i: &mut Interpreter| {
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::remove_dir_all(path.as_ref()).map(|()| true).map_err(io_error));
+        i.stack_push_result(fs::remove_dir_all(path.as_ref()).map(|()| true).map_err(util::io_error));
         Ok(())
     });
 
     i.add_builtin("fs-dir-create", |i: &mut Interpreter| {
         let name = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::create_dir(name.as_ref()).map(|()| true).map_err(io_error));
+        i.stack_push_result(fs::create_dir(name.as_ref()).map(|()| true).map_err(util::io_error));
         Ok(())
     });
     i.add_builtin("fs-dir-create-path", |i: &mut Interpreter| {
         let name = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::create_dir_all(name.as_ref()).map(|()| true).map_err(io_error));
+        i.stack_push_result(fs::create_dir_all(name.as_ref()).map(|()| true).map_err(util::io_error));
         Ok(())
     });
 
@@ -147,7 +147,7 @@ pub fn install(i: &mut Interpreter) {
             Ok(rd) => {
                 let mut l = vec![];
                 for f in rd {
-                    if let Some(f) = or_io_error(i, f) {
+                    if let Some(f) = util::or_io_error(i, f) {
                         l.push(Val::from(f.path()));
                     } else {
                         todo!("error");
@@ -156,7 +156,7 @@ pub fn install(i: &mut Interpreter) {
                 }
                 i.stack_push(List::from(l));
             },
-            Err(e) => i.stack_push(io_error(e)),
+            Err(e) => i.stack_push(util::io_error(e)),
         }
         Ok(())
     });

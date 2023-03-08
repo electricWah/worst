@@ -233,26 +233,43 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    i.add_builtin("bool?", util::type_predicate::<bool>);
+    util::add_type_predicate_builtin::<bool>(i, "bool?");
     i.add_builtin("bool-equal", util::equality::<bool>);
     i.add_builtin("bool-hash", util::value_hash::<bool>);
-    i.add_builtin("symbol?", util::type_predicate::<Symbol>);
+    util::add_type_predicate_builtin::<Symbol>(i, "symbol?");
     i.add_builtin("symbol-equal", util::equality::<Symbol>);
     i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
-    i.add_builtin("builtin?", util::type_predicate::<Builtin>);
-    // i.add_builtin("builtin-name", |i: &mut Interpreter| {
-    //     let b = i.stack_pop::<Builtin>();
-    //     i.stack_push_option(Val::from(b).meta_ref().first_ref::<DefineMeta>()
-    //                         .and_then(|m| m.name.as_ref()).map(|s| s.clone().to_symbol()));
-    // });
+    util::add_type_predicate_builtin::<Builtin>(i, "builtin?");
 
-    i.add_builtin("type-id?", util::type_predicate::<TypeId>);
+    util::add_type_predicate_builtin::<TypeId>(i, "type-id?");
     i.add_builtin("type-id-equal", util::equality::<TypeId>);
     i.add_builtin("type-id-hash", util::value_hash::<TypeId>);
     i.add_builtin("value-type-id", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         i.stack_push(v.val_type_id());
+        Ok(())
+    });
+    
+    // The type-id for type-id is necessary for value-meta-entry to be able to
+    // figure out the type-id that type predicates operate on.
+    i.add_builtin("type-id-type-id", |i: &mut Interpreter| {
+        i.stack_push(TypeId::of::<TypeId>());
+        Ok(())
+    });
+
+    i.add_builtin("value-meta-entry", |i: &mut Interpreter| {
+        let ty = i.stack_pop::<TypeId>()?;
+        let v = i.stack_pop_val()?;
+        i.stack_push_option(v.meta_ref().get_val(ty.as_ref()));
+        Ok(())
+    });
+
+    i.add_builtin("value-set-meta-entry", |i: &mut Interpreter| {
+        let mv = i.stack_pop_val()?;
+        let mut v = i.stack_pop_val()?;
+        v.meta_mut().insert_val(mv);
+        i.stack_push(v);
         Ok(())
     });
 
@@ -265,7 +282,6 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("value-unset-error", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
         let m = v.meta_mut();
-        // reall errors
         m.remove::<IsError>();
         i.stack_push(v);
         Ok(())

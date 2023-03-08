@@ -58,13 +58,13 @@ export sub
 export mul
 export div
 
-define (dispatch (i64?)) negate [ i64-negate ]
-define (dispatch (f64?)) negate [ f64-negate ]
+define (type-dispatch i64?) negate [ i64-negate ]
+define (type-dispatch f64?) negate [ f64-negate ]
 export negate
 
 define abs [ lt? 0 if [negate] [] ]
-define (dispatch (i64?)) abs [ i64-abs ]
-define (dispatch (f64?)) abs [ f64-abs ]
+define (type-dispatch i64?) abs [ i64-abs ]
+define (type-dispatch f64?) abs [ f64-abs ]
 export abs
 
 define max [ clone2 lt if [swap] [] drop ]
@@ -75,8 +75,8 @@ define bool-and [ if [ ] [ drop #f ] ]
 define bool-and? [ clone2 bool-and ] ; idk
 define bool-or [ if [ drop #t ] [ ] ]
 
-define (dispatch (list?)) length [ list-length ]
-define (dispatch (bytevector?)) length [ bytevector-length ]
+define (type-dispatch list?) length [ list-length ]
+define (type-dispatch bytevector?) length [ bytevector-length ]
 export length
 
 define (dispatch (and2? list? list?)) append [ list-append ]
@@ -90,24 +90,24 @@ export append
 ; define (dispatch (i64?)) value-hash [ i64-hash ]
 
 define value->string [drop "<value>"]
-define (dispatch (string?)) value->string []
-define (dispatch (bool?)) value->string [if ["#t"] ["#f"]]
-define (dispatch (symbol?)) value->string [symbol->string]
-define (dispatch (i64?)) value->string [i64->string]
-define (dispatch (f64?)) value->string [f64->string]
-define (dispatch (interpreter?)) value->string [drop "<interpreter>"]
-define (dispatch (i64map?)) value->string [drop "<i64map>"]
+define (type-dispatch string?) value->string []
+define (type-dispatch bool?) value->string [if ["#t"] ["#f"]]
+define (type-dispatch symbol?) value->string [symbol->string]
+define (type-dispatch i64?) value->string [i64->string]
+define (type-dispatch f64?) value->string [f64->string]
+define (type-dispatch interpreter?) value->string [drop "<interpreter>"]
+define (type-dispatch i64map?) value->string [drop "<i64map>"]
 ; define (dispatch (file-port?)) value->string [drop "<file-port>"]
 ; define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
 
-define (dispatch (builtin?)) value->string [
+define (type-dispatch builtin?) value->string [
     drop "<builtin>"
     ; builtin-name false? if [ drop "<builtin>" ] [
     ;     value->string "<builtin " swap string-append ">" string-append
     ; ]
 ]
 
-define (with-dynamics (value->string) dispatch (list?)) value->string [
+define (with-dynamics (value->string) type-dispatch list?) value->string [
     "(" "" dig list-iter [
         value->string
         ; concat accumulator with either "" or previous trailing " "
@@ -132,7 +132,7 @@ define println-value [ value->string println ]
 export println-value
 
 define port->string [ println #f error ]
-define (dispatch (file-port?)) port->string [ file-port->string ]
-define (dispatch (embedded-file-port?)) port->string [ embedded-file-port->string ]
+define (type-dispatch file-port?) port->string [ file-port->string ]
+define (type-dispatch embedded-file-port?) port->string [ embedded-file-port->string ]
 define read-port->list [ port->string read-string->list ]
 

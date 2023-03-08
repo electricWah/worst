@@ -78,7 +78,7 @@ pub fn list_split_at(i: &mut Interpreter) -> BuiltinRet {
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_builtin("list?", util::type_predicate::<List>);
+    util::add_type_predicate_builtin::<List>(i, "list?");
     i.add_builtin("list-length", list_length);
     i.add_builtin("list-reverse", list_reverse);
     i.add_builtin("list-push", list_push);

@@ -6,7 +6,7 @@ use std::io;
 use std::path::PathBuf;
 use crate::base::*;
 use crate::interpreter::*;
-use crate::builtins::util::*;
+use crate::builtins::util;
 use include_dir::{include_dir, Dir};
 
 static EMBED_FS: Dir = include_dir!("$CARGO_MANIFEST_DIR/lib");
@@ -41,8 +41,8 @@ pub fn install(i: &mut Interpreter) {
         }
         Ok(())
     });
-    i.add_builtin("embedded-file-port?", type_predicate::<File>);
-    i.add_builtin("embedded-file-port->string", port_to_string::<File>);
-    i.add_builtin("embedded-file-port-read-range", port_read_range::<File>);
+    util::add_type_predicate_builtin::<File>(i, "embedded-file-port?");
+    i.add_builtin("embedded-file-port->string", util::port_to_string::<File>);
+    i.add_builtin("embedded-file-port-read-range", util::port_read_range::<File>);
 }
 

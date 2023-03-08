@@ -100,8 +100,8 @@ pub fn f64_to_i64(i: &mut Interpreter) -> BuiltinRet {
 
 /// Install numeric functions for i64 and f64
 pub fn install(i: &mut Interpreter) {
-    i.add_builtin("i64?", util::type_predicate::<i64>);
-    i.add_builtin("f64?", util::type_predicate::<f64>);
+    util::add_type_predicate_builtin::<i64>(i, "i64?");
+    util::add_type_predicate_builtin::<f64>(i, "f64?");
 
     i.add_builtin("i64->string", util::value_tostring_debug::<i64>);
     i.add_builtin("f64->string", util::value_tostring_debug::<f64>);

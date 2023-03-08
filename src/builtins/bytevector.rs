@@ -6,15 +6,15 @@
 //! and whatever else it is you want to do with a bunch of bytes.
 
 use crate::base::*;
-use super::util::*;
+use crate::builtins::util;
 use crate::interpreter::*;
 
 /// Install some bytevector definitions.
 pub fn install(i: &mut Interpreter) {
 
-    i.add_builtin("bytevector?", type_predicate::<Vec<u8>>);
-    i.add_builtin("bytevector-equal", equality::<Vec<u8>>);
-    i.add_builtin("bytevector-hash", value_hash::<Vec<u8>>);
+    util::add_type_predicate_builtin::<Vec<u8>>(i, "bytevector?");
+    i.add_builtin("bytevector-equal", util::equality::<Vec<u8>>);
+    i.add_builtin("bytevector-hash", util::value_hash::<Vec<u8>>);
     i.add_builtin("bytevector-length", |i: &mut Interpreter| {
         let v = i.stack_top::<Vec<u8>>()?;
         i.stack_push(v.as_ref().len() as i64);
@@ -35,7 +35,7 @@ pub fn install(i: &mut Interpreter) {
         let end = i.stack_pop::<i64>()?.into_inner();
         let start = i.stack_pop::<i64>()?.into_inner();
         let mut v = i.stack_pop::<Vec<u8>>()?;
-        let (start, end) = get_range(v.as_ref(), start, end, true);
+        let (start, end) = util::get_range(v.as_ref(), start, end, true);
         if start == end {
             (*v.as_mut()) = vec![];
         } else {
@@ -51,7 +51,7 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("bytevector-split", |i: &mut Interpreter| {
         let idx = i.stack_pop::<i64>()?.into_inner();
         let mut a = i.stack_pop::<Vec<u8>>()?;
-        let idx = index_range(a.as_ref().len(), idx, false);
+        let idx = util::index_range(a.as_ref().len(), idx, false);
         let b = a.as_mut().split_off(idx);
         i.stack_push(b);
         i.stack_push(a);

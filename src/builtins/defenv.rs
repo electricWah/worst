@@ -7,8 +7,8 @@ use crate::builtins::util;
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_builtin("defset?", util::type_predicate::<DefSet>);
-    i.add_builtin("defenv?", util::type_predicate::<DefEnv>);
+    util::add_type_predicate_builtin::<DefSet>(i, "defset?");
+    util::add_type_predicate_builtin::<DefEnv>(i, "defenv?");
     i.add_builtin("defset-empty", util::make_default::<DefSet>);
     i.add_builtin("defenv-empty", util::make_default::<DefEnv>);
 
@@ -85,6 +85,7 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
+    // TODO use value-meta-entry with defenv? type-id
     i.add_builtin("value-defenv", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         i.stack_push_option(v.meta_ref().get_ref::<DefEnv>().cloned());

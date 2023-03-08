@@ -4,14 +4,15 @@
 use std::path::PathBuf;
 use crate::base::*;
 use crate::interpreter::*;
+use crate::builtins::util;
 
 impl Value for PathBuf {}
 
 /// Install filesystem functions: path, open options, etc.
 pub fn install(i: &mut Interpreter) {
+    // TODO maybe these are just bytevectors converted on demand
 
-    // i.add_builtin("fs-path?", type_predicate::<PathBuf>);
-    // i.add_builtin("fs-path-equal", equality::<PathBuf>);
+    util::add_type_predicate_builtin::<PathBuf>(i, "fs-path?");
     i.add_builtin("string->fs-path", |i: &mut Interpreter| {
         let s = i.stack_pop::<String>()?;
         i.stack_push(PathBuf::from(s.as_ref()));

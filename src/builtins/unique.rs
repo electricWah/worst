@@ -13,7 +13,7 @@ impl Value for Unique {}
 
 /// Install some string functions.
 pub fn install(i: &mut Interpreter) {
-    i.add_builtin("unique?", util::type_predicate::<Unique>);
+    util::add_type_predicate_builtin::<Unique>(i, "unique?");
     i.add_builtin("unique-equal", util::equality::<Unique>);
 
     let gensym = Rc::new(Cell::new(0u64));

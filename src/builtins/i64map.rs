@@ -15,7 +15,7 @@ impl Value for I64Map {}
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.add_builtin("make-i64map", util::make_default::<I64Map>);
-    i.add_builtin("i64map?", util::type_predicate::<I64Map>);
+    util::add_type_predicate_builtin::<I64Map>(i, "i64map?");
     i.add_builtin("i64map-insert", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         let k = i.stack_pop::<i64>()?.into_inner();
