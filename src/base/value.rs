@@ -122,6 +122,10 @@ impl Meta {
             .and_then(|r| r.downcast::<T>().ok())
             .map(|v| (*v).clone())
     }
+    /// Remove the [Val] of the given type id and return it if it existed.
+    pub fn take_val(&mut self, ty: &TypeId) -> Option<Val> {
+        self.data.remove(&ty).map(|v| Val { v, meta: Meta::default() })
+    }
 }
 
 impl<T: Value> ValOf<T> {

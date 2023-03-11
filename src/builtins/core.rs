@@ -265,6 +265,15 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
+    i.add_builtin("value-take-meta-entry", |i: &mut Interpreter| {
+        let ty = i.stack_pop::<TypeId>()?;
+        let mut v = i.stack_pop_val()?;
+        let entry = v.meta_mut().take_val(ty.as_ref());
+        i.stack_push(v);
+        i.stack_push_option(entry);
+        Ok(())
+    });
+
     i.add_builtin("value-set-meta-entry", |i: &mut Interpreter| {
         let mv = i.stack_pop_val()?;
         let mut v = i.stack_pop_val()?;
