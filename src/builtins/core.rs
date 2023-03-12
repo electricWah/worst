@@ -74,8 +74,9 @@ pub fn not(i: &mut Interpreter) -> BuiltinRet {
 /// `error?` - Check if the value on top of the stack is an error with
 /// [IsError::is_error], and put its result on top of the stack.
 pub fn error_(i: &mut Interpreter) -> BuiltinRet {
+    let eu = i.uniques_mut().get_type::<IsError>();
     let v = i.stack_top_val()?;
-    i.stack_push(IsError::is_error(&v));
+    i.stack_push(v.meta_ref().contains_val(&eu));
     Ok(())
 }
 
@@ -240,6 +241,15 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("symbol-equal", util::equality::<Symbol>);
     i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
+    util::add_type_predicate_builtin::<Unique>(i, "unique?");
+    i.add_builtin("unique-equal", util::equality::<Unique>);
+    i.add_builtin("unique-hash", util::value_hash::<Unique>);
+    i.add_builtin("make-unique", |i: &mut Interpreter| {
+        let u = i.uniques_mut().create();
+        i.stack_push(u);
+        Ok(())
+    });
+
     util::add_type_predicate_builtin::<Builtin>(i, "builtin?");
 
     util::add_type_predicate_builtin::<TypeId>(i, "type-id?");
@@ -250,48 +260,48 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(v.val_type_id());
         Ok(())
     });
-    
-    // The type-id for type-id is necessary for value-meta-entry to be able to
-    // figure out the type-id that type predicates operate on.
-    i.add_builtin("type-id-type-id", |i: &mut Interpreter| {
-        i.stack_push(TypeId::of::<TypeId>());
+    i.add_builtin("type-id->unique", |i: &mut Interpreter| {
+        let v = i.stack_pop::<TypeId>()?.into_inner();
+        let u = i.uniques_mut().get_type_id(v);
+        i.stack_push(u);
         Ok(())
     });
 
     i.add_builtin("value-meta-entry", |i: &mut Interpreter| {
-        let ty = i.stack_pop::<TypeId>()?;
+        let u = i.stack_pop::<Unique>()?;
         let v = i.stack_pop_val()?;
-        i.stack_push_option(v.meta_ref().get_val(ty.as_ref()));
+        i.stack_push_option(v.meta_ref().get_val(u.as_ref()));
         Ok(())
     });
 
     i.add_builtin("value-take-meta-entry", |i: &mut Interpreter| {
-        let ty = i.stack_pop::<TypeId>()?;
+        let u = i.stack_pop::<Unique>()?;
         let mut v = i.stack_pop_val()?;
-        let entry = v.meta_mut().take_val(ty.as_ref());
+        let entry = v.meta_mut().take_val(u.as_ref());
         i.stack_push(v);
         i.stack_push_option(entry);
         Ok(())
     });
 
-    i.add_builtin("value-set-meta-entry", |i: &mut Interpreter| {
+    i.add_builtin("value-insert-meta-entry", |i: &mut Interpreter| {
         let mv = i.stack_pop_val()?;
+        let u = i.stack_pop::<Unique>()?.into_inner();
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().insert_val(mv);
+        v.meta_mut().insert_val(u, mv);
         i.stack_push(v);
         Ok(())
     });
 
     i.add_builtin("value-set-error", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
-        i.stack_push(IsError::add(v));
+        i.stack_push_error(v);
         Ok(())
     });
 
     i.add_builtin("value-unset-error", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
         let m = v.meta_mut();
-        m.remove::<IsError>();
+        m.remove_val(&i.uniques_mut().get_type::<IsError>());
         i.stack_push(v);
         Ok(())
     });

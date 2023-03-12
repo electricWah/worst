@@ -16,7 +16,11 @@ impl Value for Interp {}
 /// Install all the interpreter functions.
 pub fn install(i: &mut Interpreter) {
     util::add_type_predicate_builtin::<Interp>(i, "interpreter?");
-    i.add_builtin("interpreter-empty", util::make_default::<Interp>);
+    i.add_builtin("interpreter-empty", |i: &mut Interpreter| {
+        let inner = Interp(Rc::new(RefCell::new(i.new_inner_empty())));
+        i.stack_push(inner);
+        Ok(())
+    });
     i.add_builtin("interpreter-run",  |i: &mut Interpreter| {
         let interp = i.stack_top::<Interp>()?;
         let r = interp.as_ref().0.borrow_mut().run();

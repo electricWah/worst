@@ -2,6 +2,7 @@
 use std::any::TypeId;
 use std::cell::RefCell;
 use std::rc::Rc;
+use super::unique::*;
 use super::value::*;
 
 impl Value for bool {}
@@ -10,6 +11,8 @@ impl Value for i64 {}
 impl Value for f64 {}
 impl Value for Vec<u8> {} // bytevector
 impl Value for TypeId {} // type-id
+
+impl Value for Unique {}
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]
@@ -41,16 +44,4 @@ impl Place {
 /// ```
 pub struct IsError;
 impl Value for IsError {}
-impl IsError {
-    /// Add IsError metadata to the value.
-    pub fn add(v: impl Into<Val>) -> Val {
-        let mut v: Val = v.into();
-        v.meta_mut().insert(IsError);
-        v
-    }
-    /// Check whether the value or its type is an error.
-    pub fn is_error(v: &Val) -> bool {
-        v.meta_ref().contains::<Self>()
-    }
-}
 

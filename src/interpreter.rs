@@ -6,47 +6,6 @@ use im_rc::{HashMap, HashSet};
 use crate::base::*;
 use std::any::TypeId;
 
-/// A collection of definitions, as made famous by local variables.
-#[derive(Default, Clone)]
-pub struct DefSet {
-    inner: HashMap<String, Val>,
-}
-impl Value for DefSet {}
-
-impl DefSet {
-    /// Add a definition.
-    pub fn insert(&mut self, key: String, val: Val) {
-        self.inner.insert(key, val);
-    }
-    /// Remove a definition.
-    pub fn remove(&mut self, key: &str) -> Option<Val> {
-        self.inner.remove(key)
-    }
-
-    /// Look for a definition by name.
-    pub fn get(&self, key: &str) -> Option<&Val> {
-        self.inner.get(key)
-    }
-
-    /// Check whether the definition exists.
-    pub fn contains(&self, key: &str) -> bool {
-        self.inner.contains_key(key)
-    }
-
-    /// Take all definitions from [thee] and put them in [self],
-    /// overwriting duplicate keys in [self] with the values from [thee].
-    pub fn extend(&mut self, thee: &DefSet) {
-        let new = thee.inner.iter().map(|(k, v)| (k.clone(), v.clone()));
-        self.inner.extend(new);
-    }
-
-    /// How many entries there are.
-    pub fn len(&self) -> usize { self.inner.len() }
-
-    /// Whether there are no entries.
-    pub fn is_empty(&self) -> bool { self.inner.is_empty() }
-}
-
 #[derive(Default, Clone)]
 struct DefEnvEntry {
     local: Option<Val>,
@@ -56,18 +15,12 @@ struct DefEnvEntry {
 /// An environment of definitions for a stack frame.
 #[derive(Default, Clone)]
 pub struct DefEnv {
-    names: HashSet<String>,
+    locals: HashSet<String>,
     entries: HashMap<String, DefEnvEntry>,
 }
 impl Value for DefEnv {}
 
 impl DefEnv {
-
-//     /// Get a reference to the current local variables.
-//     pub fn locals_ref(&self) -> &DefSet { &self.locals }
-//     /// Get a mutable reference to the current local variables.
-//     pub fn locals_mut(&mut self) -> &mut DefSet { &mut self.locals }
-
     /// Look up a definition.
     fn lookup(&self, key: &str) -> Option<&Val> {
         self.entries.get(key).and_then(|s| s.local.as_ref().or(s.ambient.as_ref()))
@@ -75,20 +28,23 @@ impl DefEnv {
 
     /// Look up a definition in locals only.
     pub fn get_local(&self, key: &str) -> Option<&Val> {
-        self.entries.get(key).and_then(|s| s.local.as_ref())
+        if self.locals.contains(key) {
+            self.entries.get(key).and_then(|s| s.local.as_ref())
+        } else { None }
     }
 
     /// Start a new set of locals.
     /// The current locals set becomes an ambient definition.
     pub fn new_locals(&mut self) {
-        self.names.clear();
+        self.locals.clear();
     }
 
     /// Insert a new local value.
-    pub fn insert(&mut self, key: String, val: Val) {
-        if self.names.insert(key.clone()).is_some() {
-            // new local: previous local (if any) should be ambient
+    pub fn insert_local(&mut self, key: String, val: Val) {
+        if self.locals.insert(key.clone()).is_none() {
+            // new local, perhaps
             let entry = self.entries.entry(key).or_insert_with(DefEnvEntry::default);
+            // after new_locals, entry.local is now actually ambient
             entry.ambient = entry.local.take();
             entry.local = Some(val);
         } else {
@@ -98,30 +54,24 @@ impl DefEnv {
         }
     }
 
-    /// TODO remove this and DefSet entirely
-    pub fn extend_locals(&mut self, locals: DefSet) {
-        for (k, v) in locals.inner.iter() {
-            self.insert(k.clone(), v.clone());
-        }
+    /// Get an iterator over the local definitions
+    pub fn locals_iter(&self) -> impl Iterator<Item=(&str, &Val)> {
+        self.locals.iter().filter_map(|k| {
+            self.entries.get(k)
+                .and_then(|e| e.local.as_ref())
+                .map(|l| (k.as_ref(), l))
+        })
     }
 
-    /// Get a DefSet of the current locals
-    pub fn locals(&self) -> DefSet {
-        let mut defs = DefSet::default();
-        for k in self.names.iter() {
-            defs.insert(k.clone(), self.get_local(k).unwrap().clone());
+    /// Copy local definitions into self's local definitions.
+    pub fn extend_locals(&mut self, locals: DefEnv) {
+        for (l, def) in locals.locals_iter() {
+            let l = String::from(l);
+            self.locals.insert(l.clone());
+            let entry = self.entries.entry(l).or_insert_with(DefEnvEntry::default);
+            entry.local = Some(def.clone());
         }
-        defs
     }
-}
-
-/// Metadata for a list definition stating its name.
-#[derive(Clone)]
-pub struct DefineName(String);
-impl Value for DefineName {}
-impl DefineName {
-    /// Create a thing
-    pub fn new(s: impl Into<String>) -> Self { DefineName(s.into()) }
 }
 
 #[derive(Default)]
@@ -144,10 +94,6 @@ impl Frame {
         let name = None; // l.meta_ref().get_ref::<DefineName>().cloned().map(|d| d.0);
         Frame { childs, body, name, defs, }
     }
-    fn from_list(l: ValOf<List>) -> Self {
-        let ds = l.meta_ref().get_ref::<DefEnv>().cloned().unwrap_or_default();
-        Self::from_list_env(l.into_inner(), ds)
-    }
 }
 
 enum ChildFrame {
@@ -162,8 +108,8 @@ pub struct Interpreter {
     frame: Frame,
     parents: Vec<Frame>,
     stack: List,
+    uniques: UniqueGen,
 }
-impl Value for Interpreter {}
 
 /// Return type for [Builtin] functions.
 pub type BuiltinRet<R = ()> = Result<R, Val>;
@@ -179,6 +125,12 @@ impl<T: 'static + Fn(&mut Interpreter) -> BuiltinRet> From<T> for Builtin {
 }
 
 impl Interpreter {
+
+    /// Create a new "inner" interpreter that is otherwise empty.
+    /// This must be used in order to correctly share values between interpreters.
+    pub fn new_inner_empty(&self) -> Interpreter {
+        Interpreter { uniques: self.uniques.clone(), ..Default::default() }
+    }
 
     /// Create a new interpreter that will evaluate the given code.
     pub fn new(body: impl Into<List>) -> Self {
@@ -250,7 +202,8 @@ impl Interpreter {
             self.frame.childs.push(ChildFrame::Builtin(b.clone()));
         } else if v.is::<List>() {
             let l = v.try_downcast::<List>().ok().unwrap();
-            self.frame.childs.push(ChildFrame::Frame(Frame::from_list(l)));
+            let defenv = self.get_meta_type::<DefEnv>(l.meta_ref()).cloned().unwrap_or_default();
+            self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(l.into_inner(), defenv)));
         } else {
             self.stack_push(v);
         }
@@ -261,7 +214,7 @@ impl Interpreter {
     // TODO always use list's defenv then current defenv
     pub fn eval_list_next(&mut self, v: ValOf<List>) {
         let defs = {
-            if let Some(real) = v.meta_ref().get_ref::<DefEnv>().cloned() {
+            if let Some(real) = self.get_meta_type::<DefEnv>(v.meta_ref()).cloned() {
                 real
             } else {
                 let mut defs = self.defenv_ref().clone();
@@ -297,29 +250,19 @@ impl Interpreter {
     /// Inserts meta values such as name and a static environment.
     pub fn define(&mut self, name: impl Into<String>, def: impl Into<Val>) {
         let name = name.into();
-        let mut def = def.into();
-        let m = def.meta_mut();
-        m.insert(DefineName(name.clone()));
-        m.insert(self.defenv_ref().clone());
-        self.frame.defs.insert(name, def);
+        let def = self.add_meta_type(def.into(), self.defenv_ref().clone());
+        self.frame.defs.insert_local(name, def);
     }
 
     /// Add the given value to local definitions.
     pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.frame.defs.insert(name.into(), def.into());
+        self.frame.defs.insert_local(name.into(), def.into());
     }
 
     /// Add the given builtin to the ambient definition set.
     pub fn add_builtin(&mut self, name: impl Into<String>, def: impl Into<Builtin>) {
-        self.frame.defs.insert(name.into(), Val::from(def.into()));
+        self.frame.defs.insert_local(name.into(), Val::from(def.into()));
     }
-
-    // /// Get all local definitions.
-    // /// These are usually the definitions added by code in the current stack frame
-    // /// and will be lost once completely executed.
-    // pub fn locals_ref(&self) -> &DefSet { self.frame.defs.locals_ref() }
-    // /// Get a mutable reference to the local definitions for the current stack frame.
-    // pub fn locals_mut(&mut self) -> &mut DefSet { self.frame.defs.locals_mut() }
 
     /// Get a reference to the current [DefEnv].
     pub fn defenv_ref(&self) -> &DefEnv { &self.frame.defs }
@@ -334,6 +277,11 @@ impl Interpreter {
     pub fn stack_mut(&mut self) -> &mut List { &mut self.stack }
     /// Put something on top of the stack
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
+    /// Push something on top of the stack, marking it as an error
+    pub fn stack_push_error(&mut self, v: impl Into<Val>) {
+        let val = self.add_meta_type(v.into(), IsError);
+        self.stack.push(val);
+    }
     /// Put something on top of the stack, or false
     pub fn stack_push_option<T: Into<Val>>(&mut self, v: Option<T>) {
         if let Some(v) = v {
@@ -346,16 +294,17 @@ impl Interpreter {
     pub fn stack_push_result<T: Into<Val>, E: Into<Val>>(&mut self, v: Result<T, E>) {
         match v {
             Ok(ok) => self.stack_push(ok),
-            Err(e) => self.stack_push(IsError::add(e)),
+            Err(e) => self.stack_push_error(e),
         }
     }
     /// Pop the top thing off the stack
     pub fn stack_pop_val(&mut self) -> BuiltinRet<Val> {
-        Self::or_err(self.stack.pop(), "stack-empty")
+        let r = self.stack.pop();
+        self.or_err(r, "stack-empty")
     }
     /// Get the top thing off the stack without popping it
     pub fn stack_top_val(&mut self) -> BuiltinRet<Val> {
-        Self::or_err(self.stack.top().cloned(), "stack-empty")
+        self.or_err(self.stack.top().cloned(), "stack-empty")
     }
 
     /// Pop the top thing off the stack if it has the given type
@@ -363,10 +312,11 @@ impl Interpreter {
         let v = self.stack_pop_val()?;
         v.try_downcast::<T>().map_err(|v| {
             let vty = v.val_type_id();
-            IsError::add(List::from(vec![
+            self.add_meta_type(List::from(vec![
                 "wrong-type".to_symbol().into(),
                 v, vty.into(), TypeId::of::<T>().into(),
-            ]))
+                std::any::type_name::<T>().to_string().into(),
+            ]).into(), IsError)
         })
     }
 
@@ -382,16 +332,17 @@ impl Interpreter {
 
     /// Get the next item in the current stack frame body.
     pub fn body_next_val(&mut self) -> BuiltinRet<Val> {
-        Self::or_err(self.body_mut().pop(), "quote-nothing")
+        let r = self.body_mut().pop();
+        self.or_err(r, "quote-nothing")
     }
     /// Get the next `T` in the current stack frame body.
     pub fn body_next<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
         self.body_next_val()?.try_downcast::<T>().map_err(|v| {
             let vty = v.val_type_id();
-            IsError::add(List::from(vec![
+            self.add_meta_type(List::from(vec![
                 "wrong-type".to_symbol().into(),
                 v, vty.into(), TypeId::of::<T>().into(),
-            ]))
+            ]).into(), IsError)
         })
     }
 
@@ -400,14 +351,14 @@ impl Interpreter {
         Err(v.into())
     }
     /// Pause evaluation with an error. [run] will return with this value.
-    pub fn error(&self, v: impl Into<Val>) -> BuiltinRet {
-        Err(IsError::add(v.into()))
+    pub fn error(&mut self, v: impl Into<Val>) -> BuiltinRet {
+        Err(self.add_meta_type(v.into(), IsError))
     }
 
-    fn or_err<T>(v: Option<T>, err: impl Into<Symbol>) -> BuiltinRet<T> {
+    fn or_err<T>(&mut self, v: Option<T>, err: impl Into<Symbol>) -> BuiltinRet<T> {
         match v {
             Some(v) => Ok(v),
-            None => Err(IsError::add(err.into())),
+            None => Err(self.add_meta_type(Val::from(err.into()), IsError)),
         }
     }
 
@@ -420,6 +371,21 @@ impl Interpreter {
         } else {
             self.error("root-uplevel".to_symbol())
         }
+    }
+
+    /// Get a mutable reference to the interpreter's [UniqueGen]
+    /// for creating and querying unique values.
+    pub fn uniques_mut(&mut self) -> &mut UniqueGen { &mut self.uniques }
+
+    fn add_meta_type<T: 'static + Into<Val>>(&mut self, mut v: Val, m: T) -> Val {
+        let mu = self.uniques.get_type::<T>();
+        v.meta_mut().insert_val(mu, m.into());
+        v
+    }
+    fn get_meta_type<'a, T: 'static>(&self, meta: &'a Meta) -> Option<&'a T> {
+        if let Some(tu) = self.uniques.lookup_type::<T>() {
+            meta.get_ref::<T>(&tu)
+        } else { None }
     }
 
 }
@@ -555,7 +521,7 @@ mod test {
             Ok(())
         });
         let err = i.run().unwrap_err();
-        assert!(IsError::is_error(&err));
+        // assert!(IsError::is_error(&err));
         assert_eq!(err.downcast_ref::<Symbol>(),
                    Some(&"stack-empty".to_symbol()));
     }

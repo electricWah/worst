@@ -30,8 +30,9 @@ define dispatch [
 ]
 export dispatch
 
-quote i64map? definition-resolve
-type-id-type-id value-meta-entry const i64map-type-id
+; builtin predicates are defined with the type-id of type-id as meta key
+"" value-type-id value-type-id type-id->unique const type-id-key
+make-unique const type-dispatch-key
 
 ; type-dispatch on top item (for now):
 ; define (type-dispatch string?) thingy [ ... ]
@@ -42,7 +43,7 @@ define type-dispatch [
 
     upquote const type-name
     type-name updo definition-resolve
-    type-id-type-id value-meta-entry
+    type-id-key value-meta-entry
     false? if [
         drop type-name "type-dispatch: not a builtin type predicate" error
     ] [ ]
@@ -50,7 +51,7 @@ define type-dispatch [
 
     ; get or default map in existing def
     name updo definition-resolve const prev-def
-    prev-def i64map-type-id value-meta-entry
+    prev-def type-dispatch-key value-meta-entry
     false? const fresh-dispatch
     fresh-dispatch if [ drop make-i64map ] [ ]
     ; add current body to lookup
@@ -78,7 +79,8 @@ define type-dispatch [
         v swap updo eval
     ]
 
-    quote new-def definition-resolve dispatch-lookup value-set-meta-entry
+    quote new-def definition-resolve
+    type-dispatch-key dispatch-lookup value-insert-meta-entry
     name
 ]
 export type-dispatch

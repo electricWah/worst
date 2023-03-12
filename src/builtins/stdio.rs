@@ -71,7 +71,7 @@ pub fn install(i: &mut Interpreter) {
         let mut buf = String::new();
         match io::stdin().read_line(&mut buf) {
             Ok(_count) => i.stack_push(buf),
-            Err(e) => i.stack_push(IsError::add(format!("{}", e))),
+            Err(e) => i.stack_push_error(format!("{}", e)),
         }
         Ok(())
     });

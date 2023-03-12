@@ -5,7 +5,6 @@
 //! add (line-)buffering to an input port,
 //! and whatever else it is you want to do with a bunch of bytes.
 
-use crate::base::*;
 use crate::builtins::util;
 use crate::interpreter::*;
 
@@ -67,7 +66,7 @@ pub fn install(i: &mut Interpreter) {
         let bv = i.stack_pop::<Vec<u8>>()?.into_inner();
         match String::from_utf8(bv) {
             Ok(s) => i.stack_push(s),
-            Err(e) => i.stack_push(IsError::add(format!("{}", e))),
+            Err(e) => i.stack_push_error(format!("{}", e)),
         }
         Ok(())
     });

@@ -83,7 +83,7 @@ pub fn install(i: &mut Interpreter) {
         let opts = i.stack_pop::<fs::OpenOptions>()?;
         let path = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(opts.as_ref().open(path.as_ref())
-                            .map(File::new).map_err(util::io_error));
+                            .map(File::new).map_err(|e| format!("{}", e)));
         Ok(())
     });
 
@@ -92,10 +92,9 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("file-port-read-range", util::port_read_range::<File>);
     i.add_builtin("file-port-write-range", util::port_write_range::<File>);
     i.add_builtin("file-port-flush", util::port_flush::<File>);
-
     i.add_builtin("fs-path-canonical", |i: &mut Interpreter| {
         let p = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::canonicalize(p.as_ref()).map_err(util::io_error));
+        i.stack_push_result(fs::canonicalize(p.as_ref()).map_err(|e| format!("{}", e)));
         Ok(())
     });
 
@@ -103,41 +102,41 @@ pub fn install(i: &mut Interpreter) {
         let dest = i.stack_pop::<PathBuf>()?;
         let src = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(fs::copy(src.as_ref(), dest.as_ref())
-                            .map(|_len| dest).map_err(util::io_error));
+                            .map(|_len| dest).map_err(|e| format!("{}", e)));
         Ok(())
     });
     i.add_builtin("fs-move", |i: &mut Interpreter| {
         let dest = i.stack_pop::<PathBuf>()?;
         let src = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(fs::rename(src.as_ref(), dest.as_ref())
-                            .map(|_len| dest).map_err(util::io_error));
+                            .map(|_len| dest).map_err(|e| format!("{}", e)));
         Ok(())
     });
 
     i.add_builtin("fs-file-delete", |i: &mut Interpreter| {
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::remove_file(path.as_ref()).map(|()| true).map_err(util::io_error));
+        i.stack_push_result(fs::remove_file(path.as_ref()).map(|()| true).map_err(|e| format!("{}", e)));
         Ok(())
     });
     i.add_builtin("fs-dir-delete-empty", |i: &mut Interpreter| {
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::remove_dir(path.as_ref()).map(|()| true).map_err(util::io_error));
+        i.stack_push_result(fs::remove_dir(path.as_ref()).map(|()| true).map_err(|e| format!("{}", e)));
         Ok(())
     });
     i.add_builtin("fs-dir-delete", |i: &mut Interpreter| {
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::remove_dir_all(path.as_ref()).map(|()| true).map_err(util::io_error));
+        i.stack_push_result(fs::remove_dir_all(path.as_ref()).map(|()| true).map_err(|e| format!("{}", e)));
         Ok(())
     });
 
     i.add_builtin("fs-dir-create", |i: &mut Interpreter| {
         let name = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::create_dir(name.as_ref()).map(|()| true).map_err(util::io_error));
+        i.stack_push_result(fs::create_dir(name.as_ref()).map(|()| true).map_err(|e| format!("{}", e)));
         Ok(())
     });
     i.add_builtin("fs-dir-create-path", |i: &mut Interpreter| {
         let name = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(fs::create_dir_all(name.as_ref()).map(|()| true).map_err(util::io_error));
+        i.stack_push_result(fs::create_dir_all(name.as_ref()).map(|()| true).map_err(|e| format!("{}", e)));
         Ok(())
     });
 
@@ -156,7 +155,7 @@ pub fn install(i: &mut Interpreter) {
                 }
                 i.stack_push(List::from(l));
             },
-            Err(e) => i.stack_push(util::io_error(e)),
+            Err(e) => i.stack_push_error(format!("{}", e)),
         }
         Ok(())
     });

@@ -15,7 +15,7 @@ pub fn install(i: &mut Interpreter) {
         let r = i.stack_pop::<Reader>()?.into_inner();
         match r.complete() {
             Ok(r) => i.stack_push_option(r),
-            Err(e) => i.stack_push(IsError::add(format!("{:?}", e))),
+            Err(e) => i.stack_push_error(format!("{:?}", e)),
         }
         Ok(())
     });

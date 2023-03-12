@@ -28,7 +28,7 @@ fn type_predicate<T: Value>(i: &mut Interpreter) -> BuiltinRet {
 /// ```
 pub fn add_type_predicate_builtin<T: Value>(i: &mut Interpreter, name: impl Into<String>) {
     let mut pred = Val::from(Builtin::from(type_predicate::<T>));
-    pred.meta_mut().insert::<TypeId>(TypeId::of::<T>());
+    pred.meta_mut().insert_val(i.uniques_mut().get_type::<TypeId>(), TypeId::of::<T>().into());
     i.add_definition(name, pred);
 }
 
@@ -118,15 +118,10 @@ pub fn or_io_error<T>(i: &mut Interpreter, e: std::io::Result<T>) -> Option<T> {
     match e {
         Ok(v) => Some(v),
         Err(e) => {
-            i.stack_push(IsError::add(format!("{}", e)));
+            i.stack_push_error(format!("{}", e));
             None
         }
     }
-}
-
-/// Use `map_err(io_error)` to turn a [std::io::Result] into a [BuiltinRet].
-pub fn io_error(e: std::io::Error) -> Val {
-    IsError::add(format!("{}", e))
 }
 
 /// Slurp entire port (i.e. until eof) into a string.
@@ -155,13 +150,12 @@ pub fn port_read_range<T: Value + Read + Clone>(i: &mut Interpreter) -> BuiltinR
     let bv = bytevector.as_mut();
     let range = bytes_range_mut(bv, start, end);
     let res = 
-        match port.as_mut().read(range) {
-            Ok(count) => Val::from(count as i64),
-            Err(e) => IsError::add(format!("{}", e)),
-        };
+        port.as_mut().read(range)
+        .map(|count| Val::from(count as i64))
+        .map_err(|e| format!("{}", e));
     i.stack_push(port);
     i.stack_push(bytevector);
-    i.stack_push(res);
+    i.stack_push_result(res);
     Ok(())
 }
 
@@ -175,14 +169,12 @@ pub fn port_write_range<T: Value + Write + Clone>(i: &mut Interpreter) -> Builti
     let bytevector = i.stack_pop::<Vec<u8>>()?;
     let mut port = i.stack_pop::<T>()?;
     let range = bytes_range(bytevector.as_ref(), start, end);
-    let res =
-        match port.as_mut().write(range) {
-            Ok(count) => Val::from(count as i64),
-            Err(e) => IsError::add(format!("{}", e)),
-        };
+    let res = port.as_mut().write(range)
+        .map(|count| Val::from(count as i64))
+        .map_err(|e| format!("{}", e));
     i.stack_push(port);
     i.stack_push(bytevector);
-    i.stack_push(res);
+    i.stack_push_result(res);
     Ok(())
 }
 
@@ -206,7 +198,7 @@ pub fn port_flush<T: Value + Write + Clone>(i: &mut Interpreter) -> BuiltinRet {
     i.stack_push(p);
     match r {
         Ok(()) => i.stack_push(true),
-        Err(e) => i.stack_push(IsError::add(format!("{}", e))),
+        Err(e) => i.stack_push_error(format!("{}", e)),
     }
     Ok(())
 }

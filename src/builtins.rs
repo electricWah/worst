@@ -9,7 +9,6 @@ pub mod bytevector;
 pub mod core;
 pub mod defenv;
 pub mod define;
-pub mod doc;
 pub mod fs;
 pub mod i64map;
 pub mod interpreter;
@@ -24,7 +23,6 @@ pub mod reader;
 #[cfg(feature = "enable_stdio")]
 pub mod stdio;
 pub mod string;
-pub mod unique;
 
 /// Define all enabled builtins in the given [Interpreter].
 pub fn install(i: &mut Interpreter) {
@@ -32,7 +30,6 @@ pub fn install(i: &mut Interpreter) {
     core::install(i);
     defenv::install(i);
     define::install(i);
-    doc::install(i);
     fs::install(i);
     i64map::install(i);
     interpreter::install(i);
@@ -47,6 +44,5 @@ pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "enable_stdio")]
     stdio::install(i);
     string::install(i);
-    unique::install(i);
 }
 

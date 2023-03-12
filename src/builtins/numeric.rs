@@ -56,7 +56,7 @@ pub fn div_nozero<T: std::ops::Div<T, Output=T> + Value + Clone + std::cmp::Part
     let b = i.stack_pop::<T>()?.into_inner();
     let a = i.stack_pop::<T>()?.into_inner();
     if b == 0.into() {
-        i.stack_push(IsError::add(false));
+        i.stack_push_error(false);
     } else {
         i.stack_push(a / b);
     }

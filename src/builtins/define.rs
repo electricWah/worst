@@ -22,32 +22,12 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    // TODO use value-set-meta-entry and just plain strings
-    i.add_builtin("value-set-name", |i: &mut Interpreter| {
-        let name = i.stack_pop::<String>()?.into_inner();
-        let mut v = i.stack_pop_val()?;
-        v.meta_mut().insert(DefineName::new(name));
-        i.stack_push(v);
-        Ok(())
-    });
-
-    i.add_builtin("value-get-defset", |i: &mut Interpreter| {
-        let v = i.stack_pop_val()?;
-        i.stack_push_option(v.meta_ref().get_ref::<DefSet>().cloned());
-        Ok(())
-    });
-    i.add_builtin("value-set-defset", |i: &mut Interpreter| {
-        let defs = i.stack_pop::<DefSet>()?.into_inner();
-        let mut v = i.stack_pop_val()?;
-        v.meta_mut().insert(defs);
-        i.stack_push(v);
-        Ok(())
-    });
-
     // TODO use normal meta-entry stuff and some non-special type
     i.add_builtin("value-set-not-dynamic-resolvable", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
-        v.meta_mut().insert(NotDynamicResolvable);
+        v.meta_mut().insert_val(
+            i.uniques_mut().get_type::<NotDynamicResolvable>(),
+            NotDynamicResolvable.into());
         i.stack_push(v);
         Ok(())
     });
@@ -56,11 +36,12 @@ pub fn install(i: &mut Interpreter) {
     // try resolving def, then recursively uplevel until found
     // dynamic-resolve would just look in locals I guess
     i.add_builtin("dynamic-resolve-any", |i: &mut Interpreter| {
+        let tu = i.uniques_mut().get_type::<NotDynamicResolvable>();
         let name = i.stack_pop::<Symbol>()?;
         loop {
             // i.local_definitions().get(name.as_ref())
             if let Some(def) = i.resolve_definition(name.as_ref().as_ref()) {
-                if !def.meta_ref().contains::<NotDynamicResolvable>() {
+                if !def.meta_ref().contains_val(&tu) {
                     i.stack_push(def.clone());
                     break;
                 }
@@ -79,16 +60,17 @@ pub fn install(i: &mut Interpreter) {
     // try resolving def in locals, then recursively uplevel until found
     // or false + error
     i.add_builtin("dynamic-resolve-local", |i: &mut Interpreter| {
+        let tu = i.uniques_mut().get_type::<NotDynamicResolvable>();
         let name = i.stack_pop::<Symbol>()?;
         loop {
             if let Some(def) = i.defenv_ref().get_local(name.as_ref().as_ref()) {
-                if !def.meta_ref().contains::<NotDynamicResolvable>() {
+                if !def.meta_ref().contains_val(&tu) {
                     i.stack_push(def.clone());
                     break;
                 }
             }
             if i.enter_parent_frame().is_err() {
-                i.stack_push(IsError::add(false));
+                i.stack_push_error(false);
                 break;
             }
         }

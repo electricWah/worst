@@ -44,7 +44,7 @@ define ansi [
 
     updo current-defenv
     defenv-new-locals
-    current-locals
+    current-defenv
     defenv-merge-locals
     upquote swap value-set-defenv
     updo eval

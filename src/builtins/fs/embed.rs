@@ -37,7 +37,7 @@ pub fn install(i: &mut Interpreter) {
         if let Some(f) = open_read(path.as_ref()) {
             i.stack_push(f);
         } else {
-            i.stack_push(IsError::add(false));
+            i.stack_push_error(false);
         }
         Ok(())
     });

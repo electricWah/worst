@@ -26,6 +26,14 @@ export define
 define in-definition-attributes [ quote definition-attributes dynamic-resolve ]
 export in-definition-attributes
 
+define value-definition-add [
+    const def const name
+    clone value-defenv
+    name def defenv-insert-local
+    defenv-new-locals
+    value-set-defenv
+]
+
 ; define (recursive) infinite-loop [ infinite-loop ]
 ; attribute: define self within body to enable recursive calls
 ; works funny when there's an existing definition with the same name!

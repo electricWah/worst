@@ -2,11 +2,12 @@
 use std::rc::Rc;
 use std::any::{Any, TypeId};
 use im_rc::HashMap;
+use super::unique::Unique;
 
 /// Metadata lookup for a value.
 #[derive(Default, Clone)]
 pub struct Meta {
-    data: HashMap<TypeId, Rc<dyn Any>>,
+    data: HashMap<Unique, Rc<dyn Any>>,
 }
 
 /// A reference-counted value, used directly by Worst programs.
@@ -81,50 +82,49 @@ impl Val {
 }
 
 impl Meta {
-    /// Add a new metadata value for [T].
-    pub fn insert<T: 'static>(&mut self, val: T) {
-        self.data.insert(TypeId::of::<T>(), Rc::new(val));
-    }
-    /// Remove [T] from the metadata and return whether it existed.
-    pub fn remove<T: 'static>(&mut self) -> bool {
-        self.data.remove(&TypeId::of::<T>()).is_some()
-    }
-    /// Check whether the metadata contains [T].
-    pub fn contains<T: 'static>(&self) -> bool {
-        self.data.contains_key(&TypeId::of::<T>())
-    }
-
     /// Get the number of Meta entries.
     pub fn len(&self) -> usize {
         self.data.len()
     }
+    /// Get whether there are no entries.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
 
-    /// Get a reference to [T] in the metadata, if one exists.
-    pub fn get_ref<T: 'static>(&self) -> Option<&T> {
-        self.data.get(&TypeId::of::<T>())
+    /// Get a reference to [T] associated with `u`,
+    /// if `u` indeed refers to a [T].
+    pub fn get_ref<T: 'static>(&self, u: &Unique) -> Option<&T> {
+        self.data.get(u)
             .map(Rc::as_ref)
             .and_then(|r| r.downcast_ref::<T>())
     }
-    /// Get a Val of the given type id, if it exists. A bit like [get_ref].
-    /// Note that Meta entries are not Val, so meta infomation is not retained.
-    pub fn get_val(&self, ty: &TypeId) -> Option<Val> {
-        self.data.get(&ty).map(|v| Val { v: v.clone(), meta: Meta::default() })
-    }
-    /// Insert a Val, discarding its metadata,
-    /// and overwrite any previous value with the same type.
-    pub fn insert_val(&mut self, v: Val) {
-        self.data.insert(v.val_type_id(), v.v);
+
+    /// Check whether the metadata contains the given [Unique].
+    pub fn contains_val(&self, u: &Unique) -> bool {
+        self.data.contains_key(u)
     }
 
-    /// Remove [T] from the metadata and return it if it existed.
-    pub fn take<T: 'static + Clone>(&mut self) -> Option<T> {
-        self.data.remove(&TypeId::of::<T>())
-            .and_then(|r| r.downcast::<T>().ok())
-            .map(|v| (*v).clone())
+    /// Get the [Val] associated with the given [Unique].
+    /// Note that Meta entries are not [Val], so meta infomation is not retained.
+    pub fn get_val(&self, u: &Unique) -> Option<Val> {
+        self.data.get(u).map(|v| Val { v: v.clone(), meta: Meta::default() })
     }
-    /// Remove the [Val] of the given type id and return it if it existed.
-    pub fn take_val(&mut self, ty: &TypeId) -> Option<Val> {
-        self.data.remove(&ty).map(|v| Val { v, meta: Meta::default() })
+
+    /// Insert a Val, discarding its metadata,
+    /// and overwrite any previous value with the same type.
+    pub fn insert_val(&mut self, u: Unique, v: Val) {
+        self.data.insert(u, v.v);
+    }
+
+    /// Remove the [Val] associated with the given [Unique],
+    /// and return whether it existed.
+    pub fn remove_val(&mut self, u: &Unique) -> bool {
+        self.data.remove(u).is_some()
+    }
+    /// Remove the [Val] associated with the given [Unique],
+    /// and return it if it existed.
+    pub fn take_val(&mut self, u: &Unique) -> Option<Val> {
+        self.data.remove(u).map(|v| Val { v, meta: Meta::default() })
     }
 }
 
@@ -166,9 +166,7 @@ impl<T: Value> TryFrom<Val> for ValOf<T> {
 }
 
 impl<T: Value> AsRef<T> for ValOf<T> {
-    fn as_ref(&self) -> &T {
-        &*self.v
-    }
+    fn as_ref(&self) -> &T { &self.v }
 }
 
 impl<T: Value + Clone> AsMut<T> for ValOf<T> {

@@ -20,9 +20,9 @@ In which the innards are simplified even more.
 - Add type-id?, type-id-equal and value-type-id for types of things in worst
 - Add i64map: an ordered lookup with i64 keys
 - Add a bunch of <type>-hash builtins for hashing things into i64
+- Add unique values: they only compare equal to themselves and their copies
 - Add value-meta-entry and value-set-meta-entry for accessing meta values
-  - Each value can have one meta entry per type of meta entry
-    so e.g. every value can have one string meta entry, a list, i64, etc.
+  - Keys are unique values
   - Values added as meta entries to other values lose their meta values
 - Add type-dispatch attribute for single-value dispatch based on type predicates
   - It's much faster with lots of cases, at the expense of flexibility

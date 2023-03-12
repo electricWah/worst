@@ -42,9 +42,9 @@ fn main() -> ExitCode {
     let mut i = Interpreter::new(wmain);
     builtins::install(&mut i);
     if let Err(e) = i.run() {
-        if IsError::is_error(&e) {
-            eprint!("\nTop-level error: ");
-        }
+        // if IsError::is_error(&e) {
+        //     eprint!("\nTop-level error: ");
+        // }
         basic_printerr(&e);
         eprint!("\nStack: ");
         for v in i.stack_ref().iter() {

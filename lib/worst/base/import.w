@@ -16,7 +16,7 @@ define default-module-definitions [
 export default-module-definitions
 
 define import [
-    defset-empty make-place const all-imports
+    defenv-empty make-place const all-imports
     upquote
     list? if [] [ () swap list-push ]
     list-iter [
@@ -50,12 +50,10 @@ define import [
             ; read module
             read-string->list const modbody
 
-            defset-empty make-place const module-exports
+            defenv-empty make-place const module-exports
             interpreter-empty
             default-module-definitions
-            defset-empty
-            quote module-exports module-exports defset-insert
-            defenv-merge-locals
+            quote module-exports module-exports defenv-insert-local
             interpreter-defenv-set
 
             modbody interpreter-eval-list-next
@@ -66,7 +64,7 @@ define import [
                 drop
                 module-exports place-get
                 all-imports place-get
-                swap defset-merge
+                swap defenv-merge-locals
                 all-imports swap place-set drop
             ] [
                 "Error in " print modname value->string print ": " print
@@ -98,7 +96,7 @@ define export [
                 clone println error
             ] [ ]
             const def
-            x def defset-insert
+            x def defenv-insert-local
         ]
         module-exports swap place-set drop
     ]
