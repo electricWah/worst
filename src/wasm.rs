@@ -1,10 +1,12 @@
 
+//! WebAssembly bindings: Interpreter and Reader wrapper.
+
 mod conv;
-mod handle;
+// mod handle;
 
 use wasm_bindgen::prelude::*;
 use js_sys;
-use web_sys;
+// use web_sys;
 
 use crate::base::*;
 use crate::builtins;
@@ -22,52 +24,48 @@ impl Interpreter {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Interpreter {
         console_error_panic_hook::set_once();
-        conv::setup();
         let mut i = interpreter::Interpreter::default();
         builtins::install(&mut i);
         Interpreter(i)
     }
 
-    pub fn debug(&self) {
-        let defs = self.0.all_definitions();
-        web_sys::console::debug_2(&defs.len().into(), &"definitions".into());
-        web_sys::console::debug_1(&self.0.stack_ref().clone().into());
-    }
+    // pub fn debug(&self) {
+    //     let defs = self.0.all_definitions();
+    //     web_sys::console::debug_2(&defs.len().into(), &"definitions".into());
+    //     web_sys::console::debug_1(&self.0.stack_ref().clone().into());
+    // }
 
-    pub fn run(&mut self) -> JsValue {
-        self.0.run().into()
+    pub fn run(&mut self) -> Result<(), JsValue> {
+        self.0.run().map_err(JsValue::from)
     }
 
     pub fn reset(&mut self) {
         self.0.reset()
     }
 
-    pub fn eval_next_from(&mut self, r: &mut Reader) -> Result<(), JsValue> {
-        let mut body = vec![];
-        'read: loop {
-            match r.0.read_next() {
-                Ok(Some(v)) => body.push(v),
-                Ok(None) => break 'read,
-                Err(e) => return Err(Val::from(e).into()),
-            }
-        }
-        self.0.eval_next(Val::from(List::from(body)));
-        Ok(())
-    }
+    // pub fn eval_next_from(&mut self, r: &mut Reader) -> Result<(), JsValue> {
+    //     let mut body = vec![];
+    //     'read: loop {
+    //         match r.0.read_next() {
+    //             Ok(Some(v)) => body.push(v),
+    //             Ok(None) => break 'read,
+    //             Err(e) => return Err(Val::from(e).into()),
+    //         }
+    //     }
+    //     self.0.eval_next(Val::from(List::from(body)));
+    //     Ok(())
+    // }
 
     pub fn js_define(&mut self, name: String, def: js_sys::Function) {
-        self.0.define(name.clone(), move |i: interpreter::Handle| {
-            let def = def.clone();
-            async move {
-                handle::call(def.clone(), i).await;
-            }
+        self.0.add_builtin(name, |i: &mut interpreter::Interpreter| {
+            // match def.clone().call1(&JsValue::UNDEFINED, &Handle(s).into()) {
+            // }
+            Ok(())
         });
     }
 
-    pub fn stack_pop(&mut self) -> JsValue {
-        if let Some(v) = self.0.stack_pop_val() {
-            v.into()
-        } else { JsValue::null() }
+    pub fn stack_pop(&mut self) -> Result<JsValue, JsValue> {
+        self.0.stack_pop_val().map(JsValue::from).map_err(JsValue::from)
     }
 
     pub fn stack_push(&mut self, v: JsValue) {
@@ -79,15 +77,19 @@ impl Interpreter {
 impl Reader {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Reader {
-        Reader(reader::Reader::new())
+        Reader(reader::Reader::default())
     }
 
-    pub fn reset(&mut self) {
-        std::mem::swap(&mut self.0, &mut reader::Reader::new());
+    pub fn read_string(&mut self, s: String) -> Result<JsValue, JsValue> {
+        let mut v = vec![];
+        self.0.read_into(s.chars(), &mut v)
+            .map_err(|e| JsValue::from(format!("{:?}", e)))?;
+        Ok(List::from(v).into())
     }
 
-    pub fn write(&mut self, s: String) {
-        self.0.write(&mut s.chars());
+    pub fn complete(self) -> Result<JsValue, JsValue> {
+        self.0.complete().map(JsValue::from)
+            .map_err(|e| JsValue::from(format!("{:?}", e)))
     }
 }
 

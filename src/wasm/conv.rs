@@ -1,12 +1,9 @@
 
-use std::sync::Once;
-
 use wasm_bindgen::prelude::*;
 use js_sys::{ self, Array };
 use web_sys;
 
 use crate::base::*;
-use crate::list::List;
 
 impl Value for JsValue {}
 
@@ -22,7 +19,7 @@ pub fn from_jsvalue(j: JsValue) -> Val {
     } else if let Some(v) = j.as_f64() {
         v.into()
     } else if Array::is_array(&j) {
-        List::from_iter(Array::from(&j).iter().map(from_jsvalue)).into()
+        List::from(Array::from(&j).iter().map(from_jsvalue).collect::<Vec<_>>()).into()
     // } else if let Ok(Sym { symbol }) = j.into_serde() {
     //     // js ["test"] will successfully read as Symbol("test")
     //     // so careful with multiple serde values in this else/if chain
@@ -44,26 +41,21 @@ pub struct InternalVal(Val);
 
 impl From<Val> for JsValue {
     fn from(v: Val) -> JsValue {
-        if let Some(jsv) = v.type_meta().first_ref::<ToJsValue>() {
-            let vv = jsv.0(&v);
-            // web_sys::console::warn_3(&"into jsvalue".into(), &format!("{:?}", &v).into(), &vv);
-            vv
+        if v.is::<bool>() {
+            JsValue::from(v.try_downcast::<bool>().ok().unwrap().into_inner())
+        } else if v.is::<String>() {
+            JsValue::from(v.try_downcast::<String>().ok().unwrap().into_inner())
+        // } else if v.is::<Symbol>() {
+        //     JsValue::from(v.try_downcast::<Symbol>().unwrap().into_inner())
+        } else if v.is::<f64>() {
+            JsValue::from(v.try_downcast::<f64>().ok().unwrap().into_inner())
+        } else if v.is::<List>() {
+            JsValue::from(v.try_downcast::<List>().ok().unwrap().into_inner())
         } else {
-            web_sys::console::warn_2(&"no ToJsValue for this".into(),
-                &format!("{:?}", &v).into());
+            web_sys::console::warn_1(&"no ToJsValue for value".into());
             InternalVal(v).into()
         }
     }
-}
-
-pub fn value_tojsvalue<T: ImplValue + Value + Clone + Into<JsValue>>() -> impl Value {
-    ToJsValue(Box::new(|v: &Val| {
-        v.downcast_ref::<T>().unwrap().clone().into()
-    }))
-}
-
-fn to_jsvalue<T: ImplValue + Value + Clone + Into<JsValue>>() {
-    T::install_meta(value_tojsvalue::<T>());
 }
 
 impl From<List> for JsValue {
@@ -81,20 +73,4 @@ impl From<Symbol> for JsValue {
         JsValue::symbol(Some(s.as_ref()))
     }
 }
-
-// install ToJsValue on supported types
-static TOJSVALUE: Once = Once::new();
-
-pub fn setup() {
-    TOJSVALUE.call_once(|| {
-        to_jsvalue::<bool>();
-        to_jsvalue::<String>();
-        to_jsvalue::<Symbol>();
-        to_jsvalue::<i64>();
-        to_jsvalue::<f64>();
-        to_jsvalue::<List>();
-        to_jsvalue::<JsValue>();
-    });
-}
-
 
