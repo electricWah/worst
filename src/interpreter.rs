@@ -6,6 +6,9 @@ use im_rc::{HashMap, HashSet};
 use crate::base::*;
 use std::any::TypeId;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
 #[derive(Default, Clone)]
 struct DefEnvEntry {
     local: Option<Val>,
@@ -103,6 +106,7 @@ enum ChildFrame {
 }
 
 /// A Worst interpreter.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Default)]
 pub struct Interpreter {
     frame: Frame,

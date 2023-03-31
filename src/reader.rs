@@ -4,7 +4,11 @@
 use std::num::IntErrorKind;
 use crate::base::*;
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
 /// The current state of reading some code.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 #[derive(Default, Clone)]
 pub struct Reader {
     lists: Vec<ListState>,
