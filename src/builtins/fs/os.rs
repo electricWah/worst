@@ -30,6 +30,14 @@ impl File {
     fn new(f: fs::File) -> Self {
         File { handle: Rc::new(RefCell::new(f)) }
     }
+    /// Try to turn this into the inner [fs::File] if it is unique,
+    /// or return self.
+    pub fn try_into_inner(self) -> Result<fs::File, Self> {
+        match Rc::try_unwrap(self.handle) {
+            Ok(h) => Ok(h.into_inner()),
+            Err(handle) => Err(File { handle }),
+        }
+    }
 }
 
 /// Try to open the file.

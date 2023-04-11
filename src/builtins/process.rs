@@ -7,6 +7,8 @@ use crate::base::*;
 use crate::interpreter::*;
 use super::util;
 #[cfg(feature = "enable_fs_os")]
+use super::fs::os;
+#[cfg(feature = "enable_fs_os")]
 use std::fs;
 use std::io;
 use std::process;
@@ -22,6 +24,54 @@ impl Command {
         let c = i.stack_top::<Command>()?;
         f(&mut c.as_ref().0.borrow_mut());
         Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct ChildStdin(Rc<RefCell<process::ChildStdin>>);
+impl Value for ChildStdin {}
+#[derive(Clone)]
+struct ChildStdout(Rc<RefCell<process::ChildStdout>>);
+impl Value for ChildStdout {}
+#[derive(Clone)]
+struct ChildStderr(Rc<RefCell<process::ChildStderr>>);
+impl Value for ChildStderr {}
+
+enum StdioUnique {
+    ChildStdin(process::ChildStdin),
+    ChildStdout(process::ChildStdout),
+    ChildStderr(process::ChildStderr),
+    #[cfg(feature = "enable_fs_os")] File(fs::File),
+}
+
+/// [process::Stdio] but clone-able-ish
+#[derive(Clone)]
+enum Stdio {
+    Inherit, Null, Piped,
+    Unique(Rc<StdioUnique>),
+}
+impl Value for Stdio {}
+
+impl From<StdioUnique> for process::Stdio {
+    fn from(stdio: StdioUnique) -> Self {
+        match stdio {
+            StdioUnique::ChildStdin(c) => c.into(),
+            StdioUnique::ChildStdout(c) => c.into(),
+            StdioUnique::ChildStderr(c) => c.into(),
+            #[cfg(feature = "enable_fs_os")] StdioUnique::File(f) => f.into(),
+        }
+    }
+}
+
+impl From<Stdio> for process::Stdio {
+    fn from(stdio: Stdio) -> Self {
+        match stdio {
+            Stdio::Inherit => Self::inherit(),
+            Stdio::Null => Self::null(),
+            Stdio::Piped => Self::piped(),
+            Stdio::Unique(f) =>
+                Rc::try_unwrap(f).ok().expect("process-stdio not unique").into(),
+        }
     }
 }
 
@@ -42,16 +92,6 @@ impl Child {
     }
 }
 
-#[derive(Clone)]
-struct ChildStdin(Rc<RefCell<process::ChildStdin>>);
-impl Value for ChildStdin {}
-#[derive(Clone)]
-struct ChildStdout(Rc<RefCell<process::ChildStdout>>);
-impl Value for ChildStdout {}
-#[derive(Clone)]
-struct ChildStderr(Rc<RefCell<process::ChildStderr>>);
-impl Value for ChildStderr {}
-
 impl io::Write for ChildStdin {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.0.borrow_mut().write(buf)
@@ -69,31 +109,6 @@ impl io::Read for ChildStderr {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.0.borrow_mut().read(buf)
     }
-}
-
-fn with_command_child(i: &mut Interpreter,
-                            f: impl FnOnce(&mut process::Command,
-                                           &mut process::Child)) -> BuiltinRet {
-    let ch = i.stack_pop::<Child>()?;
-    let co = i.stack_pop::<Command>()?;
-    f(&mut co.as_ref().0.borrow_mut(), &mut ch.as_ref().0.borrow_mut());
-    i.stack_push(co);
-    i.stack_push(ch);
-    Ok(())
-}
-
-#[cfg(feature = "enable_fs_os")]
-fn with_command_file_options(i: &mut Interpreter,
-                                   f: impl FnOnce(&mut process::Command,
-                                                  fs::File)) -> BuiltinRet {
-    let opts = i.stack_pop::<fs::OpenOptions>()?;
-    let path = i.stack_pop::<String>()?;
-    if let Some(file) = util::or_io_error(i, opts.as_ref().open(path.as_ref())) {
-        let co = i.stack_pop::<Command>()?;
-        f(&mut co.as_ref().0.borrow_mut(), file);
-        i.stack_push(co);
-    }
-    Ok(())
 }
 
 /// Install 'em
@@ -126,67 +141,66 @@ pub fn install(i: &mut Interpreter) {
         Command::with(i, |c| { c.current_dir(dir); })
     });
 
-    // wow
-    i.add_builtin("process-command-stdin-inherit", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stdin(process::Stdio::inherit()); })
+    i.add_builtin("process-command-stdin", |i: &mut Interpreter| {
+        let stdio = i.stack_pop::<Stdio>()?.into_inner();
+        Command::with(i, |c| { c.stdin(process::Stdio::from(stdio)); })
     });
-    i.add_builtin("process-command-stdin-null", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stdin(process::Stdio::null()); })
+    i.add_builtin("process-command-stdout", |i: &mut Interpreter| {
+        let stdio = i.stack_pop::<Stdio>()?.into_inner();
+        Command::with(i, |c| { c.stdout(process::Stdio::from(stdio)); })
     });
-    i.add_builtin("process-command-stdin-piped", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stdin(process::Stdio::piped()); })
-    });
-    i.add_builtin("process-command-stdout-inherit", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stdout(process::Stdio::inherit()); })
-    });
-    i.add_builtin("process-command-stdout-null", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stdout(process::Stdio::null()); })
-    });
-    i.add_builtin("process-command-stdout-piped", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stdout(process::Stdio::piped()); })
-    });
-    i.add_builtin("process-command-stderr-inherit", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stderr(process::Stdio::inherit()); })
-    });
-    i.add_builtin("process-command-stderr-null", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stderr(process::Stdio::null()); })
-    });
-    i.add_builtin("process-command-stderr-piped", |i: &mut Interpreter| {
-        Command::with(i, |c| { c.stderr(process::Stdio::piped()); })
+    i.add_builtin("process-command-stderr", |i: &mut Interpreter| {
+        let stdio = i.stack_pop::<Stdio>()?.into_inner();
+        Command::with(i, |c| { c.stderr(process::Stdio::from(stdio)); })
     });
 
-    i.add_builtin("process-command-stdin-child-stdout", |i: &mut Interpreter| {
-        with_command_child(i, |co, ch| {
-            co.stdin(ch.stdout.take().expect("child stdout double-take"));
-        })
+    i.add_builtin("process-stdio-inherit", |i: &mut Interpreter| {
+        i.stack_push(Stdio::Inherit);
+        Ok(())
     });
-    i.add_builtin("process-command-stdin-child-stderr", |i: &mut Interpreter| {
-        with_command_child(i, |co, ch| {
-            co.stdin(ch.stderr.take().expect("child stderr double-take"));
-        })
+    i.add_builtin("process-stdio-null", |i: &mut Interpreter| {
+        i.stack_push(Stdio::Null);
+        Ok(())
     });
-    i.add_builtin("process-command-stdout-child-stdin", |i: &mut Interpreter| {
-        with_command_child(i, |co, ch| {
-            co.stdout(ch.stdin.take().expect("child stdin double-take"));
-        })
-    });
-    i.add_builtin("process-command-stderr-child-stdin", |i: &mut Interpreter| {
-        with_command_child(i, |co, ch| {
-            co.stderr(ch.stdin.take().expect("child stdin double-take"));
-        })
+    i.add_builtin("process-stdio-piped", |i: &mut Interpreter| {
+        i.stack_push(Stdio::Piped);
+        Ok(())
     });
 
-    #[cfg(feature = "enable_fs_os")] {
-        i.add_builtin("process-command-stdin-file", |i: &mut Interpreter| {
-            with_command_file_options(i, |c, f| { c.stdin(f); })
-        });
-        i.add_builtin("process-command-stdout-file", |i: &mut Interpreter| {
-            with_command_file_options(i, |c, f| { c.stdout(f); })
-        });
-        i.add_builtin("process-command-stderr-file", |i: &mut Interpreter| {
-            with_command_file_options(i, |c, f| { c.stderr(f); })
-        });
-    }
+    i.add_builtin("process-child-stdin->stdio", |i: &mut Interpreter| {
+        let ChildStdin(c) = i.stack_pop::<ChildStdin>()?.into_inner();
+        match Rc::try_unwrap(c).map(|c| c.into_inner()) {
+            Ok(cs) => i.stack_push(Stdio::Unique(Rc::new(StdioUnique::ChildStdin(cs)))),
+            Err(_) => i.error("not unique: ChildStdin".to_string())?,
+        }
+        Ok(())
+    });
+    i.add_builtin("process-child-stdout->stdio", |i: &mut Interpreter| {
+        let ChildStdout(c) = i.stack_pop::<ChildStdout>()?.into_inner();
+        match Rc::try_unwrap(c).map(|c| c.into_inner()) {
+            Ok(cs) => i.stack_push(Stdio::Unique(Rc::new(StdioUnique::ChildStdout(cs)))),
+            Err(_) => i.error("not unique: ChildStdout".to_string())?,
+        }
+        Ok(())
+    });
+    i.add_builtin("process-child-stderr->stdio", |i: &mut Interpreter| {
+        let ChildStderr(c) = i.stack_pop::<ChildStderr>()?.into_inner();
+        match Rc::try_unwrap(c).map(|c| c.into_inner()) {
+            Ok(cs) => i.stack_push(Stdio::Unique(Rc::new(StdioUnique::ChildStderr(cs)))),
+            Err(_) => i.error("not unique: ChildStderr".to_string())?,
+        }
+        Ok(())
+    });
+
+    #[cfg(feature = "enable_fs_os")]
+    i.add_builtin("file->process-stdio", |i: &mut Interpreter| {
+        let f = i.stack_pop::<os::File>()?.into_inner();
+        match f.try_into_inner() {
+            Ok(f) => i.stack_push(Stdio::Unique(Rc::new(StdioUnique::File(f)))),
+            Err(_) => i.error("not unique: File".to_string())?,
+        }
+        Ok(())
+    });
 
     i.add_builtin("process-command-spawn-child", |i: &mut Interpreter| {
         let c = i.stack_pop::<Command>()?;
