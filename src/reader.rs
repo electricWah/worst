@@ -87,7 +87,6 @@ impl Reader {
                         None => break 'top,
                         Some('!') => {
                             self.state = BasicState::Comment;
-                            break 'top;
                         },
                         Some(c@('t' | 'f')) => {
                             self.emit((c == 't').into(), acc);

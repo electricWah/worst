@@ -134,5 +134,7 @@ export println-value
 define port->string [ println #f error ]
 define (type-dispatch file-port?) port->string [ file-port->string ]
 define (type-dispatch embedded-file-port?) port->string [ embedded-file-port->string ]
+export port->string
 define read-port->list [ port->string read-string->list ]
+export read-port->list
 
