@@ -6,12 +6,12 @@ import {
     syntax/case
 }
 
-doc [
-    title "Show information on how to use the Worst interactive environment."
-    tags [help repl]
-]
-
-define help [
+define [
+    doc [
+        title "Show information on how to use the Worst interactive environment."
+        tags [help repl]
+    ]
+] help [
     ansi [
         define $ [ upquote print ]
         define ^ [ yellow fg upquote value->string print reset ]
@@ -23,13 +23,14 @@ define help [
     ]
 ]
 
-doc [
-    title "Show information on a definition or topic."
-    see-also [help]
-    example [info info]
-    example [info help]
-]
-define info [
+define [
+    doc [
+        title "Show information on a definition or topic."
+        see-also [help]
+        example [info info]
+        example [info help]
+    ]
+] info [
     upquote const topic
     topic updo definition-resolve
     value-doc

@@ -28,6 +28,7 @@ In which the innards are simplified even more.
   - It's much faster with lots of cases, at the expense of flexibility
   - It only works using the built-in type predicates e.g. string?
   - It still works with a pre-defined default case as with [dispatch]
+- Add worst/util/doc-check module to check documentation
 
 # 0.4 (2022-11-19)
 

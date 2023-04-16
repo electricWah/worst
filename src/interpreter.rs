@@ -25,7 +25,7 @@ impl Value for DefEnv {}
 
 impl DefEnv {
     /// Look up a definition.
-    fn lookup(&self, key: &str) -> Option<&Val> {
+    pub fn lookup(&self, key: &str) -> Option<&Val> {
         self.entries.get(key).and_then(|s| s.local.as_ref().or(s.ambient.as_ref()))
     }
 
@@ -63,6 +63,18 @@ impl DefEnv {
             self.entries.get(k)
                 .and_then(|e| e.local.as_ref())
                 .map(|l| (k.as_ref(), l))
+        })
+    }
+
+    /// Get an iterator over all definitions
+    /// (returning also whether each definition was local or not)
+    pub fn iter(&self) -> impl Iterator<Item=(&str, &Val, bool)> {
+        self.entries.iter().filter_map(|(k, e)| {
+            if e.local.is_some() {
+                e.local.as_ref().map(|v| (k.as_ref(), v, true))
+            } else {
+                e.ambient.as_ref().map(|v| (k.as_ref(), v, false))
+            }
         })
     }
 
@@ -331,6 +343,8 @@ impl Interpreter {
         self.stack_push(v.clone());
         Ok(v)
     }
+    /// Get a reference to the remaining code in the current stack frame.
+    pub fn body_ref(&self) -> &List { &self.frame.body }
     /// Get a mutable reference to the remaining code in the current stack frame.
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
 

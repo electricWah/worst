@@ -229,7 +229,7 @@ define list-gtsort [
 define list-merge-sort-lt [
     upquote updo current-defenv value-set-defenv const compare
 
-    define (recursive) list-split-merge [
+    define (with-dynamics (list-split-merge)) list-split-merge [
         clone list-length
         lt? 2 if [ drop ] [
             equals? 2 if [

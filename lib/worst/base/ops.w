@@ -72,8 +72,11 @@ define min [ clone2 lt if [] [swap] drop ]
 
 ; a b bool-and => bool
 define bool-and [ if [ ] [ drop #f ] ]
+export bool-and
 define bool-and? [ clone2 bool-and ] ; idk
+export bool-and?
 define bool-or [ if [ drop #t ] [ ] ]
+export bool-or
 
 define (type-dispatch list?) length [ list-length ]
 define (type-dispatch bytevector?) length [ bytevector-length ]

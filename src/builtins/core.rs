@@ -266,6 +266,11 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(u);
         Ok(())
     });
+    i.add_builtin("unique-type-id?", |i: &mut Interpreter| {
+        let is = i.stack_top::<Unique>()?.as_ref().is_type();
+        i.stack_push(is);
+        Ok(())
+    });
 
     i.add_builtin("value-meta-entry", |i: &mut Interpreter| {
         let u = i.stack_pop::<Unique>()?;

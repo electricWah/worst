@@ -8,7 +8,9 @@ define value-doc [ value-doc-meta-key value-meta-entry ]
 export value-doc
 
 define doc [
-    current-docs upquote place-set drop
+    ; current-docs
+    swap upquote value-doc-set swap
+    ; place-set drop
 ]
 export doc
 
