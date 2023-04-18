@@ -10,9 +10,17 @@ use crate::builtins;
 use crate::interpreter::*;
 use crate::reader::*;
 
-#[wasm_bindgen]
-struct JsVal(Val);
+/// A Worst value with metadata.
+#[wasm_bindgen(js_name = Value)]
+pub struct JsVal(Val);
 impl Value for JsVal {}
+
+#[derive(Clone)]
+struct ExternJsValue(JsValue);
+impl Value for ExternJsValue {}
+
+struct CallFunction(js_sys::Function);
+impl Value for CallFunction {}
 
 impl From<JsValue> for Val {
     fn from(j: JsValue) -> Val {
@@ -28,15 +36,15 @@ impl From<JsValue> for Val {
             Symbol::from(js_sys::Symbol::from(j).as_string().expect("Symbol is not utf8!")).into()
         } else if js_sys::Array::is_array(&j) {
             List::from(js_sys::Array::from(&j).iter().map(Val::from).collect::<Vec<_>>()).into()
-                // } else if let Ok(Sym { symbol }) = j.into_serde() {
-                //     // js ["test"] will successfully read as Symbol("test")
-                //     // so careful with multiple serde values in this else/if chain
-                //     Symbol::from(symbol).into()
-        // } else if j.is_function() {
-        //     j.into()
+        } else if let Some(f) = j.dyn_ref::<js_sys::Function>() {
+            let def = f.clone();
+            Builtin::from(move |i: &mut Interpreter| {
+                i.pause(CallFunction(def.clone()))?;
+                Ok(())
+            }).into()
         } else {
-            web_sys::console::warn_2(&"unknown jsvalue".into(), &j);
-            j.into()
+            // web_sys::console::warn_2(&"unknown jsvalue".into(), &j);
+            ExternJsValue(j).into()
         }
     }
 }
@@ -53,6 +61,8 @@ impl From<Val> for JsValue {
             JsValue::from(v.try_downcast::<f64>().ok().unwrap().into_inner())
         } else if v.is::<List>() {
             JsValue::from(v.try_downcast::<List>().ok().unwrap().into_inner())
+        } else if v.is::<ExternJsValue>() {
+            v.try_downcast::<ExternJsValue>().ok().unwrap().into_inner().0
         } else {
             web_sys::console::warn_1(&"no ToJsValue for value".into());
             JsVal(v.into()).into()
@@ -76,10 +86,14 @@ impl From<Symbol> for JsValue {
     }
 }
 
-#[wasm_bindgen]
+#[wasm_bindgen(js_class = Value)]
 impl JsVal {
+    /// Attempt to turn a JS value into a Worst value. 
+    #[wasm_bindgen(constructor)]
+    pub fn js_constructor(v: JsValue) -> JsVal { JsVal(Val::from(v)) }
+    /// Turn the value into the closest JS analogue.
     #[wasm_bindgen(js_name = unwrap)]
-    pub fn js_unwrap(self) -> JsValue { self.0.into() }
+    pub fn js_unwrap(&self) -> JsValue { self.0.clone().into() }
 }
 
 impl TryFrom<JsValue> for JsVal {
@@ -104,16 +118,18 @@ impl Interpreter {
         i
     }
 
-    // pub fn debug(&self) {
-    //     let defs = self.0.all_definitions();
-    //     web_sys::console::debug_2(&defs.len().into(), &"definitions".into());
-    //     web_sys::console::debug_1(&self.0.stack_ref().clone().into());
-    // }
-
-    /// Run until the next pause or error, or to completion.
+    /// Run until the next pause or error, or to completion,
+    /// or until a function wants to be called.
     #[wasm_bindgen(js_name = run)]
-    pub fn js_run(&mut self) -> Result<(), JsValue> {
-        self.run().map_err(Val::into)
+    pub fn js_run(&mut self) -> Result<JsValue, JsValue> {
+        while let Err(r) = self.run() {
+            if let Some(CallFunction(f)) = r.downcast_ref::<CallFunction>() {
+                return Ok(f.into());
+            } else {
+                return Err(JsVal(r).into());
+            }
+        }
+        Ok(JsValue::UNDEFINED)
     }
 
     /// Make the interpreter stop doing things,
@@ -123,27 +139,8 @@ impl Interpreter {
 
     /// Add a function, array, or [Val] as a new definition.
     #[wasm_bindgen(js_name = define)]
-    pub fn js_define(&mut self, name: String, def: JsValue) -> Result<(), JsError> {
-        if let Some(f) = def.dyn_ref::<js_sys::Function>() {
-            let def = f.clone();
-            self.add_builtin(name, move |i: &mut Interpreter| {
-                let res = {
-                    let ii: *const Interpreter = i;
-                    def.clone().call1(&JsValue::UNDEFINED, &JsValue::from(ii))
-                };
-                if let Err(e) = res {
-                    i.error(Val::from(e))?;
-                }
-                Ok(())
-            });
-            Ok(())
-        } else if let Some(_a) = def.dyn_ref::<js_sys::Array>() {
-            Err(JsError::new("todo array def"))
-        } else if let Ok(_v) = JsVal::try_from(def) {
-            Err(JsError::new("todo val def"))
-        } else {
-            Err(JsError::new("todo this thing"))
-        }
+    pub fn js_define(&mut self, name: String, def: JsVal) {
+        self.add_definition(name, def.0);
     }
 
     /// Pop and return the value on top of the stack.
@@ -151,7 +148,7 @@ impl Interpreter {
     #[wasm_bindgen(js_name = stackPop)]
     pub fn js_stack_pop(&mut self) -> JsValue {
         self.stack_pop_val().ok()
-            .map(JsValue::from)
+            .map(|v| JsVal(v).into())
             .unwrap_or(JsValue::UNDEFINED)
     }
 
@@ -159,6 +156,26 @@ impl Interpreter {
     #[wasm_bindgen(js_name = stackPush)]
     pub fn js_stack_push(&mut self, v: JsValue) {
         self.stack_push(v)
+    }
+
+    /// Get the current value of the stack.
+    #[wasm_bindgen(getter = stack)]
+    pub fn js_stack(&self) -> JsVal {
+        JsVal(self.stack_ref().clone().into())
+    }
+
+    /// Get the remaining code in the current stack frame.
+    #[wasm_bindgen(getter = body)]
+    pub fn get_body(&self) -> JsVal { JsVal(self.body_ref().clone().into()) }
+    /// Set the remaining code in the current stack frame (must be a list).
+    #[wasm_bindgen(setter = body)]
+    pub fn set_body(&mut self, v: JsVal) -> Result<JsVal, JsError> {
+        if let Some(l) = v.0.downcast_ref::<List>() {
+            *self.body_mut() = l.clone();
+        } else {
+            return Err(JsError::new("body must be a list (e.g. new Value([...]))"));
+        }
+        Ok(v)
     }
 }
 

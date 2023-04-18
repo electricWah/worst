@@ -88,13 +88,6 @@ define list-empty? [clone list-length 0 equal]
 
 define read-line [ stdin-port-read-line ]
 
-define feature-enabled? [
-    upquote const name
-    #f features-enabled list-iter [
-        name equal if [ drop #t ] [ ]
-    ]
-]
-
 ; better import/export
 ; anything above this line is in the default module environment
 import "worst/base/import.w"
@@ -105,7 +98,8 @@ command-line-arguments list-pop drop ; $0
 case [
     (list-empty?) {
         drop
-        import ui
+        import ui/repl
+        import ui/help
         worst-repl
     }
     ; TODO check file exists or is a module

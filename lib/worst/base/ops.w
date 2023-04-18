@@ -134,8 +134,20 @@ export print-value
 define println-value [ value->string println ]
 export println-value
 
+; not an op, but required just below
+define feature-enabled? [
+    upquote const name
+    #f features-enabled list-iter [
+        name equal if [ drop #t ] [ ]
+    ]
+]
+export feature-enabled?
+
 define port->string [ println #f error ]
-define (type-dispatch file-port?) port->string [ file-port->string ]
+feature-enabled? fs-os if [
+    [define (type-dispatch file-port?) port->string [ file-port->string ]]
+    updo body-prepend
+] []
 define (type-dispatch embedded-file-port?) port->string [ embedded-file-port->string ]
 export port->string
 define read-port->list [ port->string read-string->list ]

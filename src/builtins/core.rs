@@ -228,9 +228,19 @@ pub fn install(i: &mut Interpreter) {
     //     i.stack_push(List::from(cs));
     //     Ok(())
     // });
-    i.add_builtin("stack-get", |i: &mut Interpreter| {
-        let s = i.stack_ref().clone();
-        i.stack_push(s);
+    i.add_builtin("body-get", |i: &mut Interpreter| {
+        let body = i.body_ref();
+        i.stack_push(body.clone());
+        Ok(())
+    });
+    i.add_builtin("body-set", |i: &mut Interpreter| {
+        let body = i.stack_pop::<List>()?;
+        *i.body_mut() = body.into_inner();
+        Ok(())
+    });
+    i.add_builtin("body-prepend", |i: &mut Interpreter| {
+        let body = i.stack_pop::<List>()?;
+        i.body_mut().prepend(body.into_inner());
         Ok(())
     });
 
