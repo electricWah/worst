@@ -12,3 +12,13 @@ pub mod builtins;
 pub mod wasm;
 
 
+#[cfg(feature = "enable_fs_embed")]
+/// Create an interpreter that runs `worst/prelude.w` from the embedded filesystem.
+/// Panics if it is missing or malformed.
+pub fn embedded() -> interpreter::Interpreter {
+    let file = builtins::fs::embed::open_read_str("worst/prelude.w")
+        .expect("embedded worst/prelude.w");
+    let prelude = reader::read_all(&mut file.chars()).unwrap();
+    interpreter::Interpreter::new(prelude)
+}
+

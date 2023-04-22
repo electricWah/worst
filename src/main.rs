@@ -1,9 +1,7 @@
 
 use std::process::ExitCode;
-use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;
-use worst::reader;
 
 fn basic_printerr(v: &Val) {
     if let Some(v) = v.downcast_ref::<Symbol>() {
@@ -28,18 +26,8 @@ fn basic_printerr(v: &Val) {
     }
 }
 
-static WORST_INIT: &str = include_str!("main.w");
-
 fn main() -> ExitCode {
-    let wmain =
-        match reader::read_all(&mut WORST_INIT.chars()) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("{e:?}");
-                return ExitCode::FAILURE;
-            },
-        };
-    let mut i = Interpreter::new(wmain);
+    let mut i = worst::embedded();
     builtins::install(&mut i);
     if let Err(e) = i.run() {
         // if IsError::is_error(&e) {

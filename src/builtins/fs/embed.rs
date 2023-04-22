@@ -24,6 +24,11 @@ pub fn open_read(path: impl AsRef<std::path::Path>) -> Option<File> {
     Some(File { handle: EMBED_FS.get_file(path)?.contents() })
 }
 
+/// Open the path if it exists, and get its contents as a [&'static str].
+pub fn open_read_str(path: impl AsRef<std::path::Path>) -> Option<&'static str> {
+    EMBED_FS.get_file(path)?.contents_utf8()
+}
+
 impl io::Read for File {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
         self.handle.read(buf)
