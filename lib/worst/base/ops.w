@@ -145,8 +145,8 @@ export feature-enabled?
 
 define port->string [ println #f error ]
 feature-enabled? fs-os if [
-    [define (type-dispatch file-port?) port->string [ file-port->string ]]
-    updo body-prepend
+    define (type-dispatch file-port?) port->string [ file-port->string ]
+    quote port->string clone definition-resolve swap updo definition-add
 ] []
 define (type-dispatch embedded-file-port?) port->string [ embedded-file-port->string ]
 export port->string

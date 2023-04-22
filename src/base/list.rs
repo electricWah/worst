@@ -94,5 +94,17 @@ impl List {
             List { data: self.data.split_off(self.len() - count) }
         }
     }
+
+    /// Clone the first n elements into a new list.
+    /// Out-of-range values are clamped to the length of the list.
+    pub fn top_n(&self, count: usize) -> List {
+        let len = self.len();
+        if count > len {
+            self.clone()
+        } else {
+            let data = self.data[len - count ..].to_vec();
+            List { data }
+        }
+    }
 }
 

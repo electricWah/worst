@@ -21,6 +21,19 @@ define updo [ upquote quote uplevel uplevel ]
 define const [ value->constant upquote updo definition-add ]
 define false? [ clone not ]
 
+; bool if [ if-true ] [ if-false ]
+define if [ upquote upquote dig not quote swap eval-if drop uplevel ]
+
+define while [
+    updo current-defenv defenv-new-locals const env
+    upquote env value-set-defenv quote cond definition-add
+    upquote env value-set-defenv quote body definition-add
+
+    [ cond if [ updo body #t ] [ #f ] ]
+    current-defenv defenv-new-locals value-set-defenv
+    quote eval-while definition-resolve updo eval
+]
+
 ; a b clone2 => a b a b
 define clone2 [ swap clone dig clone bury ]
 

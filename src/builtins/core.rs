@@ -8,8 +8,12 @@ use std::any::TypeId;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
 pub fn quote(i: &mut Interpreter) -> BuiltinRet {
-    let v = i.body_next_val()?;
-    i.stack_push(v);
+    let v = i.body_mut().pop();
+    if let Some(v) = v {
+        i.stack_push(v);
+    } else {
+        i.error("quote-nothing".to_symbol())?;
+    }
     Ok(())
 }
 
@@ -80,13 +84,48 @@ pub fn error_(i: &mut Interpreter) -> BuiltinRet {
     Ok(())
 }
 
-/// `eval` - Evaluate the value on top of the stack.
-pub fn eval(i: &mut Interpreter) -> BuiltinRet {
-    let e = i.stack_pop_val()?;
-    match e.try_downcast::<List>() {
+fn eval_any_next(i: &mut Interpreter, v: Val) -> BuiltinRet {
+    match v.try_downcast::<List>() {
         Ok(l) => i.eval_list_next(l),
         Err(v) => i.eval_next(v)?,
     }
+    Ok(())
+}
+
+/// `eval` - Evaluate the value on top of the stack.
+pub fn eval(i: &mut Interpreter) -> BuiltinRet {
+    let e = i.stack_pop_val()?;
+    eval_any_next(i, e)?;
+    Ok(())
+}
+
+/// `eval-if` -
+/// Evaluate the top value of the stack, but only if the next value is true;
+/// otherwise drop both and do nothing.
+pub fn eval_if(i: &mut Interpreter) -> BuiltinRet {
+    let e = i.stack_pop_val()?;
+    let cond = i.stack_pop::<bool>()?.into_inner();
+    if cond {
+        eval_any_next(i, e)?;
+    }
+    Ok(())
+}
+
+/// `eval-while` -
+/// Evaluate the value on top of the stack.
+/// Then, if the new value on top of the stack is true,
+/// `eval-while` again with the original top value.
+pub fn eval_while(i: &mut Interpreter) -> BuiltinRet {
+    let e = i.stack_pop_val()?;
+    let ne = e.clone();
+    i.eval_next_once(move |i: &mut Interpreter| {
+        if i.stack_pop::<bool>()?.into_inner() {
+            i.stack_push(e);
+            eval_while(i)?;
+        }
+        Ok(())
+    });
+    eval_any_next(i, ne)?;
     Ok(())
 }
 
@@ -94,6 +133,13 @@ pub fn eval(i: &mut Interpreter) -> BuiltinRet {
 pub fn uplevel(i: &mut Interpreter) -> BuiltinRet {
     i.enter_parent_frame()?;
     eval(i)?;
+    Ok(())
+}
+
+/// `[ quote quote quote uplevel uplevel ] quote upquote definition-add`
+pub fn upquote(i: &mut Interpreter) -> BuiltinRet {
+    i.enter_parent_frame()?;
+    quote(i)?;
     Ok(())
 }
 
@@ -109,79 +155,6 @@ pub fn value_to_constant(i: &mut Interpreter) -> BuiltinRet {
     Ok(())
 }
 
-/// `[ quote quote quote uplevel uplevel ] quote upquote definition-add`
-pub fn upquote(i: &mut Interpreter) -> BuiltinRet {
-    i.enter_parent_frame()?;
-    let q = i.body_next_val()?;
-    i.stack_push(q);
-    Ok(())
-}
-
-/// `while` - Do things until don't
-/// ```ignore
-/// ; while [-> bool] [body ...]
-/// add_builtin while [
-///     upquote quote %%cond definition-add
-///     upquote quote %%while-body definition-add
-///     [
-///         %%cond if [%%while-body %%loop] [[]] current-context-set-code
-///     ] const %%loop
-///     %%loop current-context-set-code
-/// ]
-/// ```
-pub fn while_(i: &mut Interpreter) -> BuiltinRet {
-    let cond = i.body_next::<List>()?;
-    let body = i.body_next::<List>()?;
-    i.stack_push(body);
-    i.stack_push(cond);
-    i.eval_next(Builtin::from(while_body))?;
-    Ok(())
-}
-
-fn while_body(i: &mut Interpreter) -> BuiltinRet {
-    let cond = i.stack_pop::<List>()?;
-    let body = i.stack_pop::<List>()?;
-
-    let cond2 = cond.clone();
-    i.eval_next_once(move |i: &mut Interpreter| {
-        if i.stack_pop::<bool>()?.into_inner() {
-            let body2 = body.clone();
-            i.eval_next_once(move |i: &mut Interpreter| {
-                i.stack_push(body);
-                i.stack_push(cond);
-                i.eval_next(Builtin::from(while_body))?;
-                Ok(())
-            });
-            i.eval_list_next(body2);
-        }
-        Ok(())
-    });
-    i.eval_list_next(cond2);
-    Ok(())
-}
-
-/// `if` - Do or don't a thing and then don't or do another thing
-/// ```ignore
-/// ; bool if [if-true] [if-false]
-/// add_builtin if [
-///     upquote upquote
-///     ; cond true false => false true cond
-///     swap dig
-///     quote swap when drop
-///     quote eval uplevel
-/// ]
-/// ```
-pub fn if_(i: &mut Interpreter) -> BuiltinRet {
-    let ift = i.body_next::<List>()?;
-    let iff = i.body_next::<List>()?;
-    if i.stack_pop::<bool>()?.into_inner() {
-        i.eval_list_next(ift);
-    } else {
-        i.eval_list_next(iff);
-    }
-    Ok(())
-}
-
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.add_builtin("quote", quote);
@@ -190,12 +163,12 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("dig", dig);
     i.add_builtin("bury", bury);
     i.add_builtin("eval", eval);
+    i.add_builtin("eval-if", eval_if);
+    i.add_builtin("eval-while", eval_while);
     i.add_builtin("uplevel", uplevel);
     i.add_builtin("upquote", upquote);
     i.add_builtin("value->constant", value_to_constant);
     i.add_builtin("swap", swap);
-    i.add_builtin("if", if_);
-    i.add_builtin("while", while_);
     i.add_builtin("not", not);
     i.add_builtin("error?", error_);
     i.add_builtin("pause", |i: &mut Interpreter| {
@@ -228,21 +201,23 @@ pub fn install(i: &mut Interpreter) {
     //     i.stack_push(List::from(cs));
     //     Ok(())
     // });
-    i.add_builtin("body-get", |i: &mut Interpreter| {
-        let body = i.body_ref();
-        i.stack_push(body.clone());
+    i.add_builtin("code-next", |i: &mut Interpreter| {
+        let next = i.body_mut().pop();
+        i.stack_push_opterr(next);
         Ok(())
     });
-    i.add_builtin("body-set", |i: &mut Interpreter| {
-        let body = i.stack_pop::<List>()?;
-        *i.body_mut() = body.into_inner();
+    i.add_builtin("code-peek", |i: &mut Interpreter| {
+        let next = i.body_ref().top().cloned();
+        i.stack_push_opterr(next);
         Ok(())
     });
-    i.add_builtin("body-prepend", |i: &mut Interpreter| {
-        let body = i.stack_pop::<List>()?;
-        i.body_mut().prepend(body.into_inner());
-        Ok(())
-    });
+    // i.add_builtin("code-swap", |i: &mut Interpreter| {
+    //     let mut swap = i.stack_pop::<List>()?;
+    //     let body = i.body_mut();
+    //     std::mem::swap(body, swap.as_mut());
+    //     i.stack_push(swap);
+    //     Ok(())
+    // });
 
     util::add_type_predicate_builtin::<bool>(i, "bool?");
     i.add_builtin("bool-equal", util::equality::<bool>);

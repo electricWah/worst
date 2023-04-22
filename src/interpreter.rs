@@ -306,6 +306,14 @@ impl Interpreter {
             self.stack.push(false);
         }
     }
+    /// Put something on top of the stack, or false with IsError set
+    pub fn stack_push_opterr<T: Into<Val>>(&mut self, v: Option<T>) {
+        if let Some(v) = v {
+            self.stack.push(v.into());
+        } else {
+            self.stack_push_error(false);
+        }
+    }
     /// Put an Ok value, or Err with IsError set, on top of the stack.
     pub fn stack_push_result<T: Into<Val>, E: Into<Val>>(&mut self, v: Result<T, E>) {
         match v {
@@ -347,22 +355,6 @@ impl Interpreter {
     pub fn body_ref(&self) -> &List { &self.frame.body }
     /// Get a mutable reference to the remaining code in the current stack frame.
     pub fn body_mut(&mut self) -> &mut List { &mut self.frame.body }
-
-    /// Get the next item in the current stack frame body.
-    pub fn body_next_val(&mut self) -> BuiltinRet<Val> {
-        let r = self.body_mut().pop();
-        self.or_err(r, "quote-nothing")
-    }
-    /// Get the next `T` in the current stack frame body.
-    pub fn body_next<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
-        self.body_next_val()?.try_downcast::<T>().map_err(|v| {
-            let vty = v.val_type_id();
-            self.add_meta_type(List::from(vec![
-                "wrong-type".to_symbol().into(),
-                v, vty.into(), TypeId::of::<T>().into(),
-            ]).into(), IsError)
-        })
-    }
 
     /// Pause evaluation. [run] will return with this value.
     pub fn pause(&self, v: impl Into<Val>) -> BuiltinRet {

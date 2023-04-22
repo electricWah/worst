@@ -29,6 +29,7 @@ In which the innards are simplified even more.
   - It only works using the built-in type predicates e.g. string?
   - It still works with a pre-defined default case as with [dispatch]
 - Add worst/util/doc-check module to check documentation
+- Add code-next and code-peek to quote without raising an error
 
 # 0.4 (2022-11-19)
 
