@@ -113,7 +113,7 @@ impl io::Read for ChildStderr {
 
 /// Install 'em
 pub fn install(i: &mut Interpreter) {
-    util::add_type_predicate_builtin::<Command>(i, "process-command?");
+    util::add_const_type_builtin::<Command>(i, "<process-command>");
     i.add_builtin("process-command-create", |i: &mut Interpreter| {
         let path = i.stack_pop::<String>()?.into_inner();
         i.stack_push(Command(Rc::new(RefCell::new(process::Command::new(path)))));
@@ -211,7 +211,7 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    util::add_type_predicate_builtin::<Child>(i, "process-child?");
+    util::add_const_type_builtin::<Child>(i, "<process-child>");
     i.add_builtin("process-child-id", |i: &mut Interpreter| {
         let id = Child::get(i, |c| c.id())?;
         i.stack_push(id as i64);
@@ -231,9 +231,9 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    util::add_type_predicate_builtin::<ChildStdin>(i, "process-child-stdin-port?");
-    util::add_type_predicate_builtin::<ChildStdout>(i, "process-child-stdout-port?");
-    util::add_type_predicate_builtin::<ChildStderr>(i, "process-child-stderr-port?");
+    util::add_const_type_builtin::<ChildStdin>(i, "<process-child-stdin-port>");
+    util::add_const_type_builtin::<ChildStdout>(i, "<process-child-stdout-port>");
+    util::add_const_type_builtin::<ChildStderr>(i, "<process-child-stderr-port>");
 
     i.add_builtin("process-child-stdin-port", |i: &mut Interpreter| {
         if let Some(p) = Child::get_mut(i, |c| c.stdin.take())? {

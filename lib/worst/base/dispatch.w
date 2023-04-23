@@ -35,19 +35,12 @@ export dispatch
 make-unique const type-dispatch-key
 
 ; type-dispatch on top item (for now):
-; define (type-dispatch string?) thingy [ ... ]
+; define (<string> type-dispatch) thingy [ ... ]
 ; should be faster than normal dispatch because it uses an i64map of type-id
 ; (type predicates are defined to have their type-id in meta)
 define type-dispatch [
-    const name const body
-
-    upquote const type-name
-    type-name updo definition-resolve
-    type-id-key value-meta-entry
-    false? if [
-        drop type-name "type-dispatch: not a builtin type predicate" error
-    ] [ ]
     const dispatch-type-id
+    const name const body
 
     ; get or default map in existing def
     name updo definition-resolve const prev-def

@@ -219,14 +219,14 @@ pub fn install(i: &mut Interpreter) {
     //     Ok(())
     // });
 
-    util::add_type_predicate_builtin::<bool>(i, "bool?");
+    util::add_const_type_builtin::<bool>(i, "<bool>");
     i.add_builtin("bool-equal", util::equality::<bool>);
     i.add_builtin("bool-hash", util::value_hash::<bool>);
-    util::add_type_predicate_builtin::<Symbol>(i, "symbol?");
+    util::add_const_type_builtin::<Symbol>(i, "<symbol>");
     i.add_builtin("symbol-equal", util::equality::<Symbol>);
     i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
-    util::add_type_predicate_builtin::<Unique>(i, "unique?");
+    util::add_const_type_builtin::<Unique>(i, "<unique>");
     i.add_builtin("unique-equal", util::equality::<Unique>);
     i.add_builtin("unique-hash", util::value_hash::<Unique>);
     i.add_builtin("make-unique", |i: &mut Interpreter| {
@@ -235,9 +235,9 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    util::add_type_predicate_builtin::<Builtin>(i, "builtin?");
+    util::add_const_type_builtin::<Builtin>(i, "<builtin>");
 
-    util::add_type_predicate_builtin::<TypeId>(i, "type-id?");
+    util::add_const_type_builtin::<TypeId>(i, "<type-id>");
     i.add_builtin("type-id-equal", util::equality::<TypeId>);
     i.add_builtin("type-id-hash", util::value_hash::<TypeId>);
     i.add_builtin("value-type-id", |i: &mut Interpreter| {

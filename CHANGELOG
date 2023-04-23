@@ -17,7 +17,7 @@ In which the innards are simplified even more.
 - Replace stack-matches? with and2? (2 items is the most common case)
 - Add with-dynamics for mutually recursive definitions or recursive + dispatch
 - Rewrite reader: reader-read-string, reader-complete
-- Add type-id?, type-id-equal and value-type-id for types of things in worst
+- Add value-type-id for types of things in worst
 - Add i64map: an ordered lookup with i64 keys
 - Add a bunch of <type>-hash builtins for hashing things into i64
 - Add unique values: they only compare equal to themselves and their copies
@@ -26,10 +26,11 @@ In which the innards are simplified even more.
   - Values added as meta entries to other values lose their meta values
 - Add type-dispatch attribute for single-value dispatch based on type predicates
   - It's much faster with lots of cases, at the expense of flexibility
-  - It only works using the built-in type predicates e.g. string?
   - It still works with a pre-defined default case as with [dispatch]
 - Add worst/util/doc-check module to check documentation
 - Add code-next and code-peek to quote without raising an error
+- Replace type predicates with type-id constants and is-type
+    - e.g. [string?] is now [<string> is-type]
 
 # 0.4 (2022-11-19)
 

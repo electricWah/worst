@@ -56,8 +56,8 @@ fn binop<T: Value + Clone, R: Value>(f: impl Fn(T, T) -> R) -> impl Fn(&mut Inte
 
 /// Install numeric functions for i64 and f64
 pub fn install(i: &mut Interpreter) {
-    util::add_type_predicate_builtin::<i64>(i, "i64?");
-    util::add_type_predicate_builtin::<f64>(i, "f64?");
+    util::add_const_type_builtin::<i64>(i, "<i64>");
+    util::add_const_type_builtin::<f64>(i, "<f64>");
 
     i.add_builtin("i64->string", util::value_tostring_debug::<i64>);
     i.add_builtin("f64->string", util::value_tostring_debug::<f64>);

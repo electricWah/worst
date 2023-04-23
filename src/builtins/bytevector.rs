@@ -11,7 +11,7 @@ use crate::interpreter::*;
 /// Install some bytevector definitions.
 pub fn install(i: &mut Interpreter) {
 
-    util::add_type_predicate_builtin::<Vec<u8>>(i, "bytevector?");
+    util::add_const_type_builtin::<Vec<u8>>(i, "<bytevector>");
     i.add_builtin("bytevector-equal", util::equality::<Vec<u8>>);
     i.add_builtin("bytevector-hash", util::value_hash::<Vec<u8>>);
     i.add_builtin("bytevector-length", |i: &mut Interpreter| {

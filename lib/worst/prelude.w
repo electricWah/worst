@@ -21,6 +21,9 @@ define updo [ upquote quote uplevel uplevel ]
 define const [ value->constant upquote updo definition-add ]
 define false? [ clone not ]
 
+; val type is-type => val bool
+define is-type [ swap clone value-type-id dig type-id-equal ]
+
 ; bool if [ if-true ] [ if-false ]
 define if [ upquote upquote dig not quote swap eval-if drop uplevel ]
 

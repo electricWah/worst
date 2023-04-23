@@ -38,7 +38,7 @@ define [
         (false?) [
             drop ansi [ bright red fg "No info available.\n" print reset ]
         ]
-        (string?) [
+        (<string> is-type) [
             ansi [
                 topic value->string yellow fg print
                 reset ": " print
@@ -46,7 +46,7 @@ define [
                 reset "\n" print
             ]
         ]
-        (list?) [
+        (<list> is-type) [
             ; toggle: #t = key, #f = value
             #t swap
             list-iter [ ansi [

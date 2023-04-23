@@ -15,21 +15,9 @@ pub fn make_default<T: Value + Default>(i: &mut Interpreter) -> BuiltinRet {
     Ok(())
 }
 
-fn type_predicate<T: Value>(i: &mut Interpreter) -> BuiltinRet {
-    let v = i.stack_top_val()?;
-    i.stack_push(v.is::<T>());
-    Ok(())
-}
-
-/// Add a type predicate builtin.
-/// The builtin will also have the corresponding [TypeId] meta.
-/// ```ignore
-/// add_type_predicate_builtin::<String>(&mut i, "string?");
-/// ```
-pub fn add_type_predicate_builtin<T: Value>(i: &mut Interpreter, name: impl Into<String>) {
-    let mut pred = Val::from(Builtin::from(type_predicate::<T>));
-    pred.meta_mut().insert_val(i.uniques_mut().get_type::<TypeId>(), TypeId::of::<T>().into());
-    i.add_definition(name, pred);
+/// Add a builtin to just put the TypeId of the given type on the stack.
+pub fn add_const_type_builtin<T: Value>(i: &mut Interpreter, name: impl Into<String>) {
+    i.add_definition(name, TypeId::of::<T>());
 }
 
 /// Equality generator, e.g.

@@ -1,27 +1,25 @@
 
-; a b and2? (a -> a bool) (b -> b bool) -> a b bool
-; do both predicates return true on the top two values?
-define and2? [
-    upquote const predA
-    upquote const predB
+; a b type is-type2 => a b bool
+define is-type2 [
+    const t
     const b
-    predA eval if [ b predB eval ] [ b #f ]
+    t is-type if [ b t is-type ] [ b #f ]
 ]
 
 define equal [ drop drop #f ]
-
-define (dispatch (and2? i64? i64?)) equal [ i64-equal ]
-define (dispatch (and2? f64? f64?)) equal [ f64-equal ]
-define (dispatch (and2? string? string?)) equal [ string-equal ]
-define (dispatch (and2? symbol? symbol?)) equal [ symbol-equal ]
-define (dispatch (and2? bool? bool?)) equal [ bool-equal ]
-define equal? [ clone2 updo equal ]
+define (dispatch (<i64> is-type2)) equal [ i64-equal ]
+define (dispatch (<f64> is-type2)) equal [ f64-equal ]
+define (dispatch (<string> is-type2)) equal [ string-equal ]
+define (dispatch (<symbol> is-type2)) equal [ symbol-equal ]
+define (dispatch (<bool> is-type2)) equal [ bool-equal ]
 export equal
+
+define equal? [ clone2 updo equal ]
 export equal?
 
-define (dispatch (and2? i64? i64?)) compare [ i64-compare ]
-define (dispatch (and2? f64? f64?)) compare [ f64-compare ]
-define (dispatch (and2? string? string?)) compare [ string-compare ]
+define (dispatch (<i64> is-type2)) compare [ i64-compare ]
+define (dispatch (<f64> is-type2)) compare [ f64-compare ]
+define (dispatch (<string> is-type2)) compare [ string-compare ]
 export compare
 
 define le [compare 1 equal not]
@@ -45,26 +43,26 @@ export lt?
 export ge?
 export gt?
 
-define (dispatch (and2? i64? i64?)) add [ i64-add ]
-define (dispatch (and2? f64? f64?)) add [ f64-add ]
-define (dispatch (and2? i64? i64?)) sub [ i64-sub ]
-define (dispatch (and2? f64? f64?)) sub [ f64-sub ]
-define (dispatch (and2? i64? i64?)) mul [ i64-mul ]
-define (dispatch (and2? f64? f64?)) mul [ f64-mul ]
-define (dispatch (and2? i64? i64?)) div [ i64-div ]
-define (dispatch (and2? f64? f64?)) div [ f64-div ]
+define (dispatch (<i64> is-type2)) add [ i64-add ]
+define (dispatch (<f64> is-type2)) add [ f64-add ]
+define (dispatch (<i64> is-type2)) sub [ i64-sub ]
+define (dispatch (<f64> is-type2)) sub [ f64-sub ]
+define (dispatch (<i64> is-type2)) mul [ i64-mul ]
+define (dispatch (<f64> is-type2)) mul [ f64-mul ]
+define (dispatch (<i64> is-type2)) div [ i64-div ]
+define (dispatch (<f64> is-type2)) div [ f64-div ]
 export add
 export sub
 export mul
 export div
 
-define (type-dispatch i64?) negate [ i64-negate ]
-define (type-dispatch f64?) negate [ f64-negate ]
+define (<i64> type-dispatch) negate [ i64-negate ]
+define (<f64> type-dispatch) negate [ f64-negate ]
 export negate
 
 define abs [ lt? 0 if [negate] [] ]
-define (type-dispatch i64?) abs [ i64-abs ]
-define (type-dispatch f64?) abs [ f64-abs ]
+define (<i64> type-dispatch) abs [ i64-abs ]
+define (<f64> type-dispatch) abs [ f64-abs ]
 export abs
 
 define max [ clone2 lt if [swap] [] drop ]
@@ -78,12 +76,12 @@ export bool-and?
 define bool-or [ if [ drop #t ] [ ] ]
 export bool-or
 
-define (type-dispatch list?) length [ list-length ]
-define (type-dispatch bytevector?) length [ bytevector-length ]
+define (<list> type-dispatch) length [ list-length ]
+define (<bytevector> type-dispatch) length [ bytevector-length ]
 export length
 
-define (dispatch (and2? list? list?)) append [ list-append ]
-define (dispatch (and2? string? string?)) append [ string-append ]
+define (dispatch (<list> is-type2)) append [ list-append ]
+define (dispatch (<string> is-type2)) append [ string-append ]
 export append
 
 ; define value-hash [ drop #f bool-hash ] ; the default hash is that of false
@@ -93,24 +91,24 @@ export append
 ; define (dispatch (i64?)) value-hash [ i64-hash ]
 
 define value->string [drop "<value>"]
-define (type-dispatch string?) value->string []
-define (type-dispatch bool?) value->string [if ["#t"] ["#f"]]
-define (type-dispatch symbol?) value->string [symbol->string]
-define (type-dispatch i64?) value->string [i64->string]
-define (type-dispatch f64?) value->string [f64->string]
-define (type-dispatch interpreter?) value->string [drop "<interpreter>"]
-define (type-dispatch i64map?) value->string [drop "<i64map>"]
+define (<string> type-dispatch) value->string []
+define (<bool> type-dispatch) value->string [if ["#t"] ["#f"]]
+define (<symbol> type-dispatch) value->string [symbol->string]
+define (<i64> type-dispatch) value->string [i64->string]
+define (<f64> type-dispatch) value->string [f64->string]
+define (<interpreter> type-dispatch) value->string [drop "<interpreter>"]
+define (<i64map> type-dispatch) value->string [drop "<i64map>"]
 ; define (dispatch (file-port?)) value->string [drop "<file-port>"]
 ; define (dispatch (embedded-file-port?)) value->string [drop "<embedded-file-port>"]
 
-define (type-dispatch builtin?) value->string [
+define (<builtin> type-dispatch) value->string [
     drop "<builtin>"
     ; builtin-name false? if [ drop "<builtin>" ] [
     ;     value->string "<builtin " swap string-append ">" string-append
     ; ]
 ]
 
-define (with-dynamics (value->string) type-dispatch list?) value->string [
+define (with-dynamics (value->string) <list> type-dispatch) value->string [
     "(" "" dig list-iter [
         value->string
         ; concat accumulator with either "" or previous trailing " "
@@ -145,10 +143,10 @@ export feature-enabled?
 
 define port->string [ println #f error ]
 feature-enabled? fs-os if [
-    define (type-dispatch file-port?) port->string [ file-port->string ]
+    define (<file-port> type-dispatch) port->string [ file-port->string ]
     quote port->string clone definition-resolve swap updo definition-add
 ] []
-define (type-dispatch embedded-file-port?) port->string [ embedded-file-port->string ]
+define (<embedded-file-port> type-dispatch) port->string [ embedded-file-port->string ]
 export port->string
 define read-port->list [ port->string read-string->list ]
 export read-port->list

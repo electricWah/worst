@@ -7,7 +7,7 @@ use crate::builtins::util;
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
-    util::add_type_predicate_builtin::<DefEnv>(i, "defenv?");
+    util::add_const_type_builtin::<DefEnv>(i, "<defenv>");
     i.add_builtin("defenv-empty", util::make_default::<DefEnv>);
 
     i.add_builtin("current-defenv", |i: &mut Interpreter| {

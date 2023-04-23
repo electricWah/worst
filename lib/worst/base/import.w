@@ -18,9 +18,9 @@ export default-module-definitions
 define import [
     defenv-empty make-place const all-imports
     upquote
-    list? if [] [ () swap list-push ]
+    <list> is-type if [] [ () swap list-push ]
     list-iter [
-        symbol? if [
+        <symbol> is-type if [
             symbol->string const modname
             #f
             ; maybe check feature-enabled? os
@@ -83,7 +83,7 @@ quote export definition-resolve quote old-export definition-add
 
 define export [
     upquote
-    list? if [] [ () swap list-push ]
+    <list> is-type if [] [ () swap list-push ]
     const exports
     quote module-exports dynamic-resolve-local
     false? if [ "export: not in a module" println error ] [

@@ -46,7 +46,7 @@ pub fn install(i: &mut Interpreter) {
         }
         Ok(())
     });
-    util::add_type_predicate_builtin::<File>(i, "embedded-file-port?");
+    util::add_const_type_builtin::<File>(i, "<embedded-file-port>");
     i.add_builtin("embedded-file-port->string", util::port_to_string::<File>);
     i.add_builtin("embedded-file-port-read-range", util::port_read_range::<File>);
 }

@@ -9,7 +9,7 @@ use crate::builtins::util;
 /// Install a bunch of reader functions.
 pub fn install(i: &mut Interpreter) {
     i.add_builtin("reader-empty", util::make_default::<Reader>);
-    util::add_type_predicate_builtin::<Reader>(i, "reader?");
+    util::add_const_type_builtin::<Reader>(i, "<reader>");
 
     i.add_builtin("reader-complete", |i: &mut Interpreter| {
         let r = i.stack_pop::<Reader>()?.into_inner();

@@ -63,7 +63,7 @@ impl io::Write for File {
 /// Install filesystem functions: open options, etc.
 pub fn install(i: &mut Interpreter) {
 
-    util::add_type_predicate_builtin::<fs::OpenOptions>(i, "file-open-options?");
+    util::add_const_type_builtin::<fs::OpenOptions>(i, "<file-open-options>");
     i.add_builtin("file-open-options", |i: &mut Interpreter| {
         i.stack_push(fs::OpenOptions::new());
         Ok(())
@@ -95,7 +95,7 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    util::add_type_predicate_builtin::<File>(i, "file-port?");
+    util::add_const_type_builtin::<File>(i, "<file-port>");
     i.add_builtin("file-port->string", util::port_to_string::<File>);
     i.add_builtin("file-port-read-range", util::port_read_range::<File>);
     i.add_builtin("file-port-write-range", util::port_write_range::<File>);

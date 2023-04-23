@@ -12,7 +12,7 @@ impl Value for PathBuf {}
 pub fn install(i: &mut Interpreter) {
     // TODO maybe these are just bytevectors converted on demand
 
-    util::add_type_predicate_builtin::<PathBuf>(i, "fs-path?");
+    util::add_const_type_builtin::<PathBuf>(i, "<fs-path>");
     i.add_builtin("string->fs-path", |i: &mut Interpreter| {
         let s = i.stack_pop::<String>()?;
         i.stack_push(PathBuf::from(s.as_ref()));

@@ -15,7 +15,7 @@ impl Value for Interp {}
 
 /// Install all the interpreter functions.
 pub fn install(i: &mut Interpreter) {
-    util::add_type_predicate_builtin::<Interp>(i, "interpreter?");
+    util::add_const_type_builtin::<Interp>(i, "<interpreter>");
     i.add_builtin("interpreter-empty", |i: &mut Interpreter| {
         let inner = Interp(Rc::new(RefCell::new(i.new_inner_empty())));
         i.stack_push(inner);

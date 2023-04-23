@@ -7,7 +7,7 @@ use crate::interpreter::*;
 
 /// Install some string functions.
 pub fn install(i: &mut Interpreter) {
-    util::add_type_predicate_builtin::<String>(i, "string?");
+    util::add_const_type_builtin::<String>(i, "<string>");
     i.add_builtin("string-equal", util::equality::<String>);
     i.add_builtin("string-compare", util::comparison::<String>);
     i.add_builtin("string-hash", util::value_hash::<String>);

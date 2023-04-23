@@ -1,6 +1,6 @@
 
 define define [
-    upquote list? if [ updo upquote ] [ [] swap ]
+    upquote <list> is-type if [ updo upquote ] [ [] swap ]
     const name
     const attrs
 
