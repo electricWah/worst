@@ -104,35 +104,30 @@ define list-empty? [clone list-length 0 equal]
 
 define read-line [ stdin-port-read-line ]
 
+; required by import module cache
+import "worst/data/hashmap.w"
+
 ; better import/export
 ; anything above this line is in the default module environment
 import "worst/base/import.w"
 
-import syntax/case
-
 command-line-arguments list-pop drop ; $0
-case [
-    (list-empty?) {
-        drop
-        import ui/repl
-        import ui/help
-        worst-repl
-    }
-    ; TODO check file exists or is a module
-    #t {
-        list-pop swap drop
-        const path
-        path
-        string->fs-path
-        file-open-options file-open-options-set-read
-        file-open
-        false? if [
-            ; TODO nicer error
-            drop path pause
-        ] [
-            ; TODO load module
-            read-port->list eval
-        ]
-    }
+list-empty? if [
+    drop
+    import ui/repl
+    import ui/help
+    worst-repl
+] [
+    list-pop const path const args
+    path
+    string->fs-path
+    file-open-options file-open-options-set-read
+    file-open
+    error? if [
+        import ui/cli
+        drop args path string->symbol cli-module-run
+    ] [
+        read-port->list eval
+    ]
 ]
 

@@ -30,8 +30,7 @@ define dispatch [
 ]
 export dispatch
 
-; builtin predicates are defined with the type-id of type-id as meta key
-"" value-type-id value-type-id type-id->unique const type-id-key
+; meta key on definitions for type lookup
 make-unique const type-dispatch-key
 
 ; type-dispatch on top item (for now):

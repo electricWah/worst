@@ -22,17 +22,17 @@ define (dispatch (<f64> is-type2)) compare [ f64-compare ]
 define (dispatch (<string> is-type2)) compare [ string-compare ]
 export compare
 
-define le [compare 1 equal not]
-define lt [compare -1 equal]
-define ge [compare -1 equal not]
-define gt [compare 1 equal]
+define le [compare 1 updo equal not]
+define lt [compare -1 updo equal]
+define ge [compare -1 updo equal not]
+define gt [compare 1 updo equal]
 export le
 export lt
 export ge
 export gt
 
 ; a <op> b => a bool
-define equals? [ clone upquote updo eval equal ]
+define equals? [ clone upquote updo eval updo equal ]
 define lt? [ clone upquote updo eval lt ]
 define le? [ clone upquote updo eval le ]
 define gt? [ clone upquote updo eval gt ]
@@ -84,11 +84,14 @@ define (dispatch (<list> is-type2)) append [ list-append ]
 define (dispatch (<string> is-type2)) append [ string-append ]
 export append
 
-; define value-hash [ drop #f bool-hash ] ; the default hash is that of false
-; define (dispatch (bool?)) value-hash [ bool-hash ]
-; define (dispatch (symbol?)) value-hash [ symbol-hash ]
-; define (dispatch (string?)) value-hash [ string-hash ]
-; define (dispatch (i64?)) value-hash [ i64-hash ]
+define value-hash [ drop #f bool-hash ] ; the default hash is that of false
+define (<bool> type-dispatch) value-hash [ bool-hash ]
+define (<symbol> type-dispatch) value-hash [ symbol-hash ]
+define (<string> type-dispatch) value-hash [ string-hash ]
+define (<bytevector> type-dispatch) value-hash [ bytevector-hash ]
+define (<unique> type-dispatch) value-hash [ unique-hash ]
+define (<i64> type-dispatch) value-hash [ i64-hash ]
+export value-hash
 
 define value->string [drop "<value>"]
 define (<string> type-dispatch) value->string []
@@ -96,6 +99,12 @@ define (<bool> type-dispatch) value->string [if ["#t"] ["#f"]]
 define (<symbol> type-dispatch) value->string [symbol->string]
 define (<i64> type-dispatch) value->string [i64->string]
 define (<f64> type-dispatch) value->string [f64->string]
+define (<unique> type-dispatch) value->string [drop "<unique>"]
+define (<type-id> type-dispatch) value->string [
+    <string> type-id->unique value-meta-entry false? if [ drop "<type>" ] [
+        "<" swap ">" string-append string-append
+    ]
+]
 define (<interpreter> type-dispatch) value->string [drop "<interpreter>"]
 define (<i64map> type-dispatch) value->string [drop "<i64map>"]
 ; define (dispatch (file-port?)) value->string [drop "<file-port>"]

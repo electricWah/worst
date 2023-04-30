@@ -1,9 +1,11 @@
 
 use std::process::ExitCode;
+use std::any::TypeId;
+use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;
 
-fn basic_printerr(v: &Val) {
+fn basic_printerr(i: &mut Interpreter, v: &Val) {
     if let Some(v) = v.downcast_ref::<Symbol>() {
         eprint!("{v}");
     } else if let Some(v) = v.downcast_ref::<bool>() {
@@ -17,10 +19,17 @@ fn basic_printerr(v: &Val) {
     } else if let Some(v) = v.downcast_ref::<List>() {
         eprint!("(");
         for v in v.iter() {
-            basic_printerr(v);
+            basic_printerr(i, v);
             eprint!(" ");
         }
         eprint!(")");
+    } else if v.is::<TypeId>() {
+        let name = i.uniques_mut().get_type::<String>();
+        if let Some(v) = v.meta_ref().get_val(&name) {
+            eprint!("{}", v.downcast_ref::<String>().unwrap());
+        } else {
+            eprint!("<type>");
+        }
     } else {
         eprint!("(value)");
     }
@@ -33,10 +42,10 @@ fn main() -> ExitCode {
         // if IsError::is_error(&e) {
         //     eprint!("\nTop-level error: ");
         // }
-        basic_printerr(&e);
+        basic_printerr(&mut i, &e);
         eprint!("\nStack: ");
-        for v in i.stack_ref().iter() {
-            basic_printerr(v);
+        for v in i.stack_ref().clone().iter() {
+            basic_printerr(&mut i, v);
             eprint!(" ");
         }
         eprintln!("\nCall stack:");

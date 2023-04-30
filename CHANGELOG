@@ -31,6 +31,9 @@ In which the innards are simplified even more.
 - Add code-next and code-peek to quote without raising an error
 - Replace type predicates with type-id constants and is-type
     - e.g. [string?] is now [<string> is-type]
+- Add hashmaps finally
+- Add module-import and module caching
+- Add ui/cli: cli-run [...] runs if the module name is the first cli argument
 
 # 0.4 (2022-11-19)
 

@@ -16,8 +16,12 @@ pub fn make_default<T: Value + Default>(i: &mut Interpreter) -> BuiltinRet {
 }
 
 /// Add a builtin to just put the TypeId of the given type on the stack.
+/// The TypeId value will have a String metadata containing its name.
 pub fn add_const_type_builtin<T: Value>(i: &mut Interpreter, name: impl Into<String>) {
-    i.add_definition(name, TypeId::of::<T>());
+    let name = name.into();
+    let mut t = Val::from(TypeId::of::<T>());
+    t.meta_mut().insert_val(i.uniques_mut().get_type::<String>(), name.clone().into());
+    i.add_definition(name, t);
 }
 
 /// Equality generator, e.g.
