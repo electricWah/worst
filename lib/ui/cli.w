@@ -16,16 +16,19 @@ define cli-module-run [
 export cli-module-run
 
 define cli-run [
-    updo current-module-imported-name const running-module
     upquote const run-body
-    current-cli-module place-get
-    false? not if [
-        running-module
-        equal if [
-            cli-was-run #t place-set drop
-            current-cli-arguments place-get run-body
+    updo current-module
+    false? if [ drop "cli-run: not in a module" error ] [
+        module-imported-name const running-module
+        current-cli-module place-get
+        false? not if [
+            running-module
+            equal if [
+                cli-was-run #t place-set drop
+                current-cli-arguments place-get run-body
+            ] [ [] ]
         ] [ [] ]
-    ] [ [] ]
+    ]
     updo eval
 ]
 export cli-run

@@ -31,9 +31,10 @@ In which the innards are simplified even more.
 - Add code-next and code-peek to quote without raising an error
 - Replace type predicates with type-id constants and is-type
     - e.g. [string?] is now [<string> is-type]
-- Add hashmaps finally
+- Add hashmaps finally: make-hashmap, hashmap-insert, hashmap-get, value-hash
 - Add module-import and module caching
-- Add ui/cli: cli-run [...] runs if the module name is the first cli argument
+- Add ui/cli: [cli-run [...]] runs if the module name is the first cli argument
+- Add [import "relative-file.w"] for scripts (not modules (yet?))
 
 # 0.4 (2022-11-19)
 

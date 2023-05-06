@@ -15,7 +15,7 @@ define default-module-definitions [
 ]
 export default-module-definitions
 
-define module-search-load->list [
+define module-search-load->string [
     const modname
     #f
     ; maybe check feature-enabled? os
@@ -42,18 +42,38 @@ define module-search-load->list [
     ]
     false? if [ drop modname "module not found" error ] [
     ]
-    read-string->list
 ]
+
+; relative to current file using current-script-path set in prelude
+define module-relative-load->string [
+    const path
+    quote current-script-path dynamic-resolve-local eval
+    string->fs-path fs-path-parent const dir
+    dir path string->fs-path fs-path-concat
+    file-open-options file-open-options-set-read
+    file-open
+    error? if [ path "module not found" error ] [ file-port->string ]
+]
+
+define make-current-module [
+    const imported-name
+    make-hashmap
+    quote exports defenv-empty make-place hashmap-insert
+    quote imported-name imported-name hashmap-insert
+]
+
+define module-exports [ quote exports hashmap-get ]
+define module-imported-name [ quote imported-name hashmap-get ]
 
 define eval-module-list->defenv [
     const imported-name
     const modbody
 
-    defenv-empty make-place const module-exports
+    imported-name make-current-module const current-module
+
     interpreter-empty
     default-module-definitions
-    quote module-exports module-exports defenv-insert-local
-    quote current-module-imported-name imported-name value->constant defenv-insert-local
+    quote current-module current-module value->constant defenv-insert-local
     interpreter-defenv-set
 
     modbody interpreter-eval-list-next
@@ -62,7 +82,7 @@ define eval-module-list->defenv [
     interpreter-complete? if [
         ; TODO caching
         drop
-        module-exports place-get
+        current-module module-exports place-get
     ] [
         "Error in " print imported-name value->string print ": " print
         ret value->string println
@@ -73,24 +93,38 @@ define eval-module-list->defenv [
 make-hashmap make-place const module-cache
 
 define module-import [
+    updo current-module const modctx
     defenv-empty make-place const all-imports
     <list> is-type if [] [ () swap list-push ]
     list-iter [
-        <symbol> is-type if [
-            const imported-name
-            module-cache place-get imported-name hashmap-get false? if [
-                drop
-                imported-name symbol->string module-search-load->list
-                imported-name eval-module-list->defenv const env
-                module-cache place-get imported-name env hashmap-insert
-                module-cache swap place-set drop
-                env
-            ] [ ]
-
-            all-imports place-get
-            swap defenv-merge-locals
-            all-imports swap place-set drop
-        ] [ "import non-symbol" TODO ]
+        const imported-name
+        module-cache place-get imported-name hashmap-get false? if [
+            drop
+            imported-name
+            <symbol> is-type if [
+                symbol->string module-search-load->string
+            ] [
+                <string> is-type if [
+                    modctx false? if [
+                        drop module-relative-load->string
+                    ] [
+                        ; technically possible, but only from a relative import
+                        ; so keep track of that (using imported-name?)
+                        "cannot import string from within a module" error
+                    ]
+                ] [
+                    "import: unknown type" error
+                ]
+            ]
+            read-string->list
+            imported-name eval-module-list->defenv const env
+            module-cache place-get imported-name env hashmap-insert
+            module-cache swap place-set drop
+            env
+        ] [ ]
+        all-imports place-get
+        swap defenv-merge-locals
+        all-imports swap place-set drop
     ]
     all-imports place-get
     updo current-defenv-merge-locals
@@ -107,10 +141,10 @@ define export [
     upquote
     <list> is-type if [] [ () swap list-push ]
     const exports
-    quote module-exports dynamic-resolve-local
+    updo current-module
     false? if [ "export: not in a module" println error ] [
-        const module-exports
-        module-exports place-get
+        module-exports const cme
+        cme place-get
         exports list-iter [
             const x
             x dynamic-resolve-local false? if [
@@ -120,7 +154,7 @@ define export [
             const def
             x def defenv-insert-local
         ]
-        module-exports swap place-set drop
+        cme swap place-set drop
     ]
 ]
 ; export new import using old export (further exports in this file will break)

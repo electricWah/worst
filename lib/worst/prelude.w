@@ -127,6 +127,9 @@ list-empty? if [
         import ui/cli
         drop args path string->symbol cli-module-run
     ] [
+        ; jank to get ui/cli and import "relative.w" working
+        #f const current-module
+        path const current-script-path
         read-port->list eval
     ]
 ]
