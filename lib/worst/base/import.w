@@ -3,8 +3,18 @@ feature-enabled? os if [
     "WORST_LIBPATH" environment-variable
     false? if [ drop () ] [ ":" string-split ]
 ] [ () ]
-const WORST_LIBPATH
-export WORST_LIBPATH
+make-place const global-module-search-path
+
+define module-search-path-prepend [
+    const path
+    global-module-search-path place-get path list-push
+    global-module-search-path swap place-set
+    drop
+]
+export module-search-path-prepend
+
+define module-search-path [ global-module-search-path place-get ]
+export module-search-path
 
 current-defenv make-place const global-default-module-definitions
 define default-module-definitions [
@@ -19,7 +29,7 @@ define module-search-load->string [
     const modname
     #f
     ; maybe check feature-enabled? os
-    WORST_LIBPATH list-iter [
+    module-search-path list-iter [
         const path
         false? if [
             drop

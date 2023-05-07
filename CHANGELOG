@@ -30,11 +30,15 @@ In which the innards are simplified even more.
 - Add worst/util/doc-check module to check documentation
 - Add code-next and code-peek to quote without raising an error
 - Replace type predicates with type-id constants and is-type
-    - e.g. [string?] is now [<string> is-type]
+  - e.g. [string?] is now [<string> is-type]
 - Add hashmaps finally: make-hashmap, hashmap-insert, hashmap-get, value-hash
-- Add module-import and module caching
+- Add module-import, module caching, and current-module
+  - current-module is false in repl and scripts, or a hashmap when in a module
 - Add ui/cli: [cli-run [...]] runs if the module name is the first cli argument
 - Add [import "relative-file.w"] for scripts (not modules (yet?))
+- Replace WORST_LIBPATH with module-search-path and module-search-path-prepend
+- Add worst/package with [package {options...}] for collections of modules
+  - options: [path "relative-dir"] to add to module-search-path
 
 # 0.4 (2022-11-19)
 
