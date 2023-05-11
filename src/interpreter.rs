@@ -93,9 +93,8 @@ impl DefEnv {
 struct Frame {
     childs: Vec<ChildFrame>,
     body: List,
-    #[allow(dead_code)]
-    name: Option<String>,
     defs: DefEnv,
+    meta: Meta,
 }
 
 impl Frame {
@@ -103,11 +102,9 @@ impl Frame {
         self.childs.is_empty() && self.body.is_empty()
     }
     // TODO clean up
-    fn from_list_env(body: List, defs: DefEnv) -> Self {
+    fn from_list_env(body: List, meta: Meta, defs: DefEnv) -> Self {
         let childs = vec![];
-        // TODO name
-        let name = None; // l.meta_ref().get_ref::<DefineName>().cloned().map(|d| d.0);
-        Frame { childs, body, name, defs, }
+        Frame { childs, body, defs, meta, }
     }
 }
 
@@ -163,16 +160,6 @@ impl Interpreter {
         self.frame.body = List::default();
     }
 
-    /// Get a basic call stack.
-    /// The returned list starts with the current stack frame and ends at the root.
-    pub fn call_stack_names(&self) -> Vec<Option<String>> {
-        let mut acc = vec![self.frame.name.clone()];
-        for f in self.parents.iter() {
-            acc.push(f.name.clone());
-        }
-        acc
-    }
-
     /// Check if there is anything else left to evaluate.
     pub fn is_complete(&self) -> bool {
         self.frame.is_empty() && self.parents.is_empty()
@@ -217,9 +204,10 @@ impl Interpreter {
         } else if let Some(b) = v.downcast_ref::<Builtin>() {
             self.frame.childs.push(ChildFrame::Builtin(b.clone()));
         } else if v.is::<List>() {
+            let meta = v.meta_ref().clone();
             let l = v.try_downcast::<List>().ok().unwrap();
             let defenv = self.get_meta_type::<DefEnv>(l.meta_ref()).cloned().unwrap_or_default();
-            self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(l.into_inner(), defenv)));
+            self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(l.into_inner(), meta, defenv)));
         } else {
             self.stack_push(v);
         }
@@ -238,7 +226,8 @@ impl Interpreter {
                 defs
             }
         };
-        self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(v.into_inner(), defs)));
+        let meta = v.meta_ref().clone();
+        self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(v.into_inner(), meta, defs)));
     }
 
     /// Evaluate this FnOnce in the next [run] step. See [eval_next].
@@ -284,6 +273,15 @@ impl Interpreter {
     pub fn defenv_ref(&self) -> &DefEnv { &self.frame.defs }
     /// Get a mutable reference to the current [DefEnv].
     pub fn defenv_mut(&mut self) -> &mut DefEnv { &mut self.frame.defs }
+    /// Get a reference to the current frame [Meta] (from the list being evaluated).
+    pub fn frame_meta_ref(&self) -> &Meta { &self.frame.meta }
+
+    /// Get a list of all Meta entries for stack frames
+    /// (starting from the current one and working up to the topmost frame).
+    pub fn stack_meta_refs(&self) -> impl Iterator<Item = &Meta> {
+        vec![&self.frame.meta].into_iter()
+            .chain(self.parents.iter().map(|p| &p.meta))
+    }
 
     // maybe all of these should be within List
     // and just have stack_ref and stack_mut

@@ -22,7 +22,8 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    // TODO use normal meta-entry stuff and some non-special type
+    // TODO use stack frame meta entry stuff and some non-special type
+
     i.add_builtin("value-set-not-dynamic-resolvable", |i: &mut Interpreter| {
         let mut v = i.stack_pop_val()?;
         v.meta_mut().insert_val(

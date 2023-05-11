@@ -111,6 +111,8 @@ import "worst/data/hashmap.w"
 ; anything above this line is in the default module environment
 import "worst/base/import.w"
 
+#f const current-module
+
 command-line-arguments list-pop drop ; $0
 list-empty? if [
     drop
@@ -128,7 +130,6 @@ list-empty? if [
         drop args path string->symbol cli-module-run
     ] [
         ; jank to get ui/cli and import "relative.w" working
-        #f const current-module
         path const current-script-path
         read-port->list eval
     ]

@@ -49,8 +49,14 @@ fn main() -> ExitCode {
             eprint!(" ");
         }
         eprintln!("\nCall stack:");
-        for name in i.call_stack_names() {
-            eprintln!("  {}", name.unwrap_or("???".to_string()));
+        let u = i.uniques_mut().get_type::<Symbol>();
+        let stack = i.stack_meta_refs().map(|m| m.get_val(&u));
+        for name in stack {
+            if let Some(name) = name {
+                eprintln!("  {}", name.downcast_ref::<Symbol>().unwrap());
+            } else {
+                eprintln!("  ???");
+            }
         }
         return ExitCode::FAILURE;
     }

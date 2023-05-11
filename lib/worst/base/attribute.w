@@ -15,6 +15,7 @@ define define [
     [ #t const definition-attributes ] attrs list-append
     updo eval
     const name
+    <symbol> type-id->unique name value-insert-meta-entry
     const body
 
     body name

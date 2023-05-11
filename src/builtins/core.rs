@@ -296,6 +296,20 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
+    i.add_builtin("current-frame-meta-entry", |i: &mut Interpreter| {
+        let u = i.stack_pop::<Unique>()?;
+        let entry = i.frame_meta_ref().get_val(u.as_ref());
+        i.stack_push_option(entry);
+        Ok(())
+    });
+
+    i.add_builtin("frame-meta-entries-collect", |i: &mut Interpreter| {
+        let u = i.stack_pop::<Unique>()?;
+        let all = i.stack_meta_refs().map(|m| m.get_val(u.as_ref()).unwrap_or(false.into()));
+        i.stack_push(List::from(all.collect::<Vec<Val>>()));
+        Ok(())
+    });
+
     let enabled_features = List::from_iter(vec![
         #[cfg(feature = "enable_os")] "os".to_symbol(),
         #[cfg(feature = "enable_stdio")] "stdio".to_symbol(),
