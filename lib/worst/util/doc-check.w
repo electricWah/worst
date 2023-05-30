@@ -78,3 +78,6 @@ define check-docs [
 ]
 export check-docs
 
+import ui/cli
+cli-run [ check-docs ]
+

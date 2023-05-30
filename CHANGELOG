@@ -39,6 +39,14 @@ In which the innards are simplified even more.
 - Replace WORST_LIBPATH with module-search-path and module-search-path-prepend
 - Add worst/package with [package {options...}] for collections of modules
   - options: [path "relative-dir"] to add to module-search-path
+- Add current-frame-meta-entry to read meta entries from the current definition
+    (they are the same meta entries on the value of the definition)
+- Add [uplevel-while [ ... -> bool continue ]] to walk up the call stack
+- Add [with-uplevel name] attribute to uplevel out of the definition anywhere
+- Remove dynamic-resolve-any and dynamic-resolve-local
+- Make [uplevel] tail call if it's the last thing in a stack frame
+    - Remove [eval-while] in favour of [while] using this property
+- Remove value-set-error and value-unset-error, add <is-error> type for meta
 
 # 0.4 (2022-11-19)
 

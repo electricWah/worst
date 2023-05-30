@@ -4,15 +4,17 @@
 [
     upquote ; name
     upquote ; body
+    <defenv> type-id->unique
     quote current-defenv uplevel
     defenv-new-locals
-    value-set-defenv
+    value-insert-meta-entry
     swap
     quote definition-add uplevel
 ]
+<defenv> type-id->unique
 current-defenv
 defenv-new-locals
-value-set-defenv
+value-insert-meta-entry
 quote define definition-add
 
 ; updo thing => quote thing uplevel
@@ -27,14 +29,23 @@ define is-type [ swap clone value-type-id dig type-id-equal ]
 ; bool if [ if-true ] [ if-false ]
 define if [ upquote upquote dig not quote swap eval-if drop uplevel ]
 
+define value-set-defenv [
+    <defenv> type-id->unique
+    swap value-insert-meta-entry
+]
+
 define while [
     updo current-defenv defenv-new-locals const env
-    upquote env value-set-defenv quote cond definition-add
-    upquote env value-set-defenv quote body definition-add
+    upquote env value-set-defenv const cond
+    upquote env value-set-defenv const body
 
-    [ cond if [ updo body #t ] [ #f ] ]
-    current-defenv defenv-new-locals value-set-defenv
-    quote eval-while definition-resolve updo eval
+    define the-whiler [
+        const continuer
+        cond uplevel const ok
+        ok if [ body ] [ [] ] uplevel
+        ok if [ continuer continuer ] [ [] ] uplevel
+    ]
+    quote the-whiler definition-resolve clone uplevel
 ]
 
 ; a b clone2 => a b a b
@@ -53,7 +64,7 @@ define list-iter [
     0 while (clone len i64-compare -1 i64-equal) [ ; lt
         const n
         list n list-get
-        body quote eval quote uplevel uplevel
+        body quote uplevel uplevel
         n 1 i64-add
     ] drop
 ]
@@ -101,6 +112,7 @@ define ' [ upquote ]
 define do [ upquote updo eval ]
 
 define list-empty? [clone list-length 0 equal]
+define error? [clone <is-error> type-id->unique value-meta-entry not not]
 
 define read-line [ stdin-port-read-line ]
 

@@ -236,6 +236,15 @@ impl Interpreter {
         self.frame.childs.push(ChildFrame::Once(Box::new(f)));
     }
 
+    /// Same as [eval_next], or [eval_list_next] if `v` is a [List].
+    pub fn eval_any_next(&mut self, v: Val) -> BuiltinRet {
+        match v.try_downcast::<List>() {
+            Ok(l) => self.eval_list_next(l),
+            Err(v) => self.eval_next(v)?,
+        }
+        Ok(())
+    }
+
     /// Find a definition in the current local and then closure environments.
     pub fn resolve_definition(&self, name: &str) -> Option<&Val> {
         self.frame.defs.lookup(name)
@@ -374,7 +383,9 @@ impl Interpreter {
     pub fn enter_parent_frame(&mut self) -> BuiltinRet {
         if let Some(mut frame) = self.parents.pop() {
             std::mem::swap(&mut self.frame, &mut frame);
-            self.frame.childs.push(ChildFrame::Frame(frame));
+            if !frame.is_empty() {
+                self.frame.childs.push(ChildFrame::Frame(frame));
+            }
             Ok(())
         } else {
             self.error("root-uplevel".to_symbol())
@@ -395,7 +406,6 @@ impl Interpreter {
             meta.get_ref::<T>(&tu)
         } else { None }
     }
-
 }
 
 #[cfg(test)]

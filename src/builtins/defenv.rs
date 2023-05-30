@@ -43,22 +43,6 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    // maybe use value-meta-entry with defenv type-id
-    i.add_builtin("value-defenv", |i: &mut Interpreter| {
-        let tu = i.uniques_mut().get_type::<DefEnv>();
-        let v = i.stack_pop_val()?;
-        i.stack_push_option(v.meta_ref().get_val(&tu));
-        Ok(())
-    });
-    i.add_builtin("value-set-defenv", |i: &mut Interpreter| {
-        let tu = i.uniques_mut().get_type::<DefEnv>();
-        let defs = i.stack_pop::<DefEnv>()?;
-        let mut v = i.stack_pop_val()?;
-        v.meta_mut().insert_val(tu, defs.into());
-        i.stack_push(v);
-        Ok(())
-    });
-
     // TODO put these in worst or something
     i.add_builtin("defenv-merge-locals", |i: &mut Interpreter| {
         let locs = i.stack_pop::<DefEnv>()?.into_inner();

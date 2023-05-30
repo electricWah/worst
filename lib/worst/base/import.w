@@ -18,7 +18,7 @@ export module-search-path
 
 current-defenv make-place const global-default-module-definitions
 define default-module-definitions [
-    quote current-default-module-definitions updo dynamic-resolve-local
+    quote current-default-module-definitions updo definition-resolve
     false? if [
         drop global-default-module-definitions place-get
     ] [ eval ]
@@ -57,7 +57,7 @@ define module-search-load->string [
 ; relative to current file using current-script-path set in prelude
 define module-relative-load->string [
     const path
-    quote current-script-path dynamic-resolve-local eval
+    quote current-script-path updo definition-resolve eval
     string->fs-path fs-path-parent const dir
     dir path string->fs-path fs-path-concat
     file-open-options file-open-options-set-read
@@ -147,7 +147,9 @@ export import
 ; keep old export to export new export
 quote export definition-resolve quote old-export definition-add
 
+quote current-defenv definition-resolve const get-defenv
 define export [
+    get-defenv uplevel const export-env
     upquote
     <list> is-type if [] [ () swap list-push ]
     const exports
@@ -157,7 +159,7 @@ define export [
         cme place-get
         exports list-iter [
             const x
-            x dynamic-resolve-local false? if [
+            export-env x defenv-lookup false? if [
                 "export: not defined: " x value->string string-append
                 clone println error
             ] [ ]

@@ -23,7 +23,7 @@ define dispatch [
                 error
             ]
         ]
-        quote eval uplevel
+        uplevel
     ]
 
     quote new-def definition-resolve name
@@ -68,7 +68,7 @@ define type-dispatch [
         const v
         dispatch-lookup v value-type-id type-id-hash i64map-get
         false? if [ drop dispatch-lookup 0 i64map-get ] []
-        v swap updo eval
+        v swap uplevel
     ]
 
     quote new-def definition-resolve

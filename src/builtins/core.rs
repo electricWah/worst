@@ -75,27 +75,10 @@ pub fn not(i: &mut Interpreter) -> BuiltinRet {
     Ok(())
 }
 
-/// `error?` - Check if the value on top of the stack is an error with
-/// [IsError::is_error], and put its result on top of the stack.
-pub fn error_(i: &mut Interpreter) -> BuiltinRet {
-    let eu = i.uniques_mut().get_type::<IsError>();
-    let v = i.stack_top_val()?;
-    i.stack_push(v.meta_ref().contains_val(&eu));
-    Ok(())
-}
-
-fn eval_any_next(i: &mut Interpreter, v: Val) -> BuiltinRet {
-    match v.try_downcast::<List>() {
-        Ok(l) => i.eval_list_next(l),
-        Err(v) => i.eval_next(v)?,
-    }
-    Ok(())
-}
-
 /// `eval` - Evaluate the value on top of the stack.
 pub fn eval(i: &mut Interpreter) -> BuiltinRet {
     let e = i.stack_pop_val()?;
-    eval_any_next(i, e)?;
+    i.eval_any_next(e)?;
     Ok(())
 }
 
@@ -106,30 +89,12 @@ pub fn eval_if(i: &mut Interpreter) -> BuiltinRet {
     let e = i.stack_pop_val()?;
     let cond = i.stack_pop::<bool>()?.into_inner();
     if cond {
-        eval_any_next(i, e)?;
+        i.eval_any_next(e)?;
     }
     Ok(())
 }
 
-/// `eval-while` -
-/// Evaluate the value on top of the stack.
-/// Then, if the new value on top of the stack is true,
-/// `eval-while` again with the original top value.
-pub fn eval_while(i: &mut Interpreter) -> BuiltinRet {
-    let e = i.stack_pop_val()?;
-    let ne = e.clone();
-    i.eval_next_once(move |i: &mut Interpreter| {
-        if i.stack_pop::<bool>()?.into_inner() {
-            i.stack_push(e);
-            eval_while(i)?;
-        }
-        Ok(())
-    });
-    eval_any_next(i, ne)?;
-    Ok(())
-}
-
-/// `uplevel` - Call the value on top of the stack as if in the parent stack frame.
+/// `uplevel` - Evaluate the value on top of the stack as if in the parent stack frame.
 pub fn uplevel(i: &mut Interpreter) -> BuiltinRet {
     i.enter_parent_frame()?;
     eval(i)?;
@@ -164,13 +129,11 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("bury", bury);
     i.add_builtin("eval", eval);
     i.add_builtin("eval-if", eval_if);
-    i.add_builtin("eval-while", eval_while);
     i.add_builtin("uplevel", uplevel);
     i.add_builtin("upquote", upquote);
     i.add_builtin("value->constant", value_to_constant);
     i.add_builtin("swap", swap);
     i.add_builtin("not", not);
-    i.add_builtin("error?", error_);
     i.add_builtin("pause", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         i.pause(v)?;
@@ -191,16 +154,6 @@ pub fn install(i: &mut Interpreter) {
         *i.stack_mut() = stack.into_inner();
         Ok(())
     });
-    // i.add_builtin("call-stack", |i: &mut Interpreter| {
-    //     let cs = i.call_stack_names()
-            
-    //         .into_iter().map(|x| {
-    //             if let Some(x) = x { Val::from(x) }
-    //             else { false.into() }
-    //         }).collect::<Vec<Val>>();
-    //     i.stack_push(List::from(cs));
-    //     Ok(())
-    // });
     i.add_builtin("code-next", |i: &mut Interpreter| {
         let next = i.body_mut().pop();
         i.stack_push_opterr(next);
@@ -219,6 +172,7 @@ pub fn install(i: &mut Interpreter) {
     //     Ok(())
     // });
 
+    util::add_const_type_builtin::<IsError>(i, "<is-error>");
     util::add_const_type_builtin::<bool>(i, "<bool>");
     i.add_builtin("bool-equal", util::equality::<bool>);
     i.add_builtin("bool-hash", util::value_hash::<bool>);
@@ -282,31 +236,10 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    i.add_builtin("value-set-error", |i: &mut Interpreter| {
-        let v = i.stack_pop_val()?;
-        i.stack_push_error(v);
-        Ok(())
-    });
-
-    i.add_builtin("value-unset-error", |i: &mut Interpreter| {
-        let mut v = i.stack_pop_val()?;
-        let m = v.meta_mut();
-        m.remove_val(&i.uniques_mut().get_type::<IsError>());
-        i.stack_push(v);
-        Ok(())
-    });
-
     i.add_builtin("current-frame-meta-entry", |i: &mut Interpreter| {
         let u = i.stack_pop::<Unique>()?;
         let entry = i.frame_meta_ref().get_val(u.as_ref());
         i.stack_push_option(entry);
-        Ok(())
-    });
-
-    i.add_builtin("frame-meta-entries-collect", |i: &mut Interpreter| {
-        let u = i.stack_pop::<Unique>()?;
-        let all = i.stack_meta_refs().map(|m| m.get_val(u.as_ref()).unwrap_or(false.into()));
-        i.stack_push(List::from(all.collect::<Vec<Val>>()));
         Ok(())
     });
 

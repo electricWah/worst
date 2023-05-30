@@ -29,16 +29,16 @@ export in-definition-attributes
 
 define value-definition-add [
     const def const name
-    clone value-defenv
+    clone <defenv> type-id->unique value-meta-entry
+    false? if [ drop defenv-empty ] []
     name def defenv-insert-local
     defenv-new-locals
     value-set-defenv
 ]
+export value-definition-add
 
 ; define (recursive) infinite-loop [ infinite-loop ]
-; attribute: define self within body to enable recursive calls
-; works funny when there's an existing definition with the same name!
-; TODO probably doesn't work
+; TODO doesn't work, make it tail call without breaking upquote?
 define recursive [
     const name
     const body
@@ -48,11 +48,61 @@ define recursive [
     body
     name
     quote recursive-call definition-resolve
-    value-set-not-dynamic-resolvable ; lol
     value-definition-add
 
     name
 ]
+
+; like while, no body, uplevels up the stack, maybe put this somewhere else?
+define uplevel-while [
+    updo current-defenv defenv-new-locals const env
+    upquote env value-set-defenv const cond
+    ; upquote env value-set-defenv const body
+
+    define the-whiler [
+        const continuer
+        cond uplevel ; const ok
+        ; ok if [ body ] [ [] ] uplevel
+        if [ continuer continuer ] [ [] ] updo uplevel
+    ]
+    quote the-whiler definition-resolve clone uplevel
+]
+export uplevel-while
+
+; define (with-uplevel cool-uplevel) f [ ... cool-uplevel ... ]
+; Add a definition available within the definition body to use uplevel
+; as if at the top level of the definition, regardless of actual location.
+; The uplevel-er will error if it is not invoked within the definition.
+define with-uplevel [
+    upquote const upleveler
+    const name
+    const body
+
+    make-unique const body-toplevel-flag
+
+    define uplevel-fn [
+        uplevel-while [
+            ; is-top = in correct stack frame
+            body-toplevel-flag updo current-frame-meta-entry const is-top
+            ; either do an uplevel or noop
+            is-top if [ quote uplevel ] [ [] ]
+            uplevel
+            ; continue if not is-top
+            is-top not
+        ]
+    ]
+
+    body
+    body-toplevel-flag #t value-insert-meta-entry
+    upleveler quote uplevel-fn definition-resolve value-definition-add
+
+    name
+]
+export with-uplevel
+
+; using with-dynamics to do recursion means it might find the dynamic-call def
+; within a nested call, so this flag is there to ignore those defs
+make-unique const is-dynamic-call
 
 ; define (with-dynamics (a b)) def (... a ... b ...)
 ; in def, treat given definitions as dynamic
@@ -63,18 +113,37 @@ define with-dynamics [
 
     upquote const dynamics
 
+    make-unique const body-toplevel-flag
+
     body
+    body-toplevel-flag #t value-insert-meta-entry
     dynamics list-iter [
-        const def
+        const def-name
         define dynamic-call [
-            def dynamic-resolve-any
-            quote eval uplevel
+            uplevel-while [
+                ; if it's the toplevel thing
+                body-toplevel-flag updo current-frame-meta-entry const is-top
+                ; resolve in the frame above
+                def-name quote definition-resolve updo uplevel
+                const found-def
+                is-top if [
+                    found-def false? if [
+                        def-name "can't find dynamic" error
+                    ] [
+                        ; but the resolved def isn't the dynamic call itself
+                        is-dynamic-call value-meta-entry
+                        ; if so, drop found-def and continue, else this is it
+                        if [ #t ] [ found-def #f ]
+                    ]
+                ] [ #t ]
+            ]
+            uplevel
         ]
-        def quote dynamic-call definition-resolve
-        value-set-not-dynamic-resolvable ; lol
+        def-name
+        quote dynamic-call definition-resolve
+        is-dynamic-call #t value-insert-meta-entry
         value-definition-add
     ]
-
     name
 ]
 export with-dynamics
