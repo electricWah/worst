@@ -80,8 +80,8 @@ define export [
     ] [ ]
     name quote definition-add quote uplevel uplevel
 ]
-; import "path/to/embedded/file.w"
-define import [
+; load-embedded "path/to/embedded/file.w"
+define load-embedded [
     upquote
     string->fs-path
     embedded-file-open
@@ -94,18 +94,18 @@ define import [
 ]
 
 ; define (attr...) name (body...)
-import "worst/base/attribute.w"
+load-embedded "base/attribute.w"
 ; predicate dispatch attribute
-import "worst/base/dispatch.w"
+load-embedded "base/dispatch.w"
 ; equal, compare, add/sub/etc, length, value->string - things using dispatch
-import "worst/base/ops.w"
+load-embedded "base/ops.w"
 
 ; doc attribute
-import "worst/base/doc.w"
+load-embedded "doc/doc.w"
 ; bunch of docs for builtins:
 ; docs for everything above this line go in here
 ; docs for everything below this line should be added using the doc attribute
-import "worst/base/builtin-docs.w"
+load-embedded "doc/builtins.w"
 
 define ' [ upquote ]
 ; do [ code... ] => eval code
@@ -117,19 +117,24 @@ define error? [clone <is-error> type-id->unique value-meta-entry not not]
 define read-line [ stdin-port-read-line ]
 
 ; required by import module cache
-import "worst/data/hashmap.w"
+load-embedded "base/hashmap.w"
 
-; better import/export
-; anything above this line is in the default module environment
-import "worst/base/import.w"
+; pretty useful to always have
+load-embedded "base/case.w"
 
+; not ideal
+load-embedded "cli/ansi.w"
 #f const current-module
+load-embedded "cli/help.w"
+load-embedded "cli/repl.w"
+
+; anything above this line is in the default module environment
+; this should also be the last load-embedded as it redefines export
+load-embedded "base/module.w"
 
 command-line-arguments list-pop drop ; $0
 list-empty? if [
     drop
-    import ui/repl
-    import ui/help
     worst-repl
 ] [
     list-pop const path const args
@@ -138,7 +143,6 @@ list-empty? if [
     file-open-options file-open-options-set-read
     file-open
     error? if [
-        import ui/cli
         drop args path string->symbol cli-module-run
     ] [
         ; jank to get ui/cli and import "relative.w" working

@@ -1,6 +1,4 @@
 
-import ui/ansi
-
 ; maybe make this dynamic?
 define standard-worst-prompt [
     interpreter-stack-get const stack drop
@@ -24,10 +22,7 @@ define worst-repl [
     define clear-stack [ while [stack-empty not] [drop] ]
 
     interpreter-empty
-    do [
-        import ui/help
-        current-defenv interpreter-defenv-set
-    ]
+    current-defenv interpreter-defenv-set
     ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp
 

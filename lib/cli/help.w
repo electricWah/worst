@@ -1,11 +1,4 @@
 
-; import worst/doc/attribute
-import {
-    ui/ansi
-    data/pairs
-    syntax/case
-}
-
 define [
     doc [
         title "Show information on how to use the Worst interactive environment."
@@ -64,5 +57,6 @@ define [
     ]
 ]
 
-export (help info)
+export help
+export info
 

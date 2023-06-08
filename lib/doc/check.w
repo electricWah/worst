@@ -1,7 +1,5 @@
 
 define check-docs [
-    import ui/ansi
-
     0 make-place const warnings
     define check-doc [
         const def
@@ -78,6 +76,5 @@ define check-docs [
 ]
 export check-docs
 
-import ui/cli
 cli-run [ check-docs ]
 
