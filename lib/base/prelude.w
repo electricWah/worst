@@ -122,6 +122,8 @@ load-embedded "base/hashmap.w"
 ; pretty useful to always have
 load-embedded "base/case.w"
 
+load-embedded "data/list.w"
+
 ; not ideal
 load-embedded "cli/ansi.w"
 #f const current-module
