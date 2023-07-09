@@ -1,104 +1,78 @@
 
-(import ../data)
 (import ../interpreter :as I)
+(import ../data)
+
+(defn <string> :builtin {:o [data/Type]} [i] [data/String])
+(defn <symbol> :builtin {:o [data/Type]} [i] [data/Symbol])
+(defn <bool> :builtin {:o [data/Type]} [i] [data/Bool])
+(defn <builtin> :builtin {:o [data/Type]} [i] [data/Builtin])
+
+(defn <list> :builtin {:o [data/Type]} [i] [data/List])
+(defn <lookup> :builtin {:o [data/Type]} [i] [data/Lookup])
+(defn <bytevector> :builtin {:o [data/Type]} [i] [data/Bytevector])
+
+(defn <type> :builtin {:o [data/Type]} [i] [data/Type])
+(defn <unique> :builtin {:o [data/Type]} [i] [data/Unique])
+
+(defn make-unique :builtin [i] (I/stack-push i (data/unique)))
 
 (defn dump :builtin [i] (pp (I/stack i)))
+(defn dump1 :builtin [i] (pp (I/stack-pop i)))
 
 (defn drop :builtin [i] (I/stack-pop i))
 
-(defn swap :builtin [i]
-  (let [b (I/stack-pop i)
-        a (I/stack-pop i)]
-    (I/stack-push i b)
-    (I/stack-push i a)))
+(defn clone :builtin {:i 1 :o 2} [i v] [v v])
+(defn swap :builtin {:i 2 :o 2} [i a b] [b a])
+(defn dig :builtin {:i 3 :o 3} [i a b c] [b c a])
+(defn bury :builtin {:i 3 :o 3} [i a b c] [c a b])
 
-(defn clone :builtin [i]
-  (let [a (I/stack-pop i)]
-    (I/stack-push i a)
-    (I/stack-push i a)))
+(defn bool-equal :builtin {:i [data/Bool data/Bool] :o [data/Bool]} [i a b]
+  [(= a b)])
 
-(defn dig :builtin [i]
-  (let [a (I/stack-pop i)
-        b (I/stack-pop i)
-        c (I/stack-pop i)]
-    (I/stack-push i b)
-    (I/stack-push i a)
-    (I/stack-push i c)))
+(def- real-not not)
+(defn not :builtin {:i 1 :o 1} [i v] [(real-not (data/unwrap v))])
 
-(defn bury :builtin [i]
-  (let [a (I/stack-pop i)
-        b (I/stack-pop i)
-        c (I/stack-pop i)]
-    (I/stack-push i a)
-    (I/stack-push i c)
-    (I/stack-push i b)))
-
-(defn not :builtin [i]
-  (let [a (I/stack-pop i)]
-    (I/stack-push i (not a))))
-
-(defn eval :builtin [i]
-  (let [a (I/stack-pop i)]
+(defn eval :builtin {:i 1} [i v] (I/eval-next i v))
+(defn eval-if :builtin {:i 2} [i b a]
+  (when (data/unwrap b)
     (I/eval-next i a)))
-
-(defn eval-if :builtin [i]
-  (let [a (I/stack-pop i)
-        b (I/stack-pop i)]
-    (when b
-      (I/eval-next i a))))
-
-(defn uplevel :builtin [i]
+(defn uplevel :builtin {:i 1} [i v]
   (I/enter-parent-frame i)
-  (eval i))
+  (I/eval-next i v))
 
-(defn pause :builtin :pause [i]
-  (let [a (I/stack-pop i)]
-    a))
+(defn pause :builtin :pause {:i 1} [i a] a)
 
-(defn stack-get :builtin [i]
-  (let [s (I/stack i)]
-    (I/stack-push i s)))
+(defn stack-get :builtin {:o [data/List]} [i] [(I/stack i)])
+(defn stack-set :builtin {:i [data/List]} [i s] (I/stack-set i s))
 
-(defn stack-set :builtin [i]
-  (let [s (I/stack-pop i)]
-    (I/stack-set i s)))
-
-(defn code-next :builtin [i]
-  (let [c (I/code-next i)]
-    (I/stack-push i c)))
-
-(defn code-peek :builtin [i]
-  (let [c (I/code-peek i)]
-    (I/stack-push i c)))
-
-(defn quote :builtin [i] (code-next i))
-
-(defn upquote :builtin [i]
+(defn code-next :builtin {:o 1} [i] [(I/code-next i)])
+(defn code-peek :builtin {:o 1} [i] [(I/code-peek i)])
+(defn quote :builtin {:o 1} [i] [(I/code-next i)])
+(defn upquote :builtin {:o 1} [i]
   (I/enter-parent-frame i)
-  (code-next i))
+  [(I/code-next i)])
 
-#    i.add_builtin("value-insert-meta-entry", |i: &mut Interpreter| {
-#        let mv = i.stack_pop_val()?;
-#        let u = i.stack_pop::<Unique>()?.into_inner();
-#        let mut v = i.stack_pop_val()?;
-#        v.meta_mut().insert_val(u, mv);
-#        i.stack_push(v);
-#        Ok(())
-#    });
+(defn value->constant :builtin {:i 1 :o 1} [i a]
+  [(fn const [i] (I/stack-push i a))])
 
-#/// Install all these functions.
-#pub fn install(i: &mut Interpreter) {
-#    i.add_builtin("quote", quote);
-#    i.add_builtin("upquote", upquote);
+(defn value-meta-entry :builtin
+  {:i [:val data/Unique] :o 1} [i v u]
+  [(or (data/meta-get v u) false)])
+
+(defn value-insert-meta-entry :builtin
+  {:i [:val data/Unique :val] :o 1} [i v u mv]
+  [(data/meta-set v {u mv})])
+
+(defn features-enabled :builtin {:o [data/List]} [i]
+  # 'os 'stdio 'fs-os 'fs-embed 'fs-zip 'process 'wasm
+  [(data/val @[])])
+
 #    util::add_const_type_builtin::<IsError>(i, "<is-error>");
-#    util::add_const_type_builtin::<bool>(i, "<bool>");
 #    i.add_builtin("bool-equal", util::equality::<bool>);
 #    i.add_builtin("bool-hash", util::value_hash::<bool>);
-#    util::add_const_type_builtin::<Symbol>(i, "<symbol>");
 #    i.add_builtin("symbol-equal", util::equality::<Symbol>);
 #    i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
-#    util::add_const_type_builtin::<Unique>(i, "<unique>");
 #    i.add_builtin("unique-equal", util::equality::<Unique>);
 #    i.add_builtin("unique-hash", util::value_hash::<Unique>);
 #    i.add_builtin("make-unique", |i: &mut Interpreter| {
@@ -109,38 +83,11 @@
 
 #    util::add_const_type_builtin::<Builtin>(i, "<builtin>");
 
-#    util::add_const_type_builtin::<TypeId>(i, "<type-id>");
-#    i.add_builtin("type-id-equal", util::equality::<TypeId>);
-#    i.add_builtin("type-id-hash", util::value_hash::<TypeId>);
-#    i.add_builtin("value-type-id", |i: &mut Interpreter| {
-#        let v = i.stack_pop_val()?;
-#        i.stack_push(v.val_type_id());
-#        Ok(())
-#    });
-#    i.add_builtin("type-id->unique", |i: &mut Interpreter| {
-#        let v = i.stack_pop::<TypeId>()?.into_inner();
-#        let u = i.uniques_mut().get_type_id(v);
-#        i.stack_push(u);
-#        Ok(())
-#    });
-#    i.add_builtin("unique-type-id?", |i: &mut Interpreter| {
-#        let is = i.stack_top::<Unique>()?.as_ref().is_type();
-#        i.stack_push(is);
-#        Ok(())
-#    });
-
 #    i.add_builtin("value-meta-copy", |i: &mut Interpreter| {
 #        let mut dest = i.stack_pop_val()?;
 #        let src = i.stack_pop_val()?;
 #        *dest.meta_mut() = src.meta_ref().clone();
 #        i.stack_push(dest);
-#        Ok(())
-#    });
-
-#    i.add_builtin("value-meta-entry", |i: &mut Interpreter| {
-#        let u = i.stack_pop::<Unique>()?;
-#        let v = i.stack_pop_val()?;
-#        i.stack_push_option(v.meta_ref().get_val(u.as_ref()));
 #        Ok(())
 #    });
 

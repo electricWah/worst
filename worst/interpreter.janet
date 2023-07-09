@@ -1,33 +1,29 @@
 
 (import ./data)
 
-(def DefEnv (data/mkty {} :defenv))
-(def defenv? (data/predicate DefEnv))
-(def- mkdefenv (data/ctor DefEnv))
+(def DefEnv (data/new-type
+                      @{:name :defenv
+                        :clone (fn [d] @{:ambient (table/clone (d :ambient))
+                                         :local (table/clone (d :local))})}))
 (def- defenv-unique (data/type->unique DefEnv))
+(assert (= defenv-unique (data/type->unique DefEnv)))
 
-(defn- defenv [defs]
-  (if (defenv? defs) defs
-    (mkdefenv :ambient (merge defs)
-              :local @{})))
+(defn defenv [defs]
+  (if (data/is? defs DefEnv) defs
+    (data/construct DefEnv @{:ambient (merge defs)
+                             :local @{}})))
+(assert (= DefEnv (data/typeof (defenv {}))))
 
-(defn- defenv-clone [de]
-  (mkdefenv :ambient (table/clone (de :ambient))
-            :local (table/clone (de :local))))
-
-(defn- defenv-insert [defs ty name val]
+(defn defenv-insert [defs ty name val]
   (put-in defs [ty name] val))
 
 (defn- defenv-resolve [defs name]
   (or ((defs :local) name) ((defs :ambient) name)))
 
 (defn defenv-new-locals [d]
-  (data/the defenv? d)
-  (mkdefenv :ambient (merge-into (d :ambient) (d :local))
-            :local @{}))
+  (defenv (merge (d :ambient) (d :local))))
 
-(def- Frame (data/mkty @{} :frame))
-(def- frame? (data/predicate Frame))
+(def- Frame (data/new-type @{:name :frame}))
 
 (defn- frame-empty? [f]
   (and (empty? (f :childs))
@@ -35,47 +31,43 @@
 
 (defn- new-frame [&named defs body]
   (default defs {})
-  (default body [])
+  (default body @[])
   # TODO if val, get meta
-  (table/setproto
-    @{:defs (defenv defs)
-      :childs @[]
-      :body (data/list body)}
-    Frame))
+  (data/construct Frame @{:defs (defenv defs)
+                          :childs @[]
+                          :body (data/new-list body)}))
 
 (defn- frame-resolve [f name]
   (if-let [def (defenv-resolve (f :defs) name)]
     def
     (errorf "undefined: %q" name)))
 
-(def Interpreter (data/mkty @{} :interpreter))
-(def interpreter? (data/predicate Interpreter))
-(def- mkinterpreter (data/ctor Interpreter))
+(def Interpreter (data/new-type @{:name :interpreter}))
 
 (defn new [&named defs body stack]
   (default defs {})
-  (default body [])
-  (default stack [])
-  (mkinterpreter
-    :frame (new-frame :defs defs :body body)
-    :parents @[]
-    :stack (array/slice stack)))
+  (default body @[])
+  (default stack @[])
+  (data/construct Interpreter
+    @{:frame (new-frame :defs defs :body body)
+      :parents @[]
+      :stack (array/slice stack)}))
 
-(defn eval-next [i v]
+(defn eval-next [i v &named inherit]
   (let [frame (i :frame)
-        defs (data/unwrap (data/meta-get v defenv-unique))
+        defs (defenv-new-locals
+               (or (data/unwrap (data/meta-get v defenv-unique))
+                   (frame :defs)))
         iv (data/unwrap v)]
     (cond
       (symbol? iv) (eval-next i (frame-resolve frame iv))
       (function? iv) (array/push (frame :childs) v)
-      (or (indexed? iv)
-          (data/list? iv)) (array/push (frame :childs)
-                                       (new-frame :defs defs
-                                                  :body v))
-      (errorf "unknown %q" iv))))
+      (data/is? v data/List) (array/push (frame :childs)
+                                         (new-frame :defs defs
+                                                    :body iv))
+      (errorf "unknown %q" v))))
 
 (defn enter-parent-frame [i]
-  (data/the interpreter? i)
   (if (not (empty? (i :parents)))
     (let [p (array/pop (i :parents))
           f (i :frame)]
@@ -84,40 +76,32 @@
       (put i :frame p))
     (error "root-uplevel")))
 
-(defn stack-pop [i &named type]
+(defn stack-pop [i]
   (let [v (array/pop (i :stack))]
-    (cond
-      (nil? v) (error "stack-empty")
-      type (data/the (data/valof type) v)
+    (if (nil? v) (error "stack-empty")
       v)))
 
-(defn stack-push [i v &named nil->]
-  (array/push (i :stack)
-              (cond
-                (data/val? v) v
-                (nil? v) (if (nil? nil->)
-                           (error "stack-push nil")
-                           (data/val (nil-> v)))
-                (data/val v))))
-(defn stack [i] (data/list (i :stack)))
+(defn stack-push [i v] (array/push (i :stack) (data/val v)))
+(defn stack [i] (data/val (i :stack)))
+(defn stack-popn [i n]
+  (if (> n (length (i :stack))) nil
+    (reverse (seq [_ :range [0 n]] (array/pop (i :stack))))))
 (defn stack-set [i s] (put i :stack (data/list->array s)))
 
 (defn code-next [i] (data/list-pop ((i :frame) :body)))
 (defn code-peek [i] (data/list-peek ((i :frame) :body)))
 
-(defn current-defenv [i] (defenv-clone ((i :frame) :defs)))
+(defn current-defenv [i] ((i :frame) :defs))
 
 (defn definition-add [i name d]
-  (defenv-insert ((i :frame) :defs) :local
-    (data/the :symbol (data/unwrap name)) d))
+  (defenv-insert ((i :frame) :defs) :local name d))
 
 (defn definition-resolve [i name]
-  (defenv-resolve ((i :frame) :defs)
-    (data/the :symbol (data/unwrap name))))
+  (defenv-resolve ((i :frame) :defs) name))
 
 (defn run [i &named body]
   (when body
-    (put (i :frame) :body (data/list body)))
+    (put (i :frame) :body (data/new-list body)))
   (var ret nil)
   (while (nil? ret)
     (let [frame (i :frame)]
@@ -127,7 +111,7 @@
         (let [c (array/pop (frame :childs))
               ci (data/unwrap c)]
           (cond
-            (frame? c)
+            (data/is? c Frame)
             (do
               (array/push (i :parents) frame)
               (put i :frame c))

@@ -3,15 +3,18 @@
 
 (defn- wrap-value [sp sl sc v ep el ec]
   (data/meta-set (data/val v)
-                 :span {:from {:pos sp :l sl :c sc}
-                        :to {:pos ep :l el :c ec}}))
+                 {:span {:from {:pos sp :l sl :c sc}
+                         :to {:pos ep :l el :c ec}}}))
 
 (defn- wrap-list [s l e]
   (data/meta-set (data/val l)
-                 :delimited [s e]))
+                 {:delimited [s e]}))
 
 (defn- atomic [s]
-  (if-let [n (scan-number s)] n (symbol s)))
+  (let [[ok i] (protect (int/s64 s))]
+    (if ok i
+      (if-let [n (scan-number s)]
+        n (symbol s)))))
 
 (def worst-grammar
   (peg/compile
@@ -23,13 +26,11 @@
                                           :string-escape)))
                 "\"")
 
-      :string-escape
-      (sequence "\\" '(choice
-                        (replace '"e" "\e")
-                        (replace '"n" "\n")
-                        (replace '"r" "\r")
-                        (replace '"t" "\t")
-                        1))
+      :string-escape (sequence "\\" '(choice (replace '"e" "\e")
+                                             (replace '"n" "\n")
+                                             (replace '"r" "\r")
+                                             (replace '"t" "\t")
+                                             1))
 
       :list (choice (replace (sequence '"(" (group :value*) '")") ,wrap-list)
                     (replace (sequence '"[" (group :value*) '"]") ,wrap-list)
@@ -50,16 +51,13 @@
 
       :main (sequence :value* (position) (line) (column))}))
 
-# (printf "%q"  (peg/match worst-grammar "()"))
-
-(def Reader @{})
-(def reader? (data/predicate Reader))
-(def- mkreader (data/ctor Reader))
+(def Reader (data/new-type @{:name :reader}))
 
 (defn reader [&named source]
-  (mkreader :in ""
-            :pos {:pos 0 :c 1 :l 1}
-            :source source))
+  (data/construct Reader
+                  @{:in ""
+                    :pos {:pos 0 :c 1 :l 1}
+                    :source source}))
 
 (defn read [r input]
   (let [instr (string (r :in) input)
@@ -75,7 +73,7 @@
         c (if (= l rl) (+ rc c -1) c)]
     (put r :in newinstr)
     (put r :pos {:pos pos :l l :c c})
-    (map (fn [x] (data/meta-set x :source (r :source))) res)))
+    (map (fn [x] (data/meta-set x {:source (r :source)})) res)))
 
 (defn check [r]
   (let [s (r :in)
@@ -89,15 +87,10 @@
                 s)))))
 
 (defn read-file [filename]
-  (def f (file/open filename))
-  (defer (file/close f)
-    (let [buf (file/read f :all)
-          r (reader :source filename)
-          res (read r buf)]
-      (check r)
-      res)))
-
-# (let [r (reader :source "input")]
-#   (pp (map data/unwrap* (read r ` "\"" "n" "aaa\"bbb" `)))
-#   (check r))
+  (let [f (file/open filename)
+        buf (defer (file/close f) (file/read f :all))
+        r (reader :source filename)
+        res (read r buf)]
+    (check r)
+    res))
 
