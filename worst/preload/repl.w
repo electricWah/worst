@@ -1,8 +1,10 @@
 
 ; maybe make this dynamic?
 define standard-worst-prompt [
-    interpreter-stack-get const stack drop
+    ; TODO make these work
+    interpreter-stack-get ; const stack drop
     ansi [
+        const stack drop
         green fg
         "worst " print
 
@@ -46,20 +48,21 @@ define worst-repl [
         interp standard-worst-prompt
         read-line
         equals? "" if [ drop exit-message #f ] [
-            reader place-get swap reader-read-string
-            dig reader swap place-set drop
-            error? if [ "read error" stack-dump error ] [ drop ]
-            interp swap interpreter-body-prepend
+            reader place-get swap
+            reader-read-string const read-res
+            ; also reader-check should return incomplete in some way
+            reader swap place-set drop
+            interp read-res interpreter-body-prepend
             interpreter-run
-            error? if [
-                ; TODO broken until quotes are worst-only (if, while etc)
-                ; also check if toplevel
-                ; equals? ' quote-nothing if [ drop ] [
-                    ansi [ bright red fg value->string print reset ]
-                    "\n" print
-                    interpreter-reset drop
-                ; ]
-            ] [ drop ]
+            ; error? if [
+            ;     ; TODO broken until quotes are worst-only (if, while etc)
+            ;     ; also check if toplevel
+            ;     ; equals? ' quote-nothing if [ drop ] [
+            ;         ansi [ bright red fg value->string print reset ]
+            ;         "\n" print
+            ;         interpreter-reset drop
+            ;     ; ]
+            ; ] [ drop ]
             #t
         ]
     ] []

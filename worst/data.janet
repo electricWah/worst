@@ -127,6 +127,8 @@
 
 (def Place (new-type @{:name :place}))
 (defn place [ival] (construct Place @{:v ival}))
+(defn place-get [p] (p :v))
+(defn place-set [p v] (put p :v v) p)
 
 (defn meta-get [v key] (get (val-metatable v) key))
 
@@ -147,10 +149,16 @@
 (defn list-peek [l] (array/peek (get l :l)))
 (defn list-push [l v] (array/push (get l :l) v))
 (defn list-append [a b] (new-list (array/concat @[] (a :l) (b :l)) :rev false))
+(defn list-prepend! [a b] (array/concat (a :l) (b :l)))
 (defn list-length [l] (int/s64 (length (l :l))))
 (defn list-empty? [l] (empty? (l :l)))
 (defn list->array [l] (reverse (l :l)))
+(defn list-reverse [l] (new-list (l :l)))
 (defn list-get [l i] (get (l :l) (int/to-number (- (length (l :l)) 1 i))))
 
 (defn lookup-insert [l k v] (put l (unwrap k) v))
+(defn lookup-get [l k] (get l (unwrap k)))
+
+# TODO builtin signatures should be able to see types from the current file
+(def Port (new-type @{:name :port}))
 

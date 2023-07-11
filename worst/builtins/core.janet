@@ -13,6 +13,7 @@
 
 (defn <type> :builtin {:o [data/Type]} [i] [data/Type])
 (defn <unique> :builtin {:o [data/Type]} [i] [data/Unique])
+(defn <place> :builtin {:o [data/Type]} [i] [data/Place])
 
 (defn make-unique :builtin [i] (I/stack-push i (data/unique)))
 

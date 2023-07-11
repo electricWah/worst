@@ -23,12 +23,10 @@
 (def all-builtins
   (apply require-builtins
     (map (fn [s] (string "./builtins/" s))
-         '[core type
-           def
-           fs sys
-           list lookup
-           numeric bytevector
-           interpreter])))
+         '[core type def
+           string list lookup numeric bytevector
+           place port fs sys
+           interpreter reader])))
 
 (def preloads '[init attribute dispatch ops
                 ansi repl])

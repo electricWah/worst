@@ -15,7 +15,11 @@
   (let [idx (if (neg? idx) (+ (data/list-length l) idx) idx)]
     [(data/nil->err (data/list-get l idx))]))
 
-(defn list-empty :builtin {:i [data/List] :o [:boolean]} [i l] [(data/list-empty? l)])
+(defn list-empty :builtin {:i [data/List] :o [:boolean]} [i l]
+  [(data/list-empty? l)])
+
+(defn list-reverse :builtin {:i [data/List] :o [data/List]} [i l]
+  [(data/list-reverse l)])
 
 # /// list `list-length` -> i64 : the length of the list.
 # pub fn list_length(i: &mut Interpreter) -> BuiltinRet {

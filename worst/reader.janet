@@ -22,15 +22,15 @@
 
       :string (sequence
                 "\""
-                (accumulate (any '(choice (if-not (set `\"`) 1)
+                (accumulate (any (choice (if-not (set `\"`) '1)
                                           :string-escape)))
                 "\"")
 
-      :string-escape (sequence "\\" '(choice (replace '"e" "\e")
-                                             (replace '"n" "\n")
-                                             (replace '"r" "\r")
-                                             (replace '"t" "\t")
-                                             1))
+      :string-escape (sequence `\` (choice (replace "e" "\e")
+                                           (replace "n" "\n")
+                                           (replace "r" "\r")
+                                           (replace "t" "\t")
+                                           (sequence (constant `\`) 1)))
 
       :list (choice (replace (sequence '"(" (group :value*) '")") ,wrap-list)
                     (replace (sequence '"[" (group :value*) '"]") ,wrap-list)
@@ -75,11 +75,13 @@
     (put r :pos {:pos pos :l l :c c})
     (map (fn [x] (data/meta-set x {:source (r :source)})) res)))
 
-(defn check [r]
+(defn check [r &named raise]
+  (default raise true)
   (let [s (r :in)
         {:l rl :c rc} (r :pos)]
     (unless (= s "")
-      (errorf "Parse error at %s@%q:%q: %s"
+      ((if raise errorf string/format)
+         "Parse error at %s@%q:%q: %s"
               (or (r :source) "<???>")
               rl rc
               (if (> (length s) 40)

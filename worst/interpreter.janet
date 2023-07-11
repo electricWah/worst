@@ -23,6 +23,10 @@
 (defn defenv-new-locals [d]
   (defenv (merge (d :ambient) (d :local))))
 
+(defn defenv-extend-locals [d locs]
+  (data/construct DefEnv @{:ambient (merge (d :ambient))
+                           :local (merge (d :local) (locs :local))}))
+
 (def- Frame (data/new-type @{:name :frame}))
 
 (defn- frame-empty? [f]
@@ -53,6 +57,17 @@
       :parents @[]
       :stack (array/slice stack)}))
 
+(defn interpreter-complete? [i]
+  (and (empty? (i :parents))
+       (frame-empty? (i :frame))))
+
+(defn stack-push [i v] (array/push (i :stack) (data/val v)))
+(defn stack [i] (data/val (i :stack)))
+(defn stack-popn [i n]
+  (if (> n (length (i :stack))) nil
+    (reverse (seq [_ :range [0 n]] (array/pop (i :stack))))))
+(defn stack-set [i s] (put i :stack (data/list->array s)))
+
 (defn eval-next [i v &named inherit]
   (let [frame (i :frame)
         defs (defenv-new-locals
@@ -65,7 +80,7 @@
       (data/is? v data/List) (array/push (frame :childs)
                                          (new-frame :defs defs
                                                     :body iv))
-      (errorf "unknown %q" v))))
+      (stack-push i v))))
 
 (defn enter-parent-frame [i]
   (if (not (empty? (i :parents)))
@@ -76,28 +91,32 @@
       (put i :frame p))
     (error "root-uplevel")))
 
+(defn interpreter-reset [i]
+  (while (not (empty? (i :parents)))
+    (enter-parent-frame i))
+  (put (i :frame) :childs @[])
+  (put (i :frame) :body (data/new-list @[]))
+  i)
+
 (defn stack-pop [i]
   (let [v (array/pop (i :stack))]
     (if (nil? v) (error "stack-empty")
       v)))
 
-(defn stack-push [i v] (array/push (i :stack) (data/val v)))
-(defn stack [i] (data/val (i :stack)))
-(defn stack-popn [i n]
-  (if (> n (length (i :stack))) nil
-    (reverse (seq [_ :range [0 n]] (array/pop (i :stack))))))
-(defn stack-set [i s] (put i :stack (data/list->array s)))
-
 (defn code-next [i] (data/list-pop ((i :frame) :body)))
 (defn code-peek [i] (data/list-peek ((i :frame) :body)))
 
 (defn current-defenv [i] ((i :frame) :defs))
+(defn set-defenv [i d] (put (i :frame) :defs (defenv d)))
 
 (defn definition-add [i name d]
   (defenv-insert ((i :frame) :defs) :local name d))
 
 (defn definition-resolve [i name]
   (defenv-resolve ((i :frame) :defs) name))
+
+(defn body-prepend [i body]
+  (data/list-prepend! ((i :frame) :body) (data/new-list body)))
 
 (defn run [i &named body]
   (when body

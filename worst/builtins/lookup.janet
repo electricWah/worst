@@ -9,6 +9,9 @@
   (data/lookup-insert m k v)
   [m])
 
+(defn lookup-get :builtin {:i [data/Lookup :any] :o [:any]} [i m k]
+  [(or (data/lookup-get m k) false)])
+
     # i.add_builtin("i64map-contains", |i: &mut Interpreter| {
     #     let k = i.stack_pop::<i64>()?.into_inner();
     #     let map = i.stack_pop::<I64Map>()?;

@@ -15,6 +15,9 @@
 (defn defenv-insert-local :builtin {:i [I/DefEnv :symbol :val] :o [I/DefEnv]} [i d name def]
   [(I/defenv-insert d :local name def)])
 
+(defn defenv-merge-locals :builtin {:i [I/DefEnv I/DefEnv] :o [I/DefEnv]} [i locs d]
+  [(I/defenv-extend-locals d locs)])
+
 
 # (defn defenv-insert-local :builtin [i]
 #   (let [d (I/stack-pop i)

@@ -65,7 +65,7 @@ define type-dispatch [
         ; TODO get current frame meta, don't use new body if not fresh-dispatch
         ; but for now use dispatch-lookup
         const v
-        dispatch-lookup v value-type-id type-hash lookup-get
+        dispatch-lookup v value-type type-hash lookup-get
         false? if [ drop dispatch-lookup 0 lookup-get ] []
         v swap uplevel
     ]
