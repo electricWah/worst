@@ -8,8 +8,12 @@
 (defn list-append :builtin {:i [data/List data/List] :o [data/List]} [i a b]
   [(data/list-append a b)])
 
+(defn list-push :builtin {:i [data/List :val] :o [data/List]} [i l v]
+  (data/list-push! l v)
+  [l])
+
 (defn list-pop :builtin {:i [data/List] :o [data/List :val]} [i l]
-  (let [v (data/list-pop l)] [l (data/nil->err v)]))
+  (let [v (data/list-pop! l)] [l (data/nil->err v)]))
 
 (defn list-get :builtin {:i [data/List data/I64] :o [:val]} [i l idx]
   (let [idx (if (neg? idx) (+ (data/list-length l) idx) idx)]
@@ -20,6 +24,14 @@
 
 (defn list-reverse :builtin {:i [data/List] :o [data/List]} [i l]
   [(data/list-reverse l)])
+
+(defn list-split-at
+  :builtin {:i [data/List data/I64] :o [data/List data/List]} [i l n]
+  (let [len (data/list-length l)
+        n (if (< n 0) (+ len n) n)
+        n (min len (max 0 n))
+        pre (data/list-take! l n)]
+    [l pre]))
 
 # /// list `list-length` -> i64 : the length of the list.
 # pub fn list_length(i: &mut Interpreter) -> BuiltinRet {

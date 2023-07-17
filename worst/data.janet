@@ -16,15 +16,17 @@
           (struct/with-proto proto ;(kvs fields)))
     (errorf "new: must be @{} or {}: %q" ty)))
 
+(defn- type-compare [a b]
+  (compare (get a TypeId) (get b TypeId)))
+
 # typeof Type = Type
 (def Type
   (let [ty @{:name :type
-             TypeId (gensym)
-             :equal (fn [a b] (= (get a TypeId) (get b TypeId)))}]
+             TypeId (gensym)}]
     (table/setproto ty @{T ty})))
 
 (defn new-type [fields]
-  (-> (construct Type fields)
+  (-> (construct Type fields @{:compare type-compare})
       (put TypeId (gensym))))
 
 (def raw-types (tabseq [k :in [:symbol :string :boolean
@@ -46,7 +48,7 @@
 (defn typeof [v]
   (let [ty (type v)]
     (cond
-      (val? v) (typeof (v :v))
+      # (val? v) (typeof (v :v))
       (or (table? v) (struct? v)) (get (getproto v) T)
       (raw-types v) Type
       ty)))
@@ -82,17 +84,20 @@
 
 (defn- new-val [v meta]
   (construct Val {:v v} {M meta}))
-(defn- val-metatable [v] (when (val? v) (get (getproto v) M)))
+(defn val-metatable [v] (when (val? v) (get (getproto v) M)))
+
+(defn clone [v]
+  (let [t (typeof v)]
+    (if (is? t Type)
+      (let [cl (get t :clone)]
+        (cond
+          (not (nil? cl)) (construct t (cl v))
+          # (table? v) (construct t (table/clone v))
+          v))
+      v)))
 
 (defn- val-clone [v]
-  (let [t (typeof v)
-        meta (table/clone (get v M))]
-    (if (is? t Type)
-      (let [cl (get t :clone)
-            vi (v :v)
-            vv (if (nil? cl) vi (construct t (cl vi)))]
-        (new-val vv meta))
-      (new-val (v :v) meta))))
+  (new-val (clone (v :v)) (table/clone (val-metatable v))))
 
 (defn val [v]
   (cond
@@ -108,12 +113,12 @@
   (if (val? v) (v :v) v))
 
 (assert (= 'test (unwrap (val 'test))))
-(assert (is? (val 'test) :symbol))
-(assert (= :string (typeof (val "test"))))
+# (assert (is? (val 'test) :symbol))
+# (assert (= :string (typeof (val "test"))))
 
 (def Unique (new-type @{:name :unique}))
 (defn unique [&opt name] (construct Unique {:u (gensym) :name name}))
-(assert (is? (val (unique)) Unique))
+# (assert (is? (val (unique)) Unique))
 
 (defn type->unique [t]
   (let [raw (raw-types t)
@@ -137,17 +142,20 @@
     (merge-into (val-metatable v) kv)
     v))
 
-(defn set-error [v] (meta-set v {:error true}))
+(def IsError (unique :error))
+
+(defn set-error [v] (meta-set v {IsError true}))
 (def *false-error* (set-error false))
 (defn nil->err [v &opt err]
   (cond
     (not (nil? v)) v
     (not (nil? err)) (set-error err)
     *false-error*))
+(defn error? [v] (meta-get v IsError))
 
-(defn list-pop [l] (array/pop (get l :l)))
-(defn list-peek [l] (array/peek (get l :l)))
-(defn list-push [l v] (array/push (get l :l) v))
+(defn list-pop! [l] (array/pop (get l :l)))
+(defn list-peek! [l] (array/peek (get l :l)))
+(defn list-push! [l v] (array/push (get l :l) v))
 (defn list-append [a b] (new-list (array/concat @[] (a :l) (b :l)) :rev false))
 (defn list-prepend! [a b] (array/concat (a :l) (b :l)))
 (defn list-length [l] (int/s64 (length (l :l))))
@@ -155,10 +163,15 @@
 (defn list->array [l] (reverse (l :l)))
 (defn list-reverse [l] (new-list (l :l)))
 (defn list-get [l i] (get (l :l) (int/to-number (- (length (l :l)) 1 i))))
+(defn list-take! [l n]
+  (let [n (int/to-number n)
+        newlen (- (length (l :l)) n)]
+    (new-list (array/remove (l :l) newlen n))))
 
 (defn lookup-insert [l k v] (put l (unwrap k) v))
 (defn lookup-get [l k] (get l (unwrap k)))
 
 # TODO builtin signatures should be able to see types from the current file
 (def Port (new-type @{:name :port}))
+(defn new-port [f] (construct Port {:port f}))
 

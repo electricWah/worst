@@ -125,11 +125,11 @@ define feature-enabled? [
     ]
 ]
 
-define port->string [ println #f error ]
-feature-enabled? fs-os if [
-    define (<file-port> type-dispatch) port->string [ file-port->string ]
-    quote port->string clone definition-resolve swap updo definition-add
-] []
+define port->string [ port-read->string ]
+; feature-enabled? fs-os if [
+    ; define (<file-port> type-dispatch) port->string [ file-port->string ]
+    ; quote port->string clone definition-resolve swap updo definition-add
+; ] []
 ; define (<embedded-file-port> type-dispatch) port->string [ embedded-file-port->string ]
 
 define read-port->list [ port->string read-string->list ]

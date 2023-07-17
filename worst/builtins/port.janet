@@ -4,7 +4,7 @@
 
 # (defn <string> :builtin {:o [data/Type]} [i] [data/String])
 
-(defn stdout-port :builtin {:o [data/Port]} [i] [(data/construct data/Port {:port stdout})])
+(defn stdout-port :builtin {:o [data/Port]} [i] [(data/new-port stdout)])
 
 (defn stdout-port-write-string :builtin
   {:i [data/Port data/String] :o [data/Port]} [i p s]
@@ -18,4 +18,7 @@
 
 (defn stdin-port-read-line :builtin {:o [data/String]} [i]
   [(string (file/read stdin :line))])
+
+(defn port-read->string :builtin {:i [data/Port] :o [data/String]} [i p]
+  [(string (file/read (p :port) :all))])
 

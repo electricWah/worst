@@ -37,14 +37,18 @@
   (default defs {})
   (default body @[])
   # TODO if val, get meta
-  (data/construct Frame @{:defs (defenv defs)
-                          :childs @[]
-                          :body (data/new-list body)}))
+  (let [meta (if (data/val? body) (data/val-metatable body) @{})]
+    (data/construct Frame @{:defs (defenv defs)
+                            :childs @[]
+                            :meta meta
+                            :body (data/new-list body)})))
 
 (defn- frame-resolve [f name]
   (if-let [def (defenv-resolve (f :defs) name)]
     def
-    (errorf "undefined: %q" name)))
+    (do
+      # (pp (keys ((f :defs) :local)))
+      (errorf "undefined: %q" name))))
 
 (def Interpreter (data/new-type @{:name :interpreter}))
 
@@ -77,9 +81,9 @@
     (cond
       (symbol? iv) (eval-next i (frame-resolve frame iv))
       (function? iv) (array/push (frame :childs) v)
-      (data/is? v data/List) (array/push (frame :childs)
-                                         (new-frame :defs defs
-                                                    :body iv))
+      (data/is? iv data/List) (array/push (frame :childs)
+                                          (new-frame :defs defs
+                                                     :body v))
       (stack-push i v))))
 
 (defn enter-parent-frame [i]
@@ -103,8 +107,8 @@
     (if (nil? v) (error "stack-empty")
       v)))
 
-(defn code-next [i] (data/list-pop ((i :frame) :body)))
-(defn code-peek [i] (data/list-peek ((i :frame) :body)))
+(defn code-next [i] (data/list-pop! ((i :frame) :body)))
+(defn code-peek [i] (data/list-peek! ((i :frame) :body)))
 
 (defn current-defenv [i] ((i :frame) :defs))
 (defn set-defenv [i d] (put (i :frame) :defs (defenv d)))
@@ -118,6 +122,9 @@
 (defn body-prepend [i body]
   (data/list-prepend! ((i :frame) :body) (data/new-list body)))
 
+(defn current-frame-meta-entry [i k]
+  (get ((i :frame) :meta) (data/unwrap k)))
+
 (defn run [i &named body]
   (when body
     (put (i :frame) :body (data/new-list body)))
@@ -130,7 +137,7 @@
         (let [c (array/pop (frame :childs))
               ci (data/unwrap c)]
           (cond
-            (data/is? c Frame)
+            (data/is? ci Frame)
             (do
               (array/push (i :parents) frame)
               (put i :frame c))
@@ -142,7 +149,7 @@
 
         # try next body
         (not (data/list-empty? (frame :body)))
-        (let [v (data/list-pop (frame :body))
+        (let [v (data/list-pop! (frame :body))
               iv (data/unwrap v)]
           (if (symbol? iv)
             (eval-next i (frame-resolve frame iv))

@@ -29,6 +29,7 @@
            interpreter reader])))
 
 (def preloads '[init attribute dispatch ops
+                list
                 ansi repl])
 
 (def init-defs

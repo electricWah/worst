@@ -75,7 +75,7 @@ define ' [ upquote ]
 ; do [ code... ] => eval code
 define do [ upquote updo eval ]
 
-define error? [clone <is-error> type->unique value-meta-entry not not]
+define error? [clone is-error-key value-meta-entry not not]
 
 define read-line [ stdin-port-read-line ]
 

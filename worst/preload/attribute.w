@@ -119,7 +119,8 @@ define with-dynamics [
         define dynamic-call [
             uplevel-while [
                 ; if it's the toplevel thing
-                body-toplevel-flag updo current-frame-meta-entry const is-top
+                body-toplevel-flag updo current-frame-meta-entry
+                const is-top
                 ; resolve in the frame above
                 def-name quote definition-resolve updo uplevel
                 const found-def

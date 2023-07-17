@@ -6,8 +6,8 @@
   (match p
     :any (fn [v] (data/unwrap v))
     :val (fn [v] v)
-    (t symbol?) (let [t (eval t)]
-                  (fn [v] (when (data/is? v t) (data/unwrap v))))
+    (t symbol?) (let [t (eval t)] (fn [v] (let [u (data/unwrap v)]
+                                            (when (data/is? u t) u))))
     _ (errorf "can't stack-pred %q" p)))
 
 (defn- stack-preds [v]

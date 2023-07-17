@@ -15,7 +15,8 @@
 (defn <unique> :builtin {:o [data/Type]} [i] [data/Unique])
 (defn <place> :builtin {:o [data/Type]} [i] [data/Place])
 
-(defn make-unique :builtin [i] (I/stack-push i (data/unique)))
+(defn make-unique :builtin {:o [data/Unique]} [i] [(data/unique)])
+(defn is-error-key :builtin {:o [data/Unique]} [i] [data/IsError])
 
 (defn dump :builtin [i] (pp (I/stack i)))
 (defn dump1 :builtin [i] (pp (I/stack-pop i)))
@@ -31,12 +32,11 @@
   [(= a b)])
 
 (def- real-not not)
-(defn not :builtin {:i 1 :o 1} [i v] [(real-not (data/unwrap v))])
+(defn not :builtin {:i [:any] :o 1} [i v] [(real-not v)])
 
 (defn eval :builtin {:i 1} [i v] (I/eval-next i v))
-(defn eval-if :builtin {:i 2} [i b a]
-  (when (data/unwrap b)
-    (I/eval-next i a)))
+(defn eval-if :builtin {:i [:any :val]} [i b a]
+  (when b (I/eval-next i a)))
 (defn uplevel :builtin {:i 1} [i v]
   (I/enter-parent-frame i)
   (I/eval-next i v))
@@ -61,8 +61,11 @@
   [(or (data/meta-get v u) false)])
 
 (defn value-insert-meta-entry :builtin
-  {:i [:val data/Unique :val] :o 1} [i v u mv]
+  {:i [:val data/Unique :val] :o [:val]} [i v u mv]
   [(data/meta-set v {u mv})])
+
+(defn current-frame-meta-entry :builtin {:i [data/Unique] :o [:any]} [i k]
+  [(data/nil->err (I/current-frame-meta-entry i k) false)])
 
 (defn features-enabled :builtin {:o [data/List]} [i]
   # 'os 'stdio 'fs-os 'fs-embed 'fs-zip 'process 'wasm
@@ -97,13 +100,6 @@
 #        let mut v = i.stack_pop_val()?;
 #        let entry = v.meta_mut().take_val(u.as_ref());
 #        i.stack_push(v);
-#        i.stack_push_option(entry);
-#        Ok(())
-#    });
-
-#    i.add_builtin("current-frame-meta-entry", |i: &mut Interpreter| {
-#        let u = i.stack_pop::<Unique>()?;
-#        let entry = i.frame_meta_ref().get_val(u.as_ref());
 #        i.stack_push_option(entry);
 #        Ok(())
 #    });

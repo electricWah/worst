@@ -7,9 +7,11 @@
 (defn file-open-options-set-read :builtin {:i [:string] :o [:string]} [i o]
   [(string/join [o "r"])])
 
-(defn file-open :builtin {:i [:string :string] :o [:any]} [i path opts]
+(defn file-open :builtin {:i [:string :string] :o [:val]} [i path opts]
   (let [[ok ret] (protect (file/open path (keyword (string/join [opts "n"]))))]
-    [(if ok ret (data/set-error ret))]))
+    [(if ok
+       (data/new-port ret)
+       (data/set-error ret))]))
 
     # util::add_const_type_builtin::<fs::OpenOptions>(i, "<file-open-options>");
     # i.add_builtin("file-open-options-set-append", |i: &mut Interpreter| {
