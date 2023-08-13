@@ -7,8 +7,8 @@ pub mod util;
 
 pub mod bytevector;
 pub mod core;
-pub mod defenv;
 pub mod define;
+pub mod defset;
 pub mod fs;
 pub mod i64map;
 pub mod interpreter;
@@ -28,8 +28,8 @@ pub mod string;
 pub fn install(i: &mut Interpreter) {
     bytevector::install(i);
     core::install(i);
-    defenv::install(i);
     define::install(i);
+    defset::install(i);
     fs::install(i);
     i64map::install(i);
     interpreter::install(i);

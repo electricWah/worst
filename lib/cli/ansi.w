@@ -42,11 +42,10 @@ define ansi [
         print
     ]
 
-    updo current-defenv
-    defenv-new-locals
-    current-defenv
-    defenv-merge-locals
-    upquote swap value-set-defenv
+    updo current-defs
+    current-defs
+    defset-merge
+    upquote swap value-set-ambients
     updo eval
 ]
 export ansi

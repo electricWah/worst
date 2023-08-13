@@ -16,7 +16,7 @@ define list-iterate [
 ; [l...] list-map [ body : l -> l' ] -> [l' ...]
 define list-map [
     upquote
-    updo current-defenv value-set-defenv
+    updo current-defs value-set-ambients
     const %body
     [] swap ; acc
     list-iter [
@@ -32,7 +32,7 @@ export list-map
 ; (index of first element satisfying the function)
 define list-find-first-index [
     upquote
-    updo current-defenv value-set-defenv
+    updo current-defs value-set-ambients
     const filter
 
     const list
@@ -227,7 +227,7 @@ define list-gtsort [
 
 ; [list...] list-merge-sort-lt [ a b -> a b lt ] -> [sorted ascending list...]
 define list-merge-sort-lt [
-    upquote updo current-defenv value-set-defenv const compare
+    upquote updo current-defs value-set-ambients const compare
 
     define (with-dynamics (list-split-merge)) list-split-merge [
         clone list-length

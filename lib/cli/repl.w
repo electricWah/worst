@@ -22,7 +22,7 @@ define worst-repl [
     define clear-stack [ while [stack-empty not] [drop] ]
 
     interpreter-empty
-    current-defenv interpreter-defenv-set
+    current-defs interpreter-set-ambients
     ; quote pause interpreter-definition-remove ; this breaks it ; please don't try pause
     const interp
 

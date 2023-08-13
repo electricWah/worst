@@ -5,9 +5,8 @@ define define [
     const attrs
 
     upquote
-    quote current-defenv uplevel
-    defenv-new-locals
-    value-set-defenv
+    quote current-defs uplevel
+    value-set-ambients
     const body
     
     ; eval attrs: body name -> body name
@@ -29,11 +28,10 @@ export in-definition-attributes
 
 define value-definition-add [
     const def const name
-    clone <defenv> type-id->unique value-meta-entry
-    false? if [ drop defenv-empty ] []
-    name def defenv-insert-local
-    defenv-new-locals
-    value-set-defenv
+    clone <defset> type-id->unique value-meta-entry
+    false? if [ drop defset-empty ] []
+    name def defset-insert
+    value-set-ambients
 ]
 export value-definition-add
 
@@ -55,9 +53,9 @@ define recursive [
 
 ; like while, no body, uplevels up the stack, maybe put this somewhere else?
 define uplevel-while [
-    updo current-defenv defenv-new-locals const env
-    upquote env value-set-defenv const cond
-    ; upquote env value-set-defenv const body
+    updo current-defs const env
+    upquote env value-set-ambients const cond
+    ; upquote env value-set-ambients const body
 
     define the-whiler [
         const continuer

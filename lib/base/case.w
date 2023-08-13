@@ -14,14 +14,14 @@ define [
     ]
 ]
 case [
-    updo current-defenv defenv-new-locals const env
+    updo current-defs const env
     upquote
     while (list-empty? not) {
         list-pop const %if
         list-pop const %then
         const %cases
-        %if env value-set-defenv eval if [
-            %then env value-set-defenv eval []
+        %if env value-set-ambients eval if [
+            %then env value-set-ambients eval []
         ] [
             %cases
         ]

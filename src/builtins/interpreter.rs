@@ -65,10 +65,10 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
 
-    i.add_builtin("interpreter-defenv-set", |i: &mut Interpreter| {
-        let defs = i.stack_pop::<DefEnv>()?;
+    i.add_builtin("interpreter-set-ambients", |i: &mut Interpreter| {
+        let defs = i.stack_pop::<DefSet>()?;
         let interp = i.stack_top::<Interp>()?;
-        *interp.as_ref().0.borrow_mut().defenv_mut() = defs.into_inner();
+        (*interp.as_ref().0.borrow_mut().ambients_mut()) = defs.into_inner();
         Ok(())
     });
 

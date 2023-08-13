@@ -16,7 +16,7 @@ export module-search-path-prepend
 define module-search-path [ global-module-search-path place-get ]
 export module-search-path
 
-current-defenv make-place const global-default-module-definitions
+current-defs make-place const global-default-module-definitions
 define default-module-definitions [
     quote current-default-module-definitions updo definition-resolve
     false? if [
@@ -129,7 +129,7 @@ define module-import [
         all-imports swap place-set drop
     ]
     all-imports place-get
-    updo current-defenv-merge-locals
+    updo current-defs-merge-locals
 ]
 export module-import
 
@@ -139,7 +139,7 @@ export import
 ; keep old export to export new export
 quote export definition-resolve quote old-export definition-add
 
-quote current-defenv definition-resolve const get-defenv
+quote current-defs definition-resolve const get-defenv
 define export [
     get-defenv uplevel const export-env
     upquote
@@ -164,7 +164,7 @@ define export [
 ; export new import using old export (further exports in this file will break)
 old-export export
 
-global-default-module-definitions current-defenv place-set drop
+global-default-module-definitions current-defs place-set drop
 
 
 ; Command-line interface module: import this to enable "worst my-module"
@@ -209,11 +209,11 @@ define package [
     ]
 
     ; same as ui/ansi but maybe only allow above defs
-    updo current-defenv
+    updo current-defs
     defenv-new-locals
-    current-defenv
+    current-defs
     defenv-merge-locals
-    upquote swap value-set-defenv updo eval
+    upquote swap value-set-ambients updo eval
 ]
 old-export package
 

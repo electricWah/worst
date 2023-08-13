@@ -47,6 +47,7 @@ In which the innards are simplified even more.
 - Make [uplevel] tail call if it's the last thing in a stack frame
     - Remove [eval-while] in favour of [while] using this property
 - Remove value-set-error and value-unset-error, add <is-error> type for meta
+- Replace defenv with separate ambient and local defset
 
 # 0.4 (2022-11-19)
 

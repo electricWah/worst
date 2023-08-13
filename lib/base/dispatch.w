@@ -3,9 +3,8 @@
 ; => define name [ cond if [ body ] [ previous definition for name ] ]
 define dispatch [
     upquote
-    quote current-defenv uplevel
-    defenv-new-locals
-    value-set-defenv
+    quote current-defs uplevel
+    value-set-ambients
     const dispatch-case
 
     const name

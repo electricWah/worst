@@ -2,90 +2,52 @@
 //! Simpler interpreter
 
 use std::rc::Rc;
-use im_rc::{HashMap, HashSet};
+use im_rc::HashMap;
 use crate::base::*;
 use std::any::TypeId;
 
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
 
+/// A set of definition bindings. There are two per stack frame
+/// (ambient definitions and local definitions).
 #[derive(Default, Clone)]
-struct DefEnvEntry {
-    local: Option<Val>,
-    ambient: Option<Val>,
-}
+pub struct DefSet(HashMap<String, Val>);
+impl Value for DefSet {}
 
-/// An environment of definitions for a stack frame.
-#[derive(Default, Clone)]
-pub struct DefEnv {
-    locals: HashSet<String>,
-    entries: HashMap<String, DefEnvEntry>,
-}
-impl Value for DefEnv {}
-
-impl DefEnv {
+impl DefSet {
+    /// Add a definition.
+    pub fn insert(&mut self, key: String, val: Val) {
+        self.0.insert(key, val);
+    }
     /// Look up a definition.
-    pub fn lookup(&self, key: &str) -> Option<&Val> {
-        self.entries.get(key).and_then(|s| s.local.as_ref().or(s.ambient.as_ref()))
+    pub fn get(&self, key: &str) -> Option<&Val> {
+        self.0.get(key)
     }
-
-    /// Look up a definition in locals only.
-    pub fn get_local(&self, key: &str) -> Option<&Val> {
-        if self.locals.contains(key) {
-            self.entries.get(key).and_then(|s| s.local.as_ref())
-        } else { None }
-    }
-
-    /// Start a new set of locals.
-    /// The current locals set becomes an ambient definition.
-    pub fn new_locals(&mut self) {
-        self.locals.clear();
-    }
-
-    /// Insert a new local value.
-    pub fn insert_local(&mut self, key: String, val: Val) {
-        if self.locals.insert(key.clone()).is_none() {
-            // new local, perhaps
-            let entry = self.entries.entry(key).or_insert_with(DefEnvEntry::default);
-            // after new_locals, entry.local is now actually ambient
-            entry.ambient = entry.local.take();
-            entry.local = Some(val);
+    /// Absorb the contents of the given [DefSet], overwriting duplicates.
+    pub fn merge(&mut self, thee: DefSet) {
+        if self.len() == 0 {
+            *self = thee;
         } else {
-            // overwriting existing local
-            let entry = self.entries.entry(key).or_insert_with(DefEnvEntry::default);
-            entry.local = Some(val);
-        }
-    }
-
-    /// Get an iterator over the local definitions
-    pub fn locals_iter(&self) -> impl Iterator<Item=(&str, &Val)> {
-        self.locals.iter().filter_map(|k| {
-            self.entries.get(k)
-                .and_then(|e| e.local.as_ref())
-                .map(|l| (k.as_ref(), l))
-        })
-    }
-
-    /// Get an iterator over all definitions
-    /// (returning also whether each definition was local or not)
-    pub fn iter(&self) -> impl Iterator<Item=(&str, &Val, bool)> {
-        self.entries.iter().filter_map(|(k, e)| {
-            if e.local.is_some() {
-                e.local.as_ref().map(|v| (k.as_ref(), v, true))
-            } else {
-                e.ambient.as_ref().map(|v| (k.as_ref(), v, false))
+            for (k, v) in thee.0.into_iter() {
+                self.0.insert(k, v);
             }
-        })
+        }
+    }
+    /// Chainable version of [merge].
+    pub fn merged_with(mut self, thee: DefSet) -> DefSet {
+        self.merge(thee);
+        self
     }
 
-    /// Copy local definitions into self's local definitions.
-    pub fn extend_locals(&mut self, locals: DefEnv) {
-        for (l, def) in locals.locals_iter() {
-            let l = String::from(l);
-            self.locals.insert(l.clone());
-            let entry = self.entries.entry(l).or_insert_with(DefEnvEntry::default);
-            entry.local = Some(def.clone());
-        }
+    /// Get an iterator over the keys and values.
+    pub fn iter(&self) -> impl Iterator<Item=(&str, &Val)> {
+        self.0.iter().map(|(k, v)| (k.as_ref(), v))
+    }
+
+    /// Get the number of definitions.
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 }
 
@@ -93,18 +55,25 @@ impl DefEnv {
 struct Frame {
     childs: Vec<ChildFrame>,
     body: List,
-    defs: DefEnv,
     meta: Meta,
+    ambient: DefSet,
+    locals: DefSet,
 }
 
 impl Frame {
     fn is_empty(&self) -> bool {
         self.childs.is_empty() && self.body.is_empty()
     }
-    // TODO clean up
-    fn from_list_env(body: List, meta: Meta, defs: DefEnv) -> Self {
-        let childs = vec![];
-        Frame { childs, body, defs, meta, }
+
+    fn from_list_defs(body: List, meta: Meta, ambient: DefSet) -> Self {
+        Frame { body, meta, ambient, ..Default::default() }
+    }
+
+    fn insert_local(&mut self, key: String, val: Val) {
+        self.locals.0.insert(key, val);
+    }
+    fn lookup(&self, key: &str) -> Option<&Val> {
+        self.locals.0.get(key).or_else(|| self.ambient.0.get(key))
     }
 }
 
@@ -206,28 +175,25 @@ impl Interpreter {
         } else if v.is::<List>() {
             let meta = v.meta_ref().clone();
             let l = v.try_downcast::<List>().ok().unwrap();
-            let defenv = self.get_meta_type::<DefEnv>(l.meta_ref()).cloned().unwrap_or_default();
-            self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(l.into_inner(), meta, defenv)));
+            let defs = self.get_meta_type::<DefSet>(l.meta_ref()).cloned().unwrap_or_default();
+            self.frame.childs.push(ChildFrame::Frame(Frame::from_list_defs(l.into_inner(), meta, defs)));
         } else {
             self.stack_push(v);
         }
         Ok(())
     }
 
-    /// Same as [eval_next], but attaching a defenv beforehand.
-    // TODO always use list's defenv then current defenv
+    /// Same as [eval_next], but attaching an ambient defset beforehand.
     pub fn eval_list_next(&mut self, v: ValOf<List>) {
         let defs = {
-            if let Some(real) = self.get_meta_type::<DefEnv>(v.meta_ref()).cloned() {
+            if let Some(real) = self.get_meta_type::<DefSet>(v.meta_ref()).cloned() {
                 real
             } else {
-                let mut defs = self.defenv_ref().clone();
-                defs.new_locals();
-                defs
+                self.ambients_ref().clone().merged_with(self.locals_ref().clone())
             }
         };
         let meta = v.meta_ref().clone();
-        self.frame.childs.push(ChildFrame::Frame(Frame::from_list_env(v.into_inner(), meta, defs)));
+        self.frame.childs.push(ChildFrame::Frame(Frame::from_list_defs(v.into_inner(), meta, defs)));
     }
 
     /// Evaluate this FnOnce in the next [run] step. See [eval_next].
@@ -247,7 +213,7 @@ impl Interpreter {
 
     /// Find a definition in the current local and then closure environments.
     pub fn resolve_definition(&self, name: &str) -> Option<&Val> {
-        self.frame.defs.lookup(name)
+        self.frame.lookup(name)
     }
 
     fn eval_next_resolve(&mut self, v: &Symbol) -> BuiltinRet {
@@ -264,24 +230,29 @@ impl Interpreter {
     /// Inserts meta values such as name and a static environment.
     pub fn define(&mut self, name: impl Into<String>, def: impl Into<Val>) {
         let name = name.into();
-        let def = self.add_meta_type(def.into(), self.defenv_ref().clone());
-        self.frame.defs.insert_local(name, def);
+        let def = self.add_meta_type(def.into(), self.ambients_ref().clone());
+        self.frame.insert_local(name, def);
     }
 
     /// Add the given value to local definitions.
     pub fn add_definition(&mut self, name: impl Into<String>, def: impl Into<Val>) {
-        self.frame.defs.insert_local(name.into(), def.into());
+        self.frame.insert_local(name.into(), def.into());
     }
 
     /// Add the given builtin to the ambient definition set.
     pub fn add_builtin(&mut self, name: impl Into<String>, def: impl Into<Builtin>) {
-        self.frame.defs.insert_local(name.into(), Val::from(def.into()));
+        self.frame.insert_local(name.into(), Val::from(def.into()));
     }
 
-    /// Get a reference to the current [DefEnv].
-    pub fn defenv_ref(&self) -> &DefEnv { &self.frame.defs }
-    /// Get a mutable reference to the current [DefEnv].
-    pub fn defenv_mut(&mut self) -> &mut DefEnv { &mut self.frame.defs }
+    /// Get a reference to the current ambient [DefSet].
+    pub fn ambients_ref(&self) -> &DefSet { &self.frame.ambient }
+    /// Get a reference to the current locals [DefSet].
+    pub fn locals_ref(&self) -> &DefSet { &self.frame.locals }
+    /// Get a mutable reference to the current ambient [DefSet].
+    pub fn ambients_mut(&mut self) -> &mut DefSet { &mut self.frame.ambient }
+    /// Get a mutable reference to the current locals [DefSet].
+    pub fn locals_mut(&mut self) -> &mut DefSet { &mut self.frame.locals }
+
     /// Get a reference to the current frame [Meta] (from the list being evaluated).
     pub fn frame_meta_ref(&self) -> &Meta { &self.frame.meta }
 

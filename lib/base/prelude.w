@@ -1,19 +1,23 @@
 
 ; Not really a standard library, more like a random bag of helpful stuff
 
+; builtins all start out as locals, make them ambient
+current-ambient-defset current-locals-defset defset-merge
+current-ambient-defset-set
+
 [
     upquote ; name
     upquote ; body
-    <defenv> type-id->unique
-    quote current-defenv uplevel
-    defenv-new-locals
+    <defset> type-id->unique
+    quote current-ambient-defset uplevel
+    quote current-locals-defset uplevel
+    defset-merge
     value-insert-meta-entry
     swap
     quote definition-add uplevel
 ]
-<defenv> type-id->unique
-current-defenv
-defenv-new-locals
+<defset> type-id->unique
+current-ambient-defset
 value-insert-meta-entry
 quote define definition-add
 
@@ -29,15 +33,21 @@ define is-type [ swap clone value-type-id dig type-id-equal ]
 ; bool if [ if-true ] [ if-false ]
 define if [ upquote upquote dig not quote swap eval-if drop uplevel ]
 
-define value-set-defenv [
-    <defenv> type-id->unique
+define current-defs [
+    updo current-ambient-defset
+    updo current-locals-defset
+    defset-merge
+]
+
+define value-set-ambients [
+    <defset> type-id->unique
     swap value-insert-meta-entry
 ]
 
 define while [
-    updo current-defenv defenv-new-locals const env
-    upquote env value-set-defenv const cond
-    upquote env value-set-defenv const body
+    updo current-defs const env
+    upquote env value-set-ambients const cond
+    upquote env value-set-ambients const body
 
     define the-whiler [
         const continuer
@@ -56,7 +66,7 @@ define println [ "\n" string-append print ]
 
 define list-iter [
     upquote
-    updo current-defenv defenv-new-locals value-set-defenv
+    updo current-defs value-set-ambients
     const body
 
     const list
@@ -87,9 +97,8 @@ define load-embedded [
     embedded-file-open
     embedded-file-port->string
     read-string->list
-    updo current-defenv
-    defenv-new-locals
-    value-set-defenv
+    updo current-defs
+    value-set-ambients
     updo eval
 ]
 
