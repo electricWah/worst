@@ -6,12 +6,17 @@ edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 im-rc = "15"
 downcast-rs = "1.2"
 query_interface = "0.3"
 
 include_dir = { version = "^0.7", optional = true }
+
+# open current exe as zip archive
+palaver = { version = "^0.2", optional = true }
+zip = { version = "^0.6", optional = true }
 
 [features]
 # Toggle-able builtins modules
@@ -26,8 +31,8 @@ enable_stdio = []
 enable_fs_os = []
 # Include lib directory as a filesystem embedded directly in the worst binary
 enable_fs_embed = ["dep:include_dir"]
-# (TODO) Embed lib files in program as `cat worst lib.zip > worst`
-enable_fs_zip = []
+# Embed lib files in program as `cat worst lib.zip > worst`
+enable_fs_zip = ["dep:zip", "dep:palaver"]
 
 enable_process = []
 
