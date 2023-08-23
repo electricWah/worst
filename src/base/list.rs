@@ -11,8 +11,7 @@ pub struct List {
     // Rc<> this if cloning takes a long time
     data: Vec<Val>,
 }
-
-impl Value for List {}
+value!(List);
 
 impl From<Vec<Val>> for List {
     fn from(mut data: Vec<Val>) -> List {

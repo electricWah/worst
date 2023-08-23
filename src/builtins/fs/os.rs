@@ -10,11 +10,13 @@ use crate::base::*;
 use crate::interpreter::*;
 use crate::builtins::util;
 
-impl Value for fs::OpenOptions {}
+#[derive(Clone)]
+struct OpenOptions(fs::OpenOptions);
+value!(OpenOptions);
 
 fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, bool) -> &mut fs::OpenOptions) -> BuiltinRet {
-    let mut c = i.stack_pop::<fs::OpenOptions>()?.into_inner();
-    f(&mut c, true);
+    let mut c = i.stack_pop::<OpenOptions>()?.into_inner();
+    f(&mut c.0, true);
     i.stack_push(c);
     Ok(())
 }
@@ -24,7 +26,7 @@ fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, b
 pub struct File {
     handle: Rc<RefCell<fs::File>>,
 }
-impl Value for File {}
+value!(File);
 
 impl File {
     fn new(f: fs::File) -> Self {
@@ -63,9 +65,9 @@ impl io::Write for File {
 /// Install filesystem functions: open options, etc.
 pub fn install(i: &mut Interpreter) {
 
-    util::add_const_type_builtin::<fs::OpenOptions>(i, "<file-open-options>");
+    util::add_const_type_builtin::<OpenOptions>(i, "<file-open-options>");
     i.add_builtin("file-open-options", |i: &mut Interpreter| {
-        i.stack_push(fs::OpenOptions::new());
+        i.stack_push(OpenOptions(fs::OpenOptions::new()));
         Ok(())
     });
     i.add_builtin("file-open-options-set-append", |i: &mut Interpreter| {
@@ -88,9 +90,9 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.add_builtin("file-open", |i: &mut Interpreter| {
-        let opts = i.stack_pop::<fs::OpenOptions>()?;
+        let opts = i.stack_pop::<OpenOptions>()?;
         let path = i.stack_pop::<PathBuf>()?;
-        i.stack_push_result(opts.as_ref().open(path.as_ref())
+        i.stack_push_result(opts.as_ref().0.open(path.as_ref())
                             .map(File::new).map_err(|e| format!("{}", e)));
         Ok(())
     });

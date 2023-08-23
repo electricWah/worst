@@ -10,7 +10,7 @@ pub struct Unique {
     id: usize,
     is_type: bool,
 }
-// impl Value for Unique {} // in base::types for Val.meta
+// value!(Unique); // in base::types for Val.meta
 
 #[derive(Default, Clone)]
 struct UniqueGenerator {

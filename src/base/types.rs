@@ -1,5 +1,4 @@
 
-use std::any::TypeId;
 use std::cell::RefCell;
 use std::rc::Rc;
 use super::unique::*;
@@ -10,14 +9,13 @@ impl Value for String {}
 impl Value for i64 {}
 impl Value for f64 {}
 impl Value for Vec<u8> {} // bytevector
-impl Value for TypeId {} // type-id
 
-impl Value for Unique {}
+value!(Unique);
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]
 pub struct Place(Rc<RefCell<Val>>);
-impl Value for Place {}
+value!(Place);
 
 impl Place {
     /// Create a new [Place] wrapping `v`.
@@ -43,5 +41,5 @@ impl Place {
 /// assert!(IsError::is_error(&v));
 /// ```
 pub struct IsError;
-impl Value for IsError {}
+value!(IsError);
 

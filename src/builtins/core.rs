@@ -4,7 +4,6 @@
 use crate::base::*;
 use crate::interpreter::*;
 use super::util;
-use std::any::TypeId;
 
 /// `quote` - Take the next thing in the definition body and put it on the stack.
 pub fn quote(i: &mut Interpreter) -> BuiltinRet {
@@ -201,7 +200,7 @@ pub fn install(i: &mut Interpreter) {
     });
     i.add_builtin("type-id->unique", |i: &mut Interpreter| {
         let v = i.stack_pop::<TypeId>()?.into_inner();
-        let u = i.uniques_mut().get_type_id(v);
+        let u = i.uniques_mut().get_type_id(v.0); // ew
         i.stack_push(u);
         Ok(())
     });

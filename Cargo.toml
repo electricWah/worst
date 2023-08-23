@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 [dependencies]
 im-rc = "15"
+query_interface = "0.3"
 
 include_dir = { version = "^0.7", optional = true }
 

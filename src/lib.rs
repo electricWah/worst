@@ -8,6 +8,8 @@ pub mod interpreter;
 pub mod reader;
 pub mod builtins;
 
+#[macro_use] extern crate query_interface;
+
 #[cfg(feature = "wasm")]
 pub mod wasm;
 

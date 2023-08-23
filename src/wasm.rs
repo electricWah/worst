@@ -13,14 +13,14 @@ use crate::reader::*;
 /// A Worst value with metadata.
 #[wasm_bindgen(js_name = Value)]
 pub struct JsVal(Val);
-impl Value for JsVal {}
+value!(JsVal);
 
 #[derive(Clone)]
 struct ExternJsValue(JsValue);
-impl Value for ExternJsValue {}
+value!(ExternJsValue);
 
 struct CallFunction(js_sys::Function);
-impl Value for CallFunction {}
+value!(CallFunction);
 
 impl From<JsValue> for Val {
     fn from(j: JsValue) -> Val {

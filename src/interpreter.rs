@@ -4,7 +4,6 @@
 use std::rc::Rc;
 use im_rc::HashMap;
 use crate::base::*;
-use std::any::TypeId;
 
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -13,7 +12,7 @@ use wasm_bindgen::prelude::*;
 /// (ambient definitions and local definitions).
 #[derive(Default, Clone)]
 pub struct DefSet(HashMap<String, Val>);
-impl Value for DefSet {}
+value!(DefSet);
 
 impl DefSet {
     /// Add a definition.
@@ -99,7 +98,7 @@ pub type BuiltinRet<R = ()> = Result<R, Val>;
 /// A definition written in Rust rather than Worst.
 #[derive(Clone)]
 pub struct Builtin(Rc<dyn Fn(&mut Interpreter) -> BuiltinRet>);
-impl Value for Builtin {}
+value!(Builtin);
 impl<T: 'static + Fn(&mut Interpreter) -> BuiltinRet> From<T> for Builtin {
     fn from(f: T) -> Self {
         Builtin(Rc::new(f))
@@ -372,7 +371,7 @@ impl Interpreter {
         v.meta_mut().insert_val(mu, m.into());
         v
     }
-    fn get_meta_type<'a, T: 'static>(&self, meta: &'a Meta) -> Option<&'a T> {
+    fn get_meta_type<'a, T: Value>(&self, meta: &'a Meta) -> Option<&'a T> {
         if let Some(tu) = self.uniques.lookup_type::<T>() {
             meta.get_ref::<T>(&tu)
         } else { None }

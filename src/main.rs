@@ -1,6 +1,5 @@
 
 use std::process::ExitCode;
-use std::any::TypeId;
 use worst::interpreter::*;
 use worst::builtins;
 use worst::base::*;

@@ -11,7 +11,7 @@ use crate::builtins::util;
 // TODO no wrapper, just use Interpreter directly and wrap in a place in worst
 #[derive(Clone, Default)]
 struct Interp(Rc<RefCell<Interpreter>>);
-impl Value for Interp {}
+value!(Interp);
 
 /// Install all the interpreter functions.
 pub fn install(i: &mut Interpreter) {

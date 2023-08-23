@@ -17,7 +17,7 @@ pub struct File {
     // path: String,
     handle: &'static [u8],
 }
-impl Value for File {}
+value!(File);
 
 /// Open the path if it exists.
 pub fn open_read(path: impl AsRef<std::path::Path>) -> Option<File> {

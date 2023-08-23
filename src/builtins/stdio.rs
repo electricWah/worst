@@ -8,15 +8,15 @@ use crate::interpreter::*;
 
 #[derive(Clone)]
 struct Stdin;
-impl Value for Stdin {}
+value!(Stdin);
 
 #[derive(Clone)]
 struct Stdout;
-impl Value for Stdout {}
+value!(Stdout);
 
 #[derive(Clone)]
 struct Stderr;
-impl Value for Stderr {}
+value!(Stderr);
 
 impl io::Read for Stdin {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {

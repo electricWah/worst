@@ -8,7 +8,7 @@ use super::value::*;
 pub struct Symbol {
     v: String,
 }
-impl Value for Symbol {}
+value!(Symbol);
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

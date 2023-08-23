@@ -1,8 +1,10 @@
 
 use std::rc::Rc;
-use std::any::{Any, TypeId};
-use im_rc::HashMap;
+use std::any::Any;
 use super::unique::Unique;
+
+use im_rc::HashMap;
+use query_interface;
 
 /// Metadata lookup for a value.
 #[derive(Default, Clone)]
@@ -20,7 +22,31 @@ pub struct Val {
 
 /// Something that is, or could become, a [Val]
 /// (e.g. to be given to an [Interpreter](crate::interpreter::Interpreter)).
-pub trait Value: 'static {}
+pub trait Value: 'static + query_interface::Object {}
+/// Clonable value types. See [query_interface::ObjectClone] for details.
+pub trait ValueClone: query_interface::ObjectClone {}
+// query_interface::mopo!(dyn Value);
+
+macro_rules! value {
+    ($t:ty) => {
+        impl $crate::base::Value for $t {}
+        interfaces!($t: dyn $crate::base::Value);
+    };
+}
+pub(crate) use value; // TODO public everywhere
+
+
+// need to wrap TypeId because it doesn't already implement Object
+// type-id
+/// Simple wrapper for TypeId that implements [Value].
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct TypeId(pub std::any::TypeId);
+value!(TypeId);
+
+impl TypeId {
+    /// Forwards to [std::any::TypeId::of].
+    pub fn of<T: 'static>() -> Self { TypeId(std::any::TypeId::of::<T>()) }
+}
 
 /// A [Val] but you know the type.
 pub struct ValOf<T> {
@@ -66,7 +92,7 @@ impl Val {
 
     /// Get the TypeId of the contained value.
     pub fn val_type_id(&self) -> TypeId {
-        (*self.v).type_id()
+        TypeId((*self.v).type_id())
     }
 
     /// Get a reference to the inner value, if it is of the given type.
@@ -93,7 +119,7 @@ impl Meta {
 
     /// Get a reference to [T] associated with `u`,
     /// if `u` indeed refers to a [T].
-    pub fn get_ref<T: 'static>(&self, u: &Unique) -> Option<&T> {
+    pub fn get_ref<T: Value>(&self, u: &Unique) -> Option<&T> {
         self.data.get(u)
             .map(Rc::as_ref)
             .and_then(|r| r.downcast_ref::<T>())

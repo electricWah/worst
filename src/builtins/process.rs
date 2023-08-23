@@ -17,7 +17,7 @@ use std::cell::RefCell;
 
 #[derive(Clone)]
 struct Command(Rc<RefCell<process::Command>>);
-impl Value for Command {}
+value!(Command);
 
 impl Command {
     fn with(i: &mut Interpreter, f: impl FnOnce(&mut process::Command)) -> BuiltinRet {
@@ -29,13 +29,13 @@ impl Command {
 
 #[derive(Clone)]
 struct ChildStdin(Rc<RefCell<process::ChildStdin>>);
-impl Value for ChildStdin {}
+value!(ChildStdin);
 #[derive(Clone)]
 struct ChildStdout(Rc<RefCell<process::ChildStdout>>);
-impl Value for ChildStdout {}
+value!(ChildStdout);
 #[derive(Clone)]
 struct ChildStderr(Rc<RefCell<process::ChildStderr>>);
-impl Value for ChildStderr {}
+value!(ChildStderr);
 
 enum StdioUnique {
     ChildStdin(process::ChildStdin),
@@ -50,7 +50,7 @@ enum Stdio {
     Inherit, Null, Piped,
     Unique(Rc<StdioUnique>),
 }
-impl Value for Stdio {}
+value!(Stdio);
 
 impl From<StdioUnique> for process::Stdio {
     fn from(stdio: StdioUnique) -> Self {
@@ -77,7 +77,7 @@ impl From<Stdio> for process::Stdio {
 
 #[derive(Clone)]
 struct Child(Rc<RefCell<process::Child>>);
-impl Value for Child {}
+value!(Child);
 
 impl Child {
     fn get<T>(i: &mut Interpreter, f: impl FnOnce(&process::Child) -> T) -> BuiltinRet<T> {
