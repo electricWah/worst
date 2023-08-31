@@ -119,6 +119,28 @@ pub fn value_to_constant(i: &mut Interpreter) -> BuiltinRet {
     Ok(())
 }
 
+/// `value-hash` - Hash any built-in value type to [i64].
+/// Pushes `no-hash` error instead if the type does not implement [query_interface::ObjectHash].
+pub fn value_hash(i: &mut Interpreter) -> BuiltinRet {
+    use std::hash::Hasher;
+    use std::collections::hash_map::DefaultHasher;
+
+    let v = i.stack_pop_val()?;
+    let Some(h) = v.as_trait_ref::<dyn query_interface::ObjectHash>() else {
+        i.stack_push_error("no-hash".to_symbol());
+        return Ok(());
+    };
+
+    let mut hasher = DefaultHasher::new();
+    h.obj_hash(&mut hasher);
+
+    // just the bytes please
+    let u = unsafe { std::mem::transmute::<u64, i64>(hasher.finish()) };
+    i.stack_push(u);
+
+    Ok(())
+}
+
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {
     i.add_builtin("quote", quote);
@@ -174,14 +196,11 @@ pub fn install(i: &mut Interpreter) {
     util::add_const_type_builtin::<IsError>(i, "<is-error>");
     util::add_const_type_builtin::<bool>(i, "<bool>");
     i.add_builtin("bool-equal", util::equality::<bool>);
-    i.add_builtin("bool-hash", util::value_hash::<bool>);
     util::add_const_type_builtin::<Symbol>(i, "<symbol>");
     i.add_builtin("symbol-equal", util::equality::<Symbol>);
-    i.add_builtin("symbol-hash", util::value_hash::<Symbol>);
 
     util::add_const_type_builtin::<Unique>(i, "<unique>");
     i.add_builtin("unique-equal", util::equality::<Unique>);
-    i.add_builtin("unique-hash", util::value_hash::<Unique>);
     i.add_builtin("make-unique", |i: &mut Interpreter| {
         let u = i.uniques_mut().create();
         i.stack_push(u);
@@ -192,7 +211,6 @@ pub fn install(i: &mut Interpreter) {
 
     util::add_const_type_builtin::<TypeId>(i, "<type-id>");
     i.add_builtin("type-id-equal", util::equality::<TypeId>);
-    i.add_builtin("type-id-hash", util::value_hash::<TypeId>);
     i.add_builtin("value-type-id", |i: &mut Interpreter| {
         let v = i.stack_pop_val()?;
         i.stack_push(v.val_type_id());
@@ -209,6 +227,8 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(is);
         Ok(())
     });
+
+    i.add_builtin("value-hash", value_hash);
 
     i.add_builtin("value-meta-entry", |i: &mut Interpreter| {
         let u = i.stack_pop::<Unique>()?;

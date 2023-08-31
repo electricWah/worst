@@ -5,33 +5,42 @@ use super::unique::Unique;
 
 use im_rc::HashMap;
 use query_interface;
+use downcast_rs;
 
 /// Metadata lookup for a value.
 #[derive(Default, Clone)]
 pub struct Meta {
-    data: HashMap<Unique, Rc<dyn Any>>,
+    data: HashMap<Unique, Rc<dyn Value>>,
 }
 
 /// A reference-counted value, used directly by Worst programs.
 /// Can be downcast into its original Rust value.
 #[derive(Clone)]
 pub struct Val {
-    v: Rc<dyn Any>,
+    v: Rc<dyn Value>,
     meta: Meta,
 }
 
 /// Something that is, or could become, a [Val]
 /// (e.g. to be given to an [Interpreter](crate::interpreter::Interpreter)).
-pub trait Value: 'static + query_interface::Object {}
+pub trait Value: 'static + query_interface::Object + downcast_rs::Downcast {}
+mod suppress_missing_docs_hack {
+    #![allow(missing_docs)]
+    query_interface::mopo!(dyn super::Value);
+}
+downcast_rs::impl_downcast!(Value);
 /// Clonable value types. See [query_interface::ObjectClone] for details.
 pub trait ValueClone: query_interface::ObjectClone {}
-// query_interface::mopo!(dyn Value);
 
 macro_rules! value {
     ($t:ty) => {
         impl $crate::base::Value for $t {}
         interfaces!($t: dyn $crate::base::Value);
     };
+    ($t:ty: $($rest:tt)*) => (
+        impl $crate::base::Value for $t {}
+        interfaces!($t: dyn $crate::base::Value, $($rest)*);
+    );
 }
 pub(crate) use value; // TODO public everywhere
 
@@ -41,7 +50,7 @@ pub(crate) use value; // TODO public everywhere
 /// Simple wrapper for TypeId that implements [Value].
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TypeId(pub std::any::TypeId);
-value!(TypeId);
+value!(TypeId: dyn query_interface::ObjectHash);
 
 impl TypeId {
     /// Forwards to [std::any::TypeId::of].
@@ -50,7 +59,7 @@ impl TypeId {
 
 /// A [Val] but you know the type.
 pub struct ValOf<T> {
-    orig: Rc<dyn Any>,
+    orig: Rc<dyn Value>,
     v: Rc<T>,
     modified: bool,
     meta: Meta,
@@ -104,6 +113,11 @@ impl Val {
     /// (or Err(self) with no changes).
     pub fn try_downcast<T: Value>(self) -> Result<ValOf<T>, Val> {
         ValOf::<T>::try_from(self)
+    }
+
+    /// Get a reference to a trait object that the contained type implements.
+    pub fn as_trait_ref<T: Any + ?Sized>(&self) -> Option<&T> {
+        self.v.as_ref().query_ref::<T>()
     }
 }
 
@@ -184,7 +198,7 @@ impl<T: Value> TryFrom<Val> for ValOf<T> {
     fn try_from(this: Val) -> Result<ValOf<T>, Val> {
         let orig = this.v.clone();
         let meta = this.meta;
-        match Rc::downcast::<T>(this.v) {
+        match this.v.downcast_rc::<T>() {
             Ok(v) => Ok(ValOf { orig, v, modified: false, meta, }),
             Err(v) => Err(Val { v, meta, }),
         }

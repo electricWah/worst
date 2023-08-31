@@ -84,15 +84,6 @@ define (dispatch (<list> is-type2)) append [ list-append ]
 define (dispatch (<string> is-type2)) append [ string-append ]
 export append
 
-define value-hash [ drop #f bool-hash ] ; the default hash is that of false
-define (<bool> type-dispatch) value-hash [ bool-hash ]
-define (<symbol> type-dispatch) value-hash [ symbol-hash ]
-define (<string> type-dispatch) value-hash [ string-hash ]
-define (<bytevector> type-dispatch) value-hash [ bytevector-hash ]
-define (<unique> type-dispatch) value-hash [ unique-hash ]
-define (<i64> type-dispatch) value-hash [ i64-hash ]
-export value-hash
-
 define value->string [drop "<value>"]
 define (<string> type-dispatch) value->string []
 define (<bool> type-dispatch) value->string [if ["#t"] ["#f"]]

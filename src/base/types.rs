@@ -1,6 +1,7 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use query_interface;
 use super::unique::*;
 use super::value::*;
 
@@ -10,7 +11,7 @@ impl Value for i64 {}
 impl Value for f64 {}
 impl Value for Vec<u8> {} // bytevector
 
-value!(Unique);
+value!(Unique: dyn query_interface::ObjectHash);
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]

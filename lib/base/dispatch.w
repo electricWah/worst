@@ -47,7 +47,7 @@ define type-dispatch [
     fresh-dispatch if [ drop make-i64map ] [ ]
     ; add current body to lookup
     ; TODO check it's not already in there
-    dispatch-type-id type-id-hash body
+    dispatch-type-id value-hash body
     i64map-insert
     ; if fresh-dispatch, set prev-def (or error) as the default case
     fresh-dispatch if [
@@ -65,7 +65,7 @@ define type-dispatch [
         ; TODO get current frame meta, don't use new body if not fresh-dispatch
         ; but for now use dispatch-lookup
         const v
-        dispatch-lookup v value-type-id type-id-hash i64map-get
+        dispatch-lookup v value-type-id value-hash i64map-get
         false? if [ drop dispatch-lookup 0 i64map-get ] []
         v swap uplevel
     ]

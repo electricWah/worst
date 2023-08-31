@@ -69,9 +69,6 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("f64-equal", util::equality::<f64>);
     i.add_builtin("i64-compare", util::comparison::<i64>);
     i.add_builtin("f64-compare", util::comparison::<f64>);
-    i.add_builtin("i64-hash", util::value_hash::<i64>);
-    // f64 not hashable
-    // i.add_builtin("f64-hash", util::value_hash::<f64>);
 
     i.add_builtin("i64-add", binop::<i64, i64>(|a, b| a + b));
     i.add_builtin("f64-add", binop::<f64, f64>(|a, b| a + b));

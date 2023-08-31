@@ -8,6 +8,7 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 [dependencies]
 im-rc = "15"
+downcast-rs = "1.2"
 query_interface = "0.3"
 
 include_dir = { version = "^0.7", optional = true }
@@ -40,6 +41,9 @@ full = [
 ]
 
 default = ["full"]
+
+[profile.release]
+lto = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

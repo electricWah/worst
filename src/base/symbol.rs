@@ -8,7 +8,7 @@ use super::value::*;
 pub struct Symbol {
     v: String,
 }
-value!(Symbol);
+value!(Symbol: dyn query_interface::ObjectHash);
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
