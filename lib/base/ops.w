@@ -6,12 +6,7 @@ define is-type2 [
     t is-type if [ b t is-type ] [ b #f ]
 ]
 
-define equal [ drop drop #f ]
-define (dispatch (<i64> is-type2)) equal [ i64-equal ]
-define (dispatch (<f64> is-type2)) equal [ f64-equal ]
-define (dispatch (<string> is-type2)) equal [ string-equal ]
-define (dispatch (<symbol> is-type2)) equal [ symbol-equal ]
-define (dispatch (<bool> is-type2)) equal [ bool-equal ]
+define equal [ value-equal ]
 export equal
 
 define equal? [ clone2 updo equal ]

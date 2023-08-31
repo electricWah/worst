@@ -28,7 +28,7 @@ define const [ value->constant upquote updo definition-add ]
 define false? [ clone not ]
 
 ; val type is-type => val bool
-define is-type [ swap clone value-type-id dig type-id-equal ]
+define is-type [ swap clone value-type-id dig value-equal ]
 
 ; bool if [ if-true ] [ if-false ]
 define if [ upquote upquote dig not quote swap eval-if drop uplevel ]
@@ -71,7 +71,7 @@ define list-iter [
 
     const list
     list list-length const len
-    0 while (clone len i64-compare -1 i64-equal) [ ; lt
+    0 while (clone len i64-compare -1 value-equal) [ ; lt
         const n
         list n list-get
         body quote uplevel uplevel

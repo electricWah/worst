@@ -21,17 +21,6 @@ pub fn add_const_type_builtin<T: Value>(i: &mut Interpreter, name: impl Into<Str
     i.add_definition(name, t);
 }
 
-/// Equality generator, e.g.
-/// ```ignore
-/// i.define("string-equal", equality::<String>);
-/// ```
-pub fn equality<T: Value + PartialEq>(i: &mut Interpreter) -> BuiltinRet {
-    let b = i.stack_pop::<T>()?;
-    let a = i.stack_pop::<T>()?;
-    i.stack_push(a.as_ref() == b.as_ref());
-    Ok(())
-}
-
 /// Comparison generator, e.g.
 /// ```ignore
 /// i.define("string-compare", comparison::<String>);

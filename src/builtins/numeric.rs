@@ -65,8 +65,6 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("i64->f64", i64_to_f64);
     i.add_builtin("f64->i64", f64_to_i64);
 
-    i.add_builtin("i64-equal", util::equality::<i64>);
-    i.add_builtin("f64-equal", util::equality::<f64>);
     i.add_builtin("i64-compare", util::comparison::<i64>);
     i.add_builtin("f64-compare", util::comparison::<f64>);
 

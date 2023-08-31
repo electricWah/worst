@@ -11,7 +11,7 @@ impl Value for i64 {}
 impl Value for f64 {}
 impl Value for Vec<u8> {} // bytevector
 
-value!(Unique: dyn query_interface::ObjectHash);
+value!(Unique: dyn query_interface::ObjectHash, dyn query_interface::ObjectPartialEq);
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]

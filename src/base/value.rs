@@ -50,7 +50,7 @@ pub(crate) use value; // TODO public everywhere
 /// Simple wrapper for TypeId that implements [Value].
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TypeId(pub std::any::TypeId);
-value!(TypeId: dyn query_interface::ObjectHash);
+value!(TypeId: dyn query_interface::ObjectHash, dyn query_interface::ObjectPartialEq);
 
 impl TypeId {
     /// Forwards to [std::any::TypeId::of].
