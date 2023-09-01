@@ -1,7 +1,6 @@
 
 //! Stuff you might like to use when defining builtins.
 
-use std::fmt::Debug;
 use std::io::{ Read, Write };
 use crate::base::*;
 use crate::interpreter::*;
@@ -19,34 +18,6 @@ pub fn add_const_type_builtin<T: Value>(i: &mut Interpreter, name: impl Into<Str
     let mut t = Val::from(TypeId::of::<T>());
     t.meta_mut().insert_val(i.uniques_mut().get_type::<String>(), name.clone().into());
     i.add_definition(name, t);
-}
-
-/// Comparison generator, e.g.
-/// ```ignore
-/// i.define("string-compare", comparison::<String>);
-/// ```
-/// a b comparison ->
-/// -1 when a < b, 0 when a == b, 1 when a > b,
-/// false when unavailable
-pub fn comparison<T: Value + PartialOrd>(i: &mut Interpreter) -> BuiltinRet {
-    let b = i.stack_pop::<T>()?;
-    let a = i.stack_pop::<T>()?;
-    i.stack_push_option(a.as_ref().partial_cmp(b.as_ref()).map(|o| o as i64));
-    Ok(())
-}
-
-/// Debug to-string generator, e.g.
-/// ```ignore
-/// i.define("i64->string", value_tostring_debug::<i64>);
-/// ```
-/// ```ignore
-/// ; i64 i64->string -> string
-/// 11 i64->string ; -> "11"
-/// ```
-pub fn value_tostring_debug<T: Value + Debug>(i: &mut Interpreter) -> BuiltinRet {
-    let v = i.stack_pop::<T>()?;
-    i.stack_push(format!("{:?}", v.as_ref()));
-    Ok(())
 }
 
 /// Get an index within a 0..len range (optionally extend beyond len)

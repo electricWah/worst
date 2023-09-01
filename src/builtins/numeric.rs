@@ -59,14 +59,8 @@ pub fn install(i: &mut Interpreter) {
     util::add_const_type_builtin::<i64>(i, "<i64>");
     util::add_const_type_builtin::<f64>(i, "<f64>");
 
-    i.add_builtin("i64->string", util::value_tostring_debug::<i64>);
-    i.add_builtin("f64->string", util::value_tostring_debug::<f64>);
-
     i.add_builtin("i64->f64", i64_to_f64);
     i.add_builtin("f64->i64", f64_to_i64);
-
-    i.add_builtin("i64-compare", util::comparison::<i64>);
-    i.add_builtin("f64-compare", util::comparison::<f64>);
 
     i.add_builtin("i64-add", binop::<i64, i64>(|a, b| a + b));
     i.add_builtin("f64-add", binop::<f64, f64>(|a, b| a + b));

@@ -8,7 +8,7 @@ In which the innards are simplified even more.
 - Add list-merge-sort-lt [lt-comparator]
 - Rename open-embedded-file/read to embedded-file-open (it'll always be read!)
 - Add embedded-file-port-read-range, embedded-file-port? and port->string
-- Add compare for i64/f64/string and redefine lt/le/gt/ge in terms of it
+- Add compare for any PartialOrd and redefine lt/le/gt/ge in terms of it
 - Add list-set-differsection for set difference and intersection
 - Add list-find-first-index to find a position in a list, given a predicate
 - Add list-deduplicate-sequential
@@ -48,6 +48,8 @@ In which the innards are simplified even more.
     - Remove [eval-while] in favour of [while] using this property
 - Remove value-set-error and value-unset-error, add <is-error> type for meta
 - Replace defenv with separate ambient and local defset
+- Consolidate *-equal, *-compare builtins into value-equal and value-compare
+- Add value-hash, value->string-debug and value->string-display for most types
 
 # 0.4 (2022-11-19)
 

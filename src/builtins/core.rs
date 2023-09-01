@@ -121,8 +121,8 @@ pub fn value_to_constant(i: &mut Interpreter) -> BuiltinRet {
 
 /// `value-equal` - Test equality of the top two items on the stack.
 pub fn value_equal(i: &mut Interpreter) -> BuiltinRet {
-    let a = i.stack_pop_val()?;
     let b = i.stack_pop_val()?;
+    let a = i.stack_pop_val()?;
     let (Some(aeq), Some(beq)) =
         (a.as_trait_ref::<dyn query_interface::ObjectPartialEq>(),
          b.as_trait_ref::<dyn query_interface::Object>()) else {
@@ -132,6 +132,46 @@ pub fn value_equal(i: &mut Interpreter) -> BuiltinRet {
     i.stack_push(aeq.obj_eq(beq));
     Ok(())
 }
+
+/// `value-compare` - Compare the top two items on the stack,
+/// giving -1, 0, 1 or false (for incomparable).
+pub fn value_compare(i: &mut Interpreter) -> BuiltinRet {
+    let b = i.stack_pop_val()?;
+    let a = i.stack_pop_val()?;
+    let (Some(ac), Some(bc)) =
+        (a.as_trait_ref::<dyn query_interface::ObjectPartialOrd>(),
+         b.as_trait_ref::<dyn query_interface::Object>()) else {
+        i.stack_push(false);
+        return Ok(());
+    };
+    i.stack_push_option(ac.obj_partial_cmp(bc).map(|o| o as i64));
+    Ok(())
+}
+
+/// `value->string-debug` - Turn the value into a string using [Debug].
+/// Gives `#f` if it doesn't implement [Debug].
+pub fn value_tostring_debug(i: &mut Interpreter) -> BuiltinRet {
+    let v = i.stack_pop_val()?;
+    let Some(vv) = v.as_trait_ref::<dyn std::fmt::Debug>() else {
+        i.stack_push(false);
+        return Ok(());
+    };
+    i.stack_push(format!("{:?}", vv));
+    Ok(())
+}
+
+/// `value->string-display` - Turn the value into a string using [Display].
+/// Gives `#f` if it doesn't implement [Display].
+pub fn value_tostring_display(i: &mut Interpreter) -> BuiltinRet {
+    let v = i.stack_pop_val()?;
+    let Some(vv) = v.as_trait_ref::<dyn std::fmt::Display>() else {
+        i.stack_push(false);
+        return Ok(());
+    };
+    i.stack_push(format!("{}", vv));
+    Ok(())
+}
+
 
 /// `value-hash` - Hash any built-in value type to [i64].
 /// Pushes `no-hash` error instead if the type does not implement [query_interface::ObjectHash].
@@ -239,7 +279,10 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.add_builtin("value-equal", value_equal);
+    i.add_builtin("value-compare", value_compare);
     i.add_builtin("value-hash", value_hash);
+    i.add_builtin("value->string-debug", value_tostring_debug);
+    i.add_builtin("value->string-display", value_tostring_display);
 
     i.add_builtin("value-meta-entry", |i: &mut Interpreter| {
         let u = i.stack_pop::<Unique>()?;

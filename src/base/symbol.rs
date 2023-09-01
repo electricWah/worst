@@ -4,11 +4,13 @@ use std::fmt::{ Debug, Display };
 use super::value::*;
 
 /// Symbol type: an unquoted word used to look up definitions.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct Symbol {
     v: String,
 }
-value!(Symbol: dyn query_interface::ObjectHash, dyn query_interface::ObjectPartialEq);
+value!(Symbol: dyn query_interface::ObjectHash,
+       dyn query_interface::ObjectPartialEq,
+       dyn Display);
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {

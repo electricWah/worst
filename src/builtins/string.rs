@@ -8,7 +8,6 @@ use crate::interpreter::*;
 /// Install some string functions.
 pub fn install(i: &mut Interpreter) {
     util::add_const_type_builtin::<String>(i, "<string>");
-    i.add_builtin("string-compare", util::comparison::<String>);
     i.add_builtin("string-append", |i: &mut Interpreter| {
         let b = i.stack_pop::<String>()?;
         let mut a = i.stack_pop::<String>()?;
@@ -33,11 +32,6 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("string->symbol", |i: &mut Interpreter| {
         let s = i.stack_pop::<String>()?;
         i.stack_push(s.into_inner().to_symbol());
-        Ok(())
-    });
-    i.add_builtin("symbol->string", |i: &mut Interpreter| {
-        let s = i.stack_pop::<Symbol>()?;
-        i.stack_push(s.into_inner().to_string());
         Ok(())
     });
 }

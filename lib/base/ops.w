@@ -12,9 +12,7 @@ export equal
 define equal? [ clone2 updo equal ]
 export equal?
 
-define (dispatch (<i64> is-type2)) compare [ i64-compare ]
-define (dispatch (<f64> is-type2)) compare [ f64-compare ]
-define (dispatch (<string> is-type2)) compare [ string-compare ]
+define compare [ value-compare ]
 export compare
 
 define le [compare 1 updo equal not]
@@ -82,9 +80,9 @@ export append
 define value->string [drop "<value>"]
 define (<string> type-dispatch) value->string []
 define (<bool> type-dispatch) value->string [if ["#t"] ["#f"]]
-define (<symbol> type-dispatch) value->string [symbol->string]
-define (<i64> type-dispatch) value->string [i64->string]
-define (<f64> type-dispatch) value->string [f64->string]
+define (<symbol> type-dispatch) value->string [value->string-display]
+define (<i64> type-dispatch) value->string [value->string-display]
+define (<f64> type-dispatch) value->string [value->string-display]
 define (<unique> type-dispatch) value->string [drop "<unique>"]
 define (<type-id> type-dispatch) value->string [
     <string> type-id->unique value-meta-entry false? if [ drop "<type>" ] [

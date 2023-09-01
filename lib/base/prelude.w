@@ -71,7 +71,7 @@ define list-iter [
 
     const list
     list list-length const len
-    0 while (clone len i64-compare -1 value-equal) [ ; lt
+    0 while (clone len value-compare -1 value-equal) [ ; lt
         const n
         list n list-get
         body quote uplevel uplevel
