@@ -262,6 +262,11 @@ impl Interpreter {
             .chain(self.parents.iter().map(|p| &p.meta))
     }
 
+    /// Mark the given value as an error and return it.
+    pub fn set_error(&mut self, v: impl Into<Val>) -> Val {
+        self.add_meta_type(v.into(), IsError)
+    }
+
     // maybe all of these should be within List
     // and just have stack_ref and stack_mut
     /// Get a reference to the stack
@@ -272,7 +277,7 @@ impl Interpreter {
     pub fn stack_push(&mut self, v: impl Into<Val>) { self.stack.push(v.into()); }
     /// Push something on top of the stack, marking it as an error
     pub fn stack_push_error(&mut self, v: impl Into<Val>) {
-        let val = self.add_meta_type(v.into(), IsError);
+        let val = self.set_error(v);
         self.stack.push(val);
     }
     /// Put something on top of the stack, or false

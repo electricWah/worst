@@ -205,9 +205,8 @@ pub fn install(i: &mut Interpreter) {
     i.add_builtin("process-command-spawn-child", |i: &mut Interpreter| {
         let c = i.stack_pop::<Command>()?;
         let spawned = c.as_ref().0.borrow_mut().spawn();
-        if let Some(child) = util::or_io_error(i, spawned) {
-            i.stack_push(Child(Rc::new(RefCell::new(child))));
-        }
+        let res = spawned.map(|child| Child(Rc::new(RefCell::new(child)))).map_err(util::display);
+        i.stack_push_result(res);
         Ok(())
     });
 
@@ -218,15 +217,17 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
     i.add_builtin("process-child-wait", |i: &mut Interpreter| {
-        let res = Child::get_mut(i, |c| c.wait())?;
-        if let Some(status) = util::or_io_error(i, res) {
-            if status.success() {
-                i.stack_push(true);
-            } else if let Some(code) = status.code() {
-                i.stack_push(code as i64);
-            } else {
-                i.stack_push(false);
-            }
+        match Child::get_mut(i, |c| c.wait())? {
+            Ok(status) => {
+                if status.success() {
+                    i.stack_push(true);
+                } else if let Some(code) = status.code() {
+                    i.stack_push(code as i64);
+                } else {
+                    i.stack_push(false);
+                }
+            },
+            Err(e) => i.stack_push_error(util::display(e)),
         }
         Ok(())
     });
@@ -259,12 +260,6 @@ pub fn install(i: &mut Interpreter) {
         }
         Ok(())
     });
-
-    i.add_builtin("process-child-stdin-write-range", util::port_write_range::<ChildStdin>);
-    i.add_builtin("process-child-stdin-flush", util::port_flush::<ChildStdin>);
-    i.add_builtin("process-child-stdout-read-range", util::port_read_range::<ChildStdout>);
-    i.add_builtin("process-child-stderr-read-range", util::port_read_range::<ChildStderr>);
-
 }
 
 

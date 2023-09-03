@@ -1,5 +1,5 @@
 
-use std::fmt::{ Debug, Display };
+use std::fmt;
 
 use super::value::*;
 
@@ -10,10 +10,10 @@ pub struct Symbol {
 }
 value!(Symbol: dyn query_interface::ObjectHash,
        dyn query_interface::ObjectPartialEq,
-       dyn Display);
+       dyn fmt::Display);
 
-impl Display for Symbol {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.v)
     }
 }

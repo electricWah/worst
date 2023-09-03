@@ -17,7 +17,7 @@ pub struct File {
     // path: String,
     handle: &'static [u8],
 }
-value!(File);
+value!(File: dyn io::Read);
 
 /// Open the path if it exists.
 pub fn open_read(path: impl AsRef<std::path::Path>) -> Option<File> {
@@ -47,7 +47,5 @@ pub fn install(i: &mut Interpreter) {
         Ok(())
     });
     util::add_const_type_builtin::<File>(i, "<embedded-file-port>");
-    i.add_builtin("embedded-file-port->string", util::port_to_string::<File>);
-    i.add_builtin("embedded-file-port-read-range", util::port_read_range::<File>);
 }
 

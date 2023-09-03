@@ -61,7 +61,7 @@ define while [
 ; a b clone2 => a b a b
 define clone2 [ swap clone dig clone bury ]
 
-define print [ stdout-port swap stdout-port-write-string stdout-port-flush drop drop ]
+define print [ stdout-port swap port-write-string drop port-flush drop drop ]
 define println [ "\n" string-append print ]
 
 define list-iter [
@@ -95,7 +95,7 @@ define load-embedded [
     upquote
     string->fs-path
     embedded-file-open
-    embedded-file-port->string
+    port-read->string swap drop
     read-string->list
     updo current-defs
     value-set-ambients

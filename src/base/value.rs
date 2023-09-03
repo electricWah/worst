@@ -119,6 +119,31 @@ impl Val {
     pub fn as_trait_ref<T: Any + ?Sized>(&self) -> Option<&T> {
         self.v.as_ref().query_ref::<T>()
     }
+
+    /// Make this value unique if it isn't already.
+    /// Returns false if it isn't unique and can't be cloned.
+    fn make_unique(&mut self) -> bool {
+        if Rc::get_mut(&mut self.v).is_some() { return true; }
+        let cloned = {
+            let Some(clonable) = self.as_trait_ref::<dyn query_interface::ObjectClone>() else {
+                return false
+            };
+            clonable.obj_clone().query::<dyn Value>().unwrap()
+        };
+        self.v = Rc::from(cloned);
+        true
+    }
+
+    /// Get a mutable reference to a trait object that the contained type implements.
+    /// Returns [None] if the value doesn't implement [T],
+    /// or if it wasn't unique and can't be cloned.
+    pub fn as_trait_mut<T: Any + ?Sized>(&mut self) -> Option<&mut T> {
+        if self.make_unique() {
+            Rc::get_mut(&mut self.v).and_then(|v| v.query_mut::<T>())
+        } else {
+            None
+        }
+    }
 }
 
 impl Meta {

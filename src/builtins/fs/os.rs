@@ -98,10 +98,6 @@ pub fn install(i: &mut Interpreter) {
     });
 
     util::add_const_type_builtin::<File>(i, "<file-port>");
-    i.add_builtin("file-port->string", util::port_to_string::<File>);
-    i.add_builtin("file-port-read-range", util::port_read_range::<File>);
-    i.add_builtin("file-port-write-range", util::port_write_range::<File>);
-    i.add_builtin("file-port-flush", util::port_flush::<File>);
     i.add_builtin("fs-path-canonical", |i: &mut Interpreter| {
         let p = i.stack_pop::<PathBuf>()?;
         i.stack_push_result(fs::canonicalize(p.as_ref()).map_err(|e| format!("{}", e)));
@@ -156,11 +152,9 @@ pub fn install(i: &mut Interpreter) {
             Ok(rd) => {
                 let mut l = vec![];
                 for f in rd {
-                    if let Some(f) = util::or_io_error(i, f) {
-                        l.push(Val::from(f.path()));
-                    } else {
-                        todo!("error");
-                        // return;
+                    match f {
+                        Ok(f) => l.push(Val::from(f.path())),
+                        Err(e) => l.push(i.set_error(util::display(e))),
                     }
                 }
                 i.stack_push(List::from(l));

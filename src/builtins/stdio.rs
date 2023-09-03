@@ -3,20 +3,19 @@
 
 use std::io;
 use crate::base::*;
-use crate::builtins::util::*;
 use crate::interpreter::*;
 
 #[derive(Clone)]
 struct Stdin;
-value!(Stdin);
+value!(Stdin: dyn io::Read);
 
 #[derive(Clone)]
 struct Stdout;
-value!(Stdout);
+value!(Stdout: dyn io::Write);
 
 #[derive(Clone)]
 struct Stderr;
-value!(Stderr);
+value!(Stderr: dyn io::Write);
 
 impl io::Read for Stdin {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
@@ -57,15 +56,6 @@ pub fn install(i: &mut Interpreter) {
         i.stack_push(Stderr);
         Ok(())
     });
-
-    i.add_builtin("stdin-port-read-range", port_read_range::<Stdin>);
-
-    i.add_builtin("stdout-port-write-string", port_write_string::<Stdout>);
-    i.add_builtin("stdout-port-write-range", port_write_range::<Stdout>);
-    i.add_builtin("stdout-port-flush", port_flush::<Stdout>);
-    i.add_builtin("stderr-port-write-string", port_write_string::<Stderr>);
-    i.add_builtin("stderr-port-write-range", port_write_range::<Stderr>);
-    i.add_builtin("stderr-port-flush", port_flush::<Stderr>);
 
     i.add_builtin("stdin-port-read-line", |i: &mut Interpreter| {
         let mut buf = String::new();

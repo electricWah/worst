@@ -50,6 +50,7 @@ In which the innards are simplified even more.
 - Replace defenv with separate ambient and local defset
 - Consolidate *-equal, *-compare builtins into value-equal and value-compare
 - Add value-hash, value->string-debug and value->string-display for most types
+- Consolidate port builtins into port-read-*, port-write-* etc
 
 # 0.4 (2022-11-19)
 
