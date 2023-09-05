@@ -1,4 +1,5 @@
 
+use std::fmt;
 use std::rc::Rc;
 use std::any::Any;
 use super::unique::Unique;
@@ -50,11 +51,19 @@ pub(crate) use value; // TODO public everywhere
 /// Simple wrapper for TypeId that implements [Value].
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct TypeId(pub std::any::TypeId);
-value!(TypeId: dyn query_interface::ObjectHash, dyn query_interface::ObjectPartialEq);
+value!(TypeId:
+        dyn query_interface::ObjectHash,
+        dyn query_interface::ObjectPartialEq,
+        dyn fmt::Display);
 
 impl TypeId {
     /// Forwards to [std::any::TypeId::of].
     pub fn of<T: 'static>() -> Self { TypeId(std::any::TypeId::of::<T>()) }
+}
+impl fmt::Display for TypeId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "<type-id>")
+    }
 }
 
 /// A [Val] but you know the type.

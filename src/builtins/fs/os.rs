@@ -26,7 +26,7 @@ fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, b
 pub struct File {
     handle: Rc<RefCell<fs::File>>,
 }
-value!(File);
+value!(File: dyn io::Read, dyn io::Write);
 
 impl File {
     fn new(f: fs::File) -> Self {

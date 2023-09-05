@@ -1,6 +1,7 @@
 
 //! A [Vec] of [Val], basically.
 
+use std::fmt;
 use crate::base::*;
 
 /// A list of [Val] values. It is itself a [Value].
@@ -11,7 +12,7 @@ pub struct List {
     // Rc<> this if cloning takes a long time
     data: Vec<Val>,
 }
-value!(List);
+value!(List: dyn fmt::Display);
 
 impl From<Vec<Val>> for List {
     fn from(mut data: Vec<Val>) -> List {
@@ -29,6 +30,24 @@ impl<T: Value> FromIterator<T> for List {
 impl Iterator for List {
     type Item = Val;
     fn next(&mut self) -> Option<Val> { self.pop() }
+}
+
+impl fmt::Display for List {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        let mut space = false;
+        for v in self.iter() {
+            if space { write!(f, " ")?; }
+            space = true;
+            if let Some(d) = v.as_trait_ref::<dyn fmt::Display>() {
+                write!(f, "{}", d)?;
+            } else {
+                write!(f, "<value>")?;
+            }
+        }
+        write!(f, ")")?;
+        Ok(())
+    }
 }
 
 impl List {
