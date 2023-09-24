@@ -7,12 +7,17 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::cell::RefCell;
 use crate::base::*;
+use crate::base::io::*;
 use crate::interpreter::*;
 use crate::builtins::util;
 
 #[derive(Clone)]
 struct OpenOptions(fs::OpenOptions);
 value!(OpenOptions);
+
+impl Default for OpenOptions {
+    fn default() -> Self { OpenOptions(fs::OpenOptions::new()) }
+}
 
 fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, bool) -> &mut fs::OpenOptions) -> BuiltinRet {
     let mut c = i.stack_pop::<OpenOptions>()?.into_inner();
@@ -26,7 +31,9 @@ fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, b
 pub struct File {
     handle: Rc<RefCell<fs::File>>,
 }
-value!(File: dyn io::Read, dyn io::Write);
+value!(File:
+       dyn ReadSeek, dyn WriteSeek,
+       dyn io::Read, dyn io::Write, dyn io::Seek);
 
 impl File {
     fn new(f: fs::File) -> Self {
@@ -53,6 +60,12 @@ impl io::Read for File {
     }
 }
 
+impl io::Seek for File {
+    fn seek(&mut self, seek: io::SeekFrom) -> io::Result<u64> {
+        self.handle.as_ref().borrow_mut().seek(seek)
+    }
+}
+
 impl io::Write for File {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.handle.as_ref().borrow_mut().write(buf)
@@ -66,10 +79,7 @@ impl io::Write for File {
 pub fn install(i: &mut Interpreter) {
 
     util::add_const_type_builtin::<OpenOptions>(i, "<file-open-options>");
-    i.add_builtin("file-open-options", |i: &mut Interpreter| {
-        i.stack_push(OpenOptions(fs::OpenOptions::new()));
-        Ok(())
-    });
+    i.add_builtin("file-open-options", util::make_default::<OpenOptions>);
     i.add_builtin("file-open-options-set-append", |i: &mut Interpreter| {
         with_open_options(i, fs::OpenOptions::append)
     });

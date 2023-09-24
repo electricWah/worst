@@ -6,6 +6,7 @@ mod value;
 mod symbol;
 mod list;
 mod types;
+pub mod io;
 
 pub use unique::*;
 pub use value::*;

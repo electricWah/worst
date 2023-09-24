@@ -4,14 +4,23 @@ version = "0.5.0"
 description = "An interpreter for the Worst programming language"
 edition = "2021"
 
+default-run = "worst"
+
 [lib]
 crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 im-rc = "15"
 downcast-rs = "1.2"
 query_interface = "0.3"
 
 include_dir = { version = "^0.7", optional = true }
+
+# open current exe as zip archive
+palaver = { version = "^0.2", optional = true }
+zip = { version = "^0.6", optional = true }
+# required for dynamic lifetime of zip entries
+ouroboros = { version = "^0.17", optional = true }
 
 [features]
 # Toggle-able builtins modules
@@ -22,12 +31,15 @@ enable_os = []
 # Access to stdin, stdout, stderr using current-{input,output,error}-port
 enable_stdio = []
 
+# Access to zip files and their innards
+enable_zip = ["dep:zip", "dep:ouroboros"]
+
 # Access to filesystem
 enable_fs_os = []
 # Include lib directory as a filesystem embedded directly in the worst binary
 enable_fs_embed = ["dep:include_dir"]
-# (TODO) Embed lib files in program as `cat worst lib.zip > worst`
-enable_fs_zip = []
+# Embed lib files in program as `cat worst lib.zip > worst`
+enable_fs_zip = ["enable_zip", "dep:palaver"]
 
 enable_process = []
 

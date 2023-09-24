@@ -24,6 +24,8 @@ pub mod reader;
 #[cfg(feature = "enable_stdio")]
 pub mod stdio;
 pub mod string;
+// #[cfg(feature = "enable_zip")]
+// pub mod zip;
 
 /// Define all enabled builtins in the given [Interpreter].
 pub fn install(i: &mut Interpreter) {
@@ -46,5 +48,7 @@ pub fn install(i: &mut Interpreter) {
     #[cfg(feature = "enable_stdio")]
     stdio::install(i);
     string::install(i);
+    // #[cfg(feature = "enable_zip")]
+    // zip::install(i);
 }
 
