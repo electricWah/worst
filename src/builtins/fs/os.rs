@@ -13,7 +13,7 @@ use crate::builtins::util;
 
 #[derive(Clone)]
 struct OpenOptions(fs::OpenOptions);
-value!(OpenOptions);
+value!(OpenOptions: {Clone});
 
 impl Default for OpenOptions {
     fn default() -> Self { OpenOptions(fs::OpenOptions::new()) }
@@ -31,7 +31,7 @@ fn with_open_options(i: &mut Interpreter, f: impl FnOnce(&mut fs::OpenOptions, b
 pub struct File {
     handle: Rc<RefCell<fs::File>>,
 }
-value!(File:
+value!(File: {Clone},
        dyn ReadSeek, dyn WriteSeek,
        dyn io::Read, dyn io::Write, dyn io::Seek);
 

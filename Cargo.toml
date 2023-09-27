@@ -56,6 +56,7 @@ default = ["full"]
 
 [profile.release]
 lto = true
+# strip = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"

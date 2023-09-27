@@ -2,8 +2,6 @@
 //! An interface to zip files, courtesy of [zip].
 
 use std::io;
-use std::rc::Rc;
-use std::cell::RefCell;
 use crate::base::*;
 use crate::base::io::*;
 use crate::interpreter::*;
@@ -28,11 +26,11 @@ value!(ZipWriter: dyn io::Write);
 
 impl io::Write for ZipWriter {
    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-       (*self.0).borrow_mut().write(buf)
+       self.0.write(buf)
    }
 
    fn flush(&mut self) -> io::Result<()> {
-       (*self.0).borrow_mut().flush()
+       self.0.flush()
    }
 }
 
@@ -40,13 +38,17 @@ impl io::Write for ZipWriter {
 #[self_referencing]
 pub struct ZipEntry {
     archive: ZipArchive,
-    #[borrows(mut archive)]
-    archive_borrow: std::cell::RefMut<'this, zip::ZipArchive<ReadSeeker>>,
     #[not_covariant]
-    #[borrows(mut archive_borrow)]
+    #[borrows(mut archive)]
     entry: zip::read::ZipFile<'this>,
 }
-value!(ZipEntry);
+value!(ZipEntry: dyn io::Read);
+
+impl io::Read for ZipEntry {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.with_entry_mut(|e| e.read(buf))
+    }
+}
 
 /// Install embedded filesystem builtins.
 pub fn install(i: &mut Interpreter) {
@@ -62,7 +64,7 @@ pub fn install(i: &mut Interpreter) {
             i.stack_push_error(false);
             return Ok(());
         };
-        let za = zip::ZipArchive::new(rs).map(|za| ZipArchive(Rc::new(RefCell::new(za)))).map_err(|e| e.to_string());
+        let za = zip::ZipArchive::new(rs).map(|za| ZipArchive(za)).map_err(|e| e.to_string());
         i.stack_push_result(za);
         Ok(())
     });
@@ -72,8 +74,7 @@ pub fn install(i: &mut Interpreter) {
         let archive = i.stack_pop::<ZipArchive>()?.into_inner();
         let res =
             ZipEntry::try_new(archive,
-                              |a| Ok((*a.0).borrow_mut()),
-                              |b| b.by_name(path.as_ref()));
+                              |a| a.0.by_name(path.as_ref()));
         i.stack_push_result(res.map_err(|e| e.to_string()));
         Ok(())
     });
@@ -99,15 +100,15 @@ pub fn install(i: &mut Interpreter) {
             i.stack_push_error(false);
             return Ok(());
         };
-        i.stack_push(ZipWriter(Rc::new(RefCell::new(zip::ZipWriter::new(src)))));
+        i.stack_push(ZipWriter(zip::ZipWriter::new(src)));
         return Ok(())
     });
 
     i.add_builtin("zip-writer-start-file", |i: &mut Interpreter| {
         let opts = i.stack_pop::<ZipWriteOptions>()?.into_inner().0;
         let name = i.stack_pop::<String>()?.into_inner();
-        let zw = i.stack_pop::<ZipWriter>()?.into_inner();
-        let res = (*zw.0).borrow_mut().start_file(name, opts)
+        let mut zw = i.stack_pop::<ZipWriter>()?.into_inner();
+        let res = zw.0.start_file(name, opts)
                     .map(|()| true).map_err(|e| e.to_string());
         i.stack_push(zw);
         i.stack_push_result(res);
@@ -115,8 +116,8 @@ pub fn install(i: &mut Interpreter) {
     });
 
     i.add_builtin("zip-writer-finish", |i: &mut Interpreter| {
-        let zw = i.stack_pop::<ZipWriter>()?.into_inner();
-        i.stack_push_result((*zw.0).borrow_mut().finish()
+        let mut zw = i.stack_pop::<ZipWriter>()?.into_inner();
+        i.stack_push_result(zw.0.finish()
                             .map(WriteSeeker::into_inner).map_err(|e| e.to_string()));
         Ok(())
     });

@@ -7,15 +7,15 @@ use crate::interpreter::*;
 
 #[derive(Clone)]
 struct Stdin;
-value!(Stdin: dyn io::Read);
+value!(Stdin: {Clone}, dyn io::Read);
 
 #[derive(Clone)]
 struct Stdout;
-value!(Stdout: dyn io::Write);
+value!(Stdout: {Clone}, dyn io::Write);
 
 #[derive(Clone)]
 struct Stderr;
-value!(Stderr: dyn io::Write);
+value!(Stderr: {Clone}, dyn io::Write);
 
 impl io::Read for Stdin {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
