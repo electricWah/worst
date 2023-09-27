@@ -5,6 +5,7 @@ use worst::builtins;
 use worst::base::*;
 
 fn main() -> ExitCode {
+    worst::init();
     let mut i = worst::embedded();
     builtins::install(&mut i);
     if let Err(e) = i.run() {

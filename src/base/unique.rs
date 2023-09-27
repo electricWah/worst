@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use im_rc::HashMap;
 
 /// A globally unique value, guaranteed to only be equal to itself or its clones.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Unique {
     id: usize,
     is_type: bool,

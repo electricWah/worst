@@ -1,6 +1,5 @@
 
 use std::fmt;
-use std::rc::Rc;
 use std::any::Any;
 use super::unique::Unique;
 
@@ -9,16 +8,16 @@ use query_interface;
 use downcast_rs;
 
 /// Metadata lookup for a value.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Meta {
-    data: HashMap<Unique, Rc<dyn Value>>,
+    data: HashMap<Unique, Box<dyn Value>>,
 }
 
-/// A reference-counted value, used directly by Worst programs.
+/// A thingy used directly by Worst programs, with added metadata.
 /// Can be downcast into its original Rust value.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Val {
-    v: Rc<dyn Value>,
+    v: Box<dyn Value>,
     meta: Meta,
 }
 
@@ -30,30 +29,40 @@ mod suppress_missing_docs_hack {
     query_interface::mopo!(dyn super::Value);
 }
 downcast_rs::impl_downcast!(Value);
-/// Clonable value types. See [query_interface::ObjectClone] for details.
-pub trait ValueClone: query_interface::ObjectClone {}
 
 macro_rules! value {
+    (@expand Clone) => (dyn query_interface::ObjectClone);
+    (@expand Hash) => (dyn query_interface::ObjectHash);
+    (@expand PartialEq) => (dyn query_interface::ObjectPartialEq);
+    (@expand Eq) => (dyn query_interface::ObjectEq);
+    (@expand Ord) => (dyn query_interface::ObjectOrd);
+    (@expand PartialOrd) => (dyn query_interface::ObjectPartialOrd);
     ($t:ty) => {
         impl $crate::base::Value for $t {}
         interfaces!($t: dyn $crate::base::Value);
     };
-    ($t:ty: $($rest:tt)*) => (
+    ($t:ty: {$($x:ident),*}) => {
         impl $crate::base::Value for $t {}
-        interfaces!($t: dyn $crate::base::Value, $($rest)*);
-    );
+        interfaces!($t: dyn $crate::base::Value,
+                    $(value!(@expand $x)),*);
+    };
+    ($t:ty: $({$($x:ident),*},)? $($r:ty),*) => {
+        impl $crate::base::Value for $t {}
+        interfaces!($t: dyn $crate::base::Value,
+                    $($(value!(@expand $x),)*)?
+                    $($r),*);
+    };
 }
 pub(crate) use value; // TODO public everywhere
 
-
 // need to wrap TypeId because it doesn't already implement Object
-// type-id
 /// Simple wrapper for TypeId that implements [Value].
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct TypeId(pub std::any::TypeId);
-value!(TypeId:
+value!(TypeId: {Clone},
         dyn query_interface::ObjectHash,
         dyn query_interface::ObjectPartialEq,
+        dyn std::fmt::Debug,
         dyn fmt::Display);
 
 impl TypeId {
@@ -66,36 +75,20 @@ impl fmt::Display for TypeId {
     }
 }
 
-/// A [Val] but you know the type.
+/// A [Val] with a known type.
+#[derive(Clone, Debug)]
 pub struct ValOf<T> {
-    orig: Rc<dyn Value>,
-    v: Rc<T>,
-    modified: bool,
+    v: Box<T>,
     meta: Meta,
-}
-
-impl<T> Clone for ValOf<T> {
-    fn clone(&self) -> ValOf<T> {
-        ValOf {
-            orig: self.orig.clone(),
-            v: self.v.clone(),
-            modified: self.modified,
-            meta: self.meta.clone(),
-        }
-    }
 }
 
 impl<T: Value> From<T> for Val {
     fn from(v: T) -> Val {
-        Val::construct(v, Meta::default())
+        Val { v: Box::new(v), meta: Meta::default() }
     }
 }
 
 impl Val {
-    fn construct<T: Value>(v: T, meta: Meta) -> Self {
-        Val { v: Rc::new(v), meta }
-    }
-
     /// Get a reference to this value's Meta in order to query it and such.
     pub fn meta_ref(&self) -> &Meta { &self.meta }
     /// Update this value's metadata willy-nilly.
@@ -129,29 +122,11 @@ impl Val {
         self.v.as_ref().query_ref::<T>()
     }
 
-    /// Make this value unique if it isn't already.
-    /// Returns false if it isn't unique and can't be cloned.
-    fn make_unique(&mut self) -> bool {
-        if Rc::get_mut(&mut self.v).is_some() { return true; }
-        let cloned = {
-            let Some(clonable) = self.as_trait_ref::<dyn query_interface::ObjectClone>() else {
-                return false
-            };
-            clonable.obj_clone().query::<dyn Value>().unwrap()
-        };
-        self.v = Rc::from(cloned);
-        true
-    }
-
     /// Get a mutable reference to a trait object that the contained type implements.
     /// Returns [None] if the value doesn't implement [T],
     /// or if it wasn't unique and can't be cloned.
     pub fn as_trait_mut<T: Any + ?Sized>(&mut self) -> Option<&mut T> {
-        if self.make_unique() {
-            Rc::get_mut(&mut self.v).and_then(|v| v.query_mut::<T>())
-        } else {
-            None
-        }
+        self.v.query_mut::<T>()
     }
 }
 
@@ -169,7 +144,6 @@ impl Meta {
     /// if `u` indeed refers to a [T].
     pub fn get_ref<T: Value>(&self, u: &Unique) -> Option<&T> {
         self.data.get(u)
-            .map(Rc::as_ref)
             .and_then(|r| r.downcast_ref::<T>())
     }
 
@@ -211,50 +185,38 @@ impl<T: Value> ValOf<T> {
 
 impl<T: Value> From<T> for ValOf<T> {
     fn from(v: T) -> ValOf<T> {
-        // for now
-        Val::from(v).try_downcast::<T>().ok().unwrap()
+        ValOf { v: Box::new(v), meta: Meta::default(), }
     }
 }
 
 
 impl<T: Value> From<ValOf<T>> for Val {
     fn from(v: ValOf<T>) -> Val {
-        if v.modified {
-            Val { v: v.v, meta: v.meta, }
-        } else {
-            Val { v: v.orig, meta: v.meta, }
-        }
+        Val { v: Box::new(*v.v), meta: v.meta, }
     }
 }
 
 impl<T: Value> TryFrom<Val> for ValOf<T> {
     type Error = Val;
     fn try_from(this: Val) -> Result<ValOf<T>, Val> {
-        let orig = this.v.clone();
         let meta = this.meta;
-        match this.v.downcast_rc::<T>() {
-            Ok(v) => Ok(ValOf { orig, v, modified: false, meta, }),
+        match this.v.downcast::<T>() {
+            Ok(v) => Ok(ValOf { v, meta, }),
             Err(v) => Err(Val { v, meta, }),
         }
     }
 }
 
 impl<T: Value> AsRef<T> for ValOf<T> {
-    fn as_ref(&self) -> &T { &self.v }
+    fn as_ref(&self) -> &T { self.v.as_ref() }
 }
 
-impl<T: Value + Clone> AsMut<T> for ValOf<T> {
-    // is this too much work for as_mut? should it be borrow_mut? who knows
-    fn as_mut(&mut self) -> &mut T {
-        self.modified = true;
-        Rc::make_mut(&mut self.v)
-    }
+impl<T: Value> AsMut<T> for ValOf<T> {
+    fn as_mut(&mut self) -> &mut T { self.v.as_mut() }
 }
 
-impl<T: Value + Clone> ValOf<T> {
+impl<T: Value> ValOf<T> {
     /// Take this apart to reveal its innards, discarding metadata.
-    pub fn into_inner(self) -> T {
-        Rc::try_unwrap(self.v).unwrap_or_else(|rc| (*rc).clone())
-    }
+    pub fn into_inner(self) -> T { *self.v }
 }
 

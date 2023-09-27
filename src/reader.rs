@@ -14,7 +14,7 @@ pub struct Reader {
     lists: Vec<ListState>,
     state: BasicState,
 }
-value!(Reader);
+value!(Reader: {Clone});
 
 #[derive(Default, Clone, Debug)]
 enum BasicState {
@@ -49,7 +49,7 @@ pub enum ReadError {
     /// A number that looked like it was but isn't
     UnparseableNumber(String),
 }
-value!(ReadError);
+value!(ReadError: {Clone});
 
 impl Reader {
 

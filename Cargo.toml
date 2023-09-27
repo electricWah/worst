@@ -12,7 +12,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 im-rc = "15"
 downcast-rs = "1.2"
-query_interface = "0.3"
+query_interface = { version = "0.3", features = ["dynamic"] }
 
 include_dir = { version = "^0.7", optional = true }
 
@@ -20,7 +20,7 @@ include_dir = { version = "^0.7", optional = true }
 palaver = { version = "^0.2", optional = true }
 zip = { version = "^0.6", optional = true }
 # required for dynamic lifetime of zip entries
-ouroboros = { version = "^0.17", optional = true }
+ouroboros = { version = "^0.18", optional = true }
 
 [features]
 # Toggle-able builtins modules

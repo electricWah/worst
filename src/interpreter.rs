@@ -10,9 +10,9 @@ use wasm_bindgen::prelude::*;
 
 /// A set of definition bindings. There are two per stack frame
 /// (ambient definitions and local definitions).
-#[derive(Default, Clone)]
+#[derive(Clone, Default, Debug)]
 pub struct DefSet(HashMap<String, Val>);
-value!(DefSet);
+value!(DefSet: {Clone}); // : dyn std::fmt::Debug);
 
 impl DefSet {
     /// Add a definition.
@@ -98,7 +98,7 @@ pub type BuiltinRet<R = ()> = Result<R, Val>;
 /// A definition written in Rust rather than Worst.
 #[derive(Clone)]
 pub struct Builtin(Rc<dyn Fn(&mut Interpreter) -> BuiltinRet>);
-value!(Builtin);
+value!(Builtin: {Clone});
 impl<T: 'static + Fn(&mut Interpreter) -> BuiltinRet> From<T> for Builtin {
     fn from(f: T) -> Self {
         Builtin(Rc::new(f))
@@ -328,7 +328,7 @@ impl Interpreter {
 
     /// Get the top thing off the stack without popping it,
     /// if it has the given type
-    pub fn stack_top<T: Value>(&mut self) -> BuiltinRet<ValOf<T>> {
+    pub fn stack_top<T: Value + Clone>(&mut self) -> BuiltinRet<ValOf<T>> {
         let v = self.stack_pop::<T>()?;
         self.stack_push(v.clone());
         Ok(v)

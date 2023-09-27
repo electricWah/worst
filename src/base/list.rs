@@ -7,12 +7,12 @@ use crate::base::*;
 /// A list of [Val] values. It is itself a [Value].
 /// This is the primary container type in Worst.
 /// It's a little like a Lisp list.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct List {
     // Rc<> this if cloning takes a long time
     data: Vec<Val>,
 }
-value!(List: dyn fmt::Display);
+value!(List: {Clone}, dyn fmt::Debug, dyn fmt::Display);
 
 impl From<Vec<Val>> for List {
     fn from(mut data: Vec<Val>) -> List {

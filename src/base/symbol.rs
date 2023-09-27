@@ -4,12 +4,12 @@ use std::fmt;
 use super::value::*;
 
 /// Symbol type: an unquoted word used to look up definitions.
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Symbol {
     v: String,
 }
-value!(Symbol: dyn query_interface::ObjectHash,
-       dyn query_interface::ObjectPartialEq,
+value!(Symbol: {Clone, Hash, PartialEq, Eq},
+       dyn fmt::Debug,
        dyn fmt::Display);
 
 impl fmt::Display for Symbol {

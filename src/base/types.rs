@@ -11,12 +11,12 @@ impl Value for i64 {}
 impl Value for f64 {}
 impl Value for Vec<u8> {} // bytevector
 
-value!(Unique: dyn query_interface::ObjectHash, dyn query_interface::ObjectPartialEq);
+value!(Unique: {Clone}, dyn query_interface::ObjectHash, dyn query_interface::ObjectPartialEq);
 
 /// Mutable memory location (a wrapper for [RefCell]).
 #[derive(Clone)]
 pub struct Place(Rc<RefCell<Val>>);
-value!(Place);
+value!(Place: {Clone});
 
 impl Place {
     /// Create a new [Place] wrapping `v`.
@@ -35,12 +35,7 @@ impl Place {
 }
 
 /// Meta value signalling that the value represents some kind of error.
-///
-/// Set IsError on a single value:
-/// ```ignore
-/// let mut v = IsError::add("an error".to_string());
-/// assert!(IsError::is_error(&v));
-/// ```
+#[derive(Clone, Debug)]
 pub struct IsError;
-value!(IsError);
+value!(IsError: {Clone});
 

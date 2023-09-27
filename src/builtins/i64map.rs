@@ -10,7 +10,7 @@ use im_rc::OrdMap;
 struct I64Map {
     data: OrdMap<i64, Val>,
 }
-value!(I64Map);
+value!(I64Map: {Clone});
 
 /// Install all these functions.
 pub fn install(i: &mut Interpreter) {

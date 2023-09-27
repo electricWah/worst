@@ -14,19 +14,17 @@ use ouroboros::self_referencing;
 
 #[derive(Clone, Default)]
 struct ZipWriteOptions(zip::write::FileOptions);
-value!(ZipWriteOptions: dyn query_interface::ObjectClone);
+value!(ZipWriteOptions: {Clone});
 
 // TODO DateTime and last_modified_time
 
 /// [zip::ZipArchive] wrapper.
-#[derive(Clone)]
-pub struct ZipArchive(Rc<RefCell<zip::ZipArchive<ReadSeeker>>>);
-value!(ZipArchive: dyn query_interface::ObjectClone);
+pub struct ZipArchive(zip::ZipArchive<ReadSeeker>);
+value!(ZipArchive);
 
 /// [zip::ZipWriter] wrapper.
-#[derive(Clone)]
-pub struct ZipWriter(Rc<RefCell<zip::ZipWriter<WriteSeeker>>>);
-value!(ZipWriter: dyn query_interface::ObjectClone, dyn io::Write);
+pub struct ZipWriter(zip::ZipWriter<WriteSeeker>);
+value!(ZipWriter: dyn io::Write);
 
 impl io::Write for ZipWriter {
    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
