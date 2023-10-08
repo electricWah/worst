@@ -3,7 +3,12 @@
 let
   pkgs = nixpkgs;
   deps = with pkgs; [
-    rustup
+    autoconf
+    ocaml opam
+    # ocamlPackages.findlib
+    # ocamlPackages.camlzip
+    ocamlPackages.utop
+    ocamlPackages.dune_3
   ];
   p = { }:
     pkgs.stdenv.mkDerivation rec {
