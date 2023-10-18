@@ -1,4 +1,11 @@
 
+Builtin.(define_type (module V.Symbol));;
+Builtin.(define_type (module V.List));;
+Builtin.(define_type (module V.Int));;
+Builtin.(define_type (module V.Float));;
+Builtin.(define_type (module V.String));;
+Builtin.(define_type (module V.Bool));;
+
 Builtin.(define "drop" @@ begin
     let* _drop = S.pop in
     ok
@@ -62,11 +69,5 @@ Builtin.(define "upquote" @@ begin
     I.into_parent_frame >>
     let* v = I.body_next_exn in
     S.push v
-end);;
-
-Builtin.(define "value->constant" @@ begin
-    let* v = S.pop in
-    let b = I.BuiltinVal.to_val (S.push v) in
-    S.push b
 end);;
 

@@ -78,9 +78,9 @@ let start_state r c =
 
 let parse_atom s =
     (* use sscanf_opt in ocaml 5.0+ *)
-    try Scanf.sscanf s "%i!" V.Int.to_val with
+    try Scanf.sscanf s "%i%!" V.Int.to_val with
     Scanf.Scan_failure _ | Failure _ ->
-    try Scanf.sscanf s "%f!" V.Float.to_val with
+    try Scanf.sscanf s "%f%!" V.Float.to_val with
     Scanf.Scan_failure _ | Failure _ ->
         V.Symbol.to_val s
 

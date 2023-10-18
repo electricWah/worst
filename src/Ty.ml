@@ -85,6 +85,9 @@ module Meta = struct
     type t = Val.t MetaMap.t
     let empty: t = MetaMap.empty
     let get_valobj (k: ValObj.t) (v: t): Val.t option = MetaMap.find_opt k v
+
+    let update_val (k: ValObj.t) (v: Val.t) (value: Val.t) =
+        { value with meta = MetaMap.add k v value.meta }
 end
 
 module MakeType = functor(T: sig type t end) -> struct
@@ -170,6 +173,10 @@ module VType = struct
         include T
         let pp out v = Format.fprintf out "<%s>" v
     end)
+end
+
+module type ValType = sig
+    val type_valobj: ValObj.t
 end
 
 module MakeValType = functor (VT: sig

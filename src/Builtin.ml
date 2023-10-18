@@ -3,8 +3,16 @@ let registry = ref []
 
 let define name body = registry := (name, body) :: !registry
 
+let define_type (module M: Ty.ValType) =
+    let v = Ty.Val.of_valobj M.type_valobj in
+    let name = Format.asprintf "%a" Ty.ValShow.pp v in
+    define name (Interpreter.stack_push_val v)
+
 let install_all i =
-    List.fold_left (fun i (name, def) -> Interpreter.define name (Interpreter.BuiltinVal.to_val def) i) i !registry
+    List.fold_left begin fun i (name, def) ->
+        let def' = Interpreter.BuiltinVal.to_val def in
+        Interpreter.define ~ambient:true name def' i
+    end i !registry
 
 module I = Interpreter
 module V = Ty.V
@@ -17,8 +25,6 @@ let ( let* ) (expr: I.t -> I.t * 'a) (f: 'a -> I.builtin) (i: I.t) =
 let ( >> ) (a: I.builtin) (b: I.builtin) i = b (a i)
 
 let ok i = i
-
-(* let (let*?) (i: I.t) (f: I.t -> 'a option) -> 'a *) 
 
 exception Wrong_type of string * Ty.Val.t
 

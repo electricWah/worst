@@ -21,6 +21,25 @@ module DefSet = struct
         M.merge (fun _k av bv -> match bv with None -> av | bv -> bv)
 end
 
+module DefBody = struct
+    type defbody = {
+        body: Val.t list;
+        defs: DefSet.t;
+    }
+    module T = MakeValType(struct
+        type t = defbody
+        let type_name = "defbody"
+    end)
+    include T
+    include ValShow.Add(struct
+        include T
+        let pp out v = Format.fprintf out "[@[<hov>%a@]]" V.List.pp v.body
+    end)
+
+    let make ~body ~defs () = { body; defs; }
+    let of_list (body: Val.t list) = { body; defs = DefSet.empty }
+end
+
 type t = {
     frame: frame;
     parents: frame list;
@@ -32,7 +51,7 @@ and frame = {
     body: Val.t list;
     meta: Meta.t;
     ambient: DefSet.t;
-    locals: DefSet.t;
+    local: DefSet.t;
 }
 
 and child_frame =
@@ -58,12 +77,17 @@ let frame_empty = {
     body = [];
     meta = Meta.empty;
     ambient = DefSet.empty;
-    locals = DefSet.empty;
+    local = DefSet.empty;
 }
 let empty = { frame = frame_empty; parents = []; stack = [] }
 
-let define name body i =
-    { i with frame = { i.frame with locals = DefSet.add name body i.frame.locals } }
+let define ?(ambient=false) name body i =
+    let frame =
+        if ambient
+        then { i.frame with ambient = DefSet.add name body i.frame.ambient }
+        else { i.frame with local   = DefSet.add name body i.frame.local }
+    in
+    { i with frame }
 
 let make ?body () =
     let body = Option.value body ~default:[] in
@@ -88,13 +112,20 @@ let body_next = function
 let body_next_exn i =
     match body_next i with Some v -> v | None -> raise Quote_nothing
 
+let eval_defbody_next i (defbody: DefBody.t) meta =
+    let child = { frame_empty with body = defbody.body; ambient = defbody.defs; meta; } in
+    let frame = { i.frame with childs = Frame child :: i.frame.childs } in
+    { i with frame }
+
+
 let eval_list_next ?(inherit_defs=true) i body meta =
+    Format.printf "no: eval_list_next %a@." V.List.pp body;
     let ambient =
         match DefSet.T.type_meta_entry meta with
         | Some ds -> ds
         | None ->
             if inherit_defs
-            then DefSet.merge i.frame.ambient i.frame.locals
+            then DefSet.merge i.frame.ambient i.frame.local
             else DefSet.empty
     in
     let child = { frame_empty with body; meta; ambient; } in
@@ -102,17 +133,22 @@ let eval_list_next ?(inherit_defs=true) i body meta =
     { i with frame }
 
 let eval_next_resolve i s =
-    match DefSet.find_opt s i.frame.locals with
-    | None -> raise (Undefined s)
-    | Some def ->
+    let def =
+        match DefSet.find_opt s i.frame.local with
+        | Some def -> def
+        | None ->
+        match DefSet.find_opt s i.frame.ambient with
+        | Some def -> def
+        | None -> raise (Undefined s)
+    in
     match BuiltinVal.of_val def with
     | Some b -> b i
     | None ->
+    match DefBody.of_val def with
+    | Some body -> eval_defbody_next i body def.meta
+    | None ->
     match V.List.of_val def with
-    | Some body ->
-        { i with
-            parents = i.frame :: i.parents;
-            frame = { frame_empty with body } }
+    | Some body -> eval_list_next i body def.meta
     | None -> { i with stack = def :: i.stack }
 
 let eval_next_val v i =
