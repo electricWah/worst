@@ -6,7 +6,7 @@ let
     autoconf
     ocaml opam
     # ocamlPackages.findlib
-    # ocamlPackages.camlzip
+    ocamlPackages.camlzip
     ocamlPackages.utop
     ocamlPackages.dune_3
   ];

@@ -1,5 +1,5 @@
 
-open Ty
+open Worst_base
 
 type state =
     | Space
@@ -59,7 +59,7 @@ let start_state r c =
         | { closing; data; _ } :: list_state ->
             if c = closing then
                 let r' = { r with list_state } in
-                emit r' (V.List.to_val (List.of_seq (Queue.to_seq data)));
+                emit r' (Type.List.to_val (List.of_seq (Queue.to_seq data)));
                 r'
             else raise (Unmatched c)
         | [] -> raise (Unmatched c)
@@ -78,11 +78,11 @@ let start_state r c =
 
 let parse_atom s =
     (* use sscanf_opt in ocaml 5.0+ *)
-    try Scanf.sscanf s "%i%!" V.Int.to_val with
+    try Scanf.sscanf s "%i%!" Type.Int.to_val with
     Scanf.Scan_failure _ | Failure _ ->
-    try Scanf.sscanf s "%f%!" V.Float.to_val with
+    try Scanf.sscanf s "%f%!" Type.Float.to_val with
     Scanf.Scan_failure _ | Failure _ ->
-        V.Symbol.to_val s
+        Symbol.to_val s
 
 let rec read_seq r (nc: unit -> char option) =
     match r.state with
@@ -109,7 +109,7 @@ let rec read_seq r (nc: unit -> char option) =
         | None -> r
         | Some '!' -> read_seq { r with state = Comment } nc
         | Some (('t'|'f') as c) ->
-            emit r (V.Bool.to_val (c = 't'));
+            emit r (Type.Bool.to_val (c = 't'));
             read_seq { r with state = Space } nc
         | Some c -> raise (Unknown_hash c)
     end
@@ -142,7 +142,7 @@ let rec read_seq r (nc: unit -> char option) =
                 end else if c = '"' then begin
                     let contents = Buffer.contents r.parsing in
                     Buffer.reset r.parsing;
-                    emit r (V.String.to_val contents);
+                    emit r (Type.String.to_val contents);
                     read_seq { r with state = Space } nc
                 end else if c = '\\' then begin
                     stringy true r

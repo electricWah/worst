@@ -1,6 +1,5 @@
 (include_subdirs no)
 (executable
  (public_name worst)
- (name main)
+ (name worst)
  (libraries worst))
-

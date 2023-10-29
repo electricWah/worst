@@ -15,33 +15,37 @@ current-ambient-defset
 make-defbody
 quote define definition-add
 
-; updo thing => quote thing uplevel
-define updo [ upquote quote uplevel uplevel ]
+; updyn thing => quote thing uplevel
+; "updyn" because it resolves in parent context, i.e. dynamically
+define updyn [ upquote quote uplevel uplevel ]
 ; value const name -> define name [value]
-define const [ value->constant upquote updo definition-add ]
+define const [ value->constant upquote updyn definition-add ]
 define false? [ clone not ]
 
 ; val type is-type => val bool
 define is-type [ swap clone value-type-id dig value-equal ]
 
-; bool if [ if-true ] [ if-false ]
-define if [ upquote upquote dig not quote swap eval-if drop uplevel ]
-
 define current-defs [
-    updo current-ambient-defset
-    updo current-locals-defset
+    updyn current-ambient-defset
+    updyn current-local-defset
     defset-merge
 ]
 
-define value-set-ambients [
-    <defset> type-id->unique
-    swap value-insert-meta-entry
+; quote swap definition-resolve const swapper
+
+; bool if [ if-true ] [ if-false ]
+define if [
+    upquote upquote swap
+    dig quote swap eval-if
+    drop
+    updyn current-defs make-defbody uplevel
 ]
 
+; while [ -> bool ] [ body ]
 define while [
-    updo current-defs const env
-    upquote env value-set-ambients const cond
-    upquote env value-set-ambients const body
+    updyn current-defs const env
+    upquote env make-defbody const cond
+    upquote env make-defbody const body
 
     define the-whiler [
         const continuer
@@ -55,13 +59,16 @@ define while [
 ; a b clone2 => a b a b
 define clone2 [ swap clone dig clone bury ]
 
-define print [ stdout-port swap port-write-string drop port-flush drop drop ]
+define print [
+    stdout-port swap port-write-string drop
+    stdout-port port-flush
+]
 define println [ "\n" string-append print ]
 
+; [a b ...] list-iter [code] => a code; b code; ...
 define list-iter [
     upquote
-    updo current-defs value-set-ambients
-    const body
+    updyn current-defs make-defbody const body
 
     const list
     list list-length const len
@@ -73,28 +80,31 @@ define list-iter [
     ] drop
 ]
 
-; basic import/export: embedded only, trusted/cooperative modules, no caching
-; export name (toplevel only)
-define export [
-    upquote const name
-    name updo definition-resolve false? if [
-        drop
-        "export: not defined: " name symbol->string string-append
-        println error
-    ] [ ]
-    name quote definition-add quote uplevel uplevel
-]
-; load-embedded "path/to/embedded/file.w"
-define load-embedded [
-    upquote
-    string->fs-path
-    embedded-file-open
-    port-read->string swap drop
+define list-empty? [clone list-length 0 value-equal]
+
+command-line-arguments
+list-pop drop ; worst exe
+list-pop drop ; current file
+const command-line-arguments
+
+define file-eval [
+    1 0 file-handle-open const fh
+    fh port-read-all->string
+    fh file-handle-close
     read-string->list
-    updo current-defs
-    value-set-ambients
-    updo eval
+    updyn current-defs make-defbody updyn eval
 ]
+
+; if can load zip files, do it (TODO)
+; otherwise this file must be argv[1], so run argv[2]
+command-line-arguments list-empty? if [
+    no-file-given-TODO ; simple stdin mode?
+] [
+    command-line-arguments
+    list-pop updyn file-eval
+]
+
+exit
 
 ; define (attr...) name (body...)
 load-embedded "base/attribute.w"

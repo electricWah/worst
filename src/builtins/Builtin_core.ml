@@ -1,4 +1,6 @@
 
+open Val_base;;
+
 Builtin.(define_type (module V.Symbol));;
 Builtin.(define_type (module V.List));;
 Builtin.(define_type (module V.Int));;
@@ -37,11 +39,12 @@ Builtin.(define "bury" @@ begin
     S.push a >> S.push c >> S.push b
 end);;
 
-Builtin.(define "not" @@ begin
-    let* v = S.pop in
-    let v' = V.Bool.of_val v == Some false in
-    S.Bool.push v'
-end);;
+(* broken *)
+(* Builtin.(define "not" @@ begin *)
+(*     let* v = S.pop in *)
+(*     let v' = V.Bool.of_val v == Some false in *)
+(*     S.Bool.push v' *)
+(* end);; *)
 
 Builtin.(define "eval" @@ begin
     let* v = S.pop in
@@ -70,4 +73,23 @@ Builtin.(define "upquote" @@ begin
     let* v = I.body_next_exn in
     S.push v
 end);;
+
+Builtin.(define "value->constant" @@ begin
+    let* v = S.pop in
+    let b = I.BuiltinVal.to_val (S.push v) in
+    S.push b
+end);;
+
+Builtin.(define "value->string" @@ begin
+    let* v = S.pop in
+    S.String.push (Format.asprintf "%a" ValShow.pp v)
+end);;
+
+Builtin.(define "value-equal" @@ begin
+    let* b = S.pop in
+    let* a = S.pop in
+    S.Bool.push (ValEqual.equal a b)
+end);;
+
+
 

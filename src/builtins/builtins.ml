@@ -1,7 +1,10 @@
 
-include Core
-include Definition
-include Stdio
-include String
-include Value
+include Builtin_core
+include Builtin_definition
+include Builtin_list
+include Builtin_reader
+include Builtin_stdio
+include Builtin_string
+include Builtin_system
+
 
